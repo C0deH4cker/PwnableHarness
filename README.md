@@ -10,4 +10,4 @@ It is designed to be secure against a hostile child process. It accompilshes thi
 
 Another feature of this project is that the server will redirect the child's stdin, stdout, and stderr to the socket upon receiving a connection. In the future, this might be an option rather than the default behavior.
 
-The included `stack0.c` is a very simple pwnable showing how to use this project. Eventually, I'll host this challenge again as well as some more difficult ones on my server.
+The included `stack0.c` is a very simple pwnable showing how to use this project. It is currently running on my server, and can be found at http://ctf.c0deh4cker.com/stack0.

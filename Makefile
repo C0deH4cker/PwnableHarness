@@ -103,7 +103,8 @@ uninstall[%]: stop[%]
 
 publish[%]: %
 	@echo "Publishing $* to web server"
-	$(_v)install -o www-data -g www-data -m 0664 -d $* $*.c $*.txt $(WEB_DIR)/$*/
+	$(_v)install -o www-data -g www-data -m 0775 -d $(WEB_DIR)/$*
+	$(_v)install -o www-data -g www-data -m 0664 $* $*_src/* $(WEB_DIR)/$*/
 
 unpublish[%]: %
 	@echo "Unpublishing $* from web server"
