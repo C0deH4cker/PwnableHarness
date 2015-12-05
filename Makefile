@@ -115,7 +115,7 @@ start[%]: stop[%]
 
 stop[%]:
 	@echo "Stopping $* service"
-	$(_v)-killall -9 $*
+	$(_v)killall -9 $* ||:
 
 restart[%]: start[%]
 
