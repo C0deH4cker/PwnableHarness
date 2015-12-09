@@ -1,4 +1,5 @@
 build/
+stack0
 *.o
 *.a
 *.so
