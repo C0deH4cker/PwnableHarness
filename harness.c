@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <time.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -258,9 +259,18 @@ int serve(const char* user, unsigned short port, unsigned timeout, conn_handler*
 				alarm(timeout);
 			}
 			
+			/* Create timestamp string */
+			time_t curtime = time(NULL);
+			char* timestamp = ctime(&curtime);
+			char* p = strchr(timestamp, '\n');
+			if(p != NULL) {
+				*p = '\0';
+			}
+			
+			/* Log timestamp and source IP for received connections */
 			uint32_t ip = ntohl(cli_addr.sin_addr.s_addr);
-			fprintf(stderr_fp, "Received connection from %u.%u.%u.%u.\n",
-			        ip>>24, (ip>>16)&255, (ip>>8)&255, ip&255);
+			fprintf(stderr_fp, "[%s] Received connection from %u.%u.%u.%u.\n",
+			        timestamp, ip>>24, (ip>>16)&255, (ip>>8)&255, ip&255);
 			
 			/* Redirect stdio to the socket */
 			if(!redirect_output(conn)) {

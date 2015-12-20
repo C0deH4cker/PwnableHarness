@@ -8,6 +8,9 @@ GCC64 := gcc -m64
 CC64 := $(GCC64)
 LD64 := $(GCC64)
 
+OBJCOPY := objcopy --strip-unneeded
+OBJCOPY_DESC := Stripping
+
 CFLAGS := -O0 -I.
 LDFLAGS :=
 
@@ -40,6 +43,12 @@ endif
 # Default rule
 all: $(TARGETS)
 
+# Debug build (build with debug symbols and don't strip any symbols)
+debug: CFLAGS += -ggdb -DDEBUG=1 -UNDEBUG
+debug: OBJCOPY := cp
+debug: OBJCOPY_DESC := Copying
+debug: $(TARGETS)
+
 # Target specific overrides
 stack0: CFLAGS += -fno-stack-protector
 stack0: LDFLAGS += -Wl,-z,execstack
@@ -59,8 +68,8 @@ $(BUILD)/%.o: %.c | $(BUILD_DIR_RULES)
 
 # Strip rule that produces the final product
 $(TARGETS): %: $(BUILD)/%.raw
-	@echo "Stripping $@"
-	$(_v)objcopy --strip-unneeded $< $@
+	@echo "$(OBJCOPY_DESC) $@"
+	$(_v)$(OBJCOPY) $< $@
 
 
 # Macro that selects the object files from OBJS that belong to the specified target
@@ -119,6 +128,7 @@ stop[%]:
 	$(_v)killall -9 $* ||:
 
 restart[%]: start[%]
+	@true
 
 clean:
 	@echo "Removing built products"
