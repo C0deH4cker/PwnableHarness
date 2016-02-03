@@ -26,4 +26,8 @@ linux system. Just remember to create a user named "ctf_stack0" and to run this 
 as root (it needs root at first in order to prevent the server from being killed).
 That way it can be run in a debugger (I suggest using gdb-peda for this).
 
+Also, please be aware that because I use this server for other things besides running CTF
+challenges, I have firewall rules enabled that will among other things prevent you from
+using a TCP listener shell or a reverse-TCP connect back shell, so either use stdin and stdout for c
+
 Good luck!
