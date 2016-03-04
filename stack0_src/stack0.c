@@ -59,7 +59,14 @@ static void handle_connection(int sock) {
 	}
 }
 
-int main(void) {
-	/* Run on port 32101 for 30 seconds as user "ctf_stack0" */
-	return serve("ctf_stack0", 32101, 30, &handle_connection);
+int main(int argc, char* argv[]) {
+	/* Run on port 32101 for 30 seconds as user "ctf_stack0" inside a chroot */
+	server_options opts = {
+		.user = "ctf_stack0",
+		.chrooted = true,
+		.port = 32101,
+		.time_limit_seconds = 30
+	};
+	
+	return server_main(argc, argv, opts, &handle_connection);
 }

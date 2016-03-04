@@ -156,7 +156,7 @@ static bool redirect_output(int sock) {
 }
 
 
-int serve(const char* user, unsigned short port, unsigned timeout, conn_handler* handler) {
+int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
 	/* Elevate to root privileges before doing anything else */
 	if(setuid(0) != 0) {
 		fprintf(stderr, "Error: Unable to become root!\n");
@@ -177,9 +177,11 @@ int serve(const char* user, unsigned short port, unsigned timeout, conn_handler*
 		return EXIT_FAILURE;
 	}
 	
-	/* Chroot into the user's home directory */
-	if(!enter_chroot(pw)) {
-		return EXIT_FAILURE;
+	if(chrooted) {
+		/* Chroot into the user's home directory */
+		if(!enter_chroot(pw)) {
+			return EXIT_FAILURE;
+		}
 	}
 	
 	/* Ignore dead children so they don't turn into zombies */
@@ -306,5 +308,36 @@ int serve(const char* user, unsigned short port, unsigned timeout, conn_handler*
 	/* If this is reached, the connection couldn't be closed successfully. */
 	PERROR("close");
 	return EXIT_FAILURE;
+}
+
+int server_main(int argc, char** argv, server_options opts, conn_handler* handler) {
+	int i;
+	for(i = 1; i < argc; i++) {
+		if(strcmp(argv[i], "--no-chroot") == 0) {
+			opts.chrooted = false;
+		}
+		else if(strcmp(argv[i], "--user") == 0 || strcmp(argv[i], "-u") == 0) {
+			opts.user = argv[++i];
+		}
+		else if(strcmp(argv[i], "--port") == 0 || strcmp(argv[i], "-p") == 0) {
+			opts.port = atoi(argv[++i]);
+		}
+		else if(strcmp(argv[i], "--alarm") == 0 || strcmp(argv[i], "-a") == 0) {
+			opts.time_limit_seconds = atoi(argv[++i]);
+		}
+		else {
+			printf(
+"Usage: %s [options]\n"
+"  Options:\n"
+"    -a, --alarm <seconds=%3d>      Time limit for child processes to run, or 0 to disable\n"
+"    --no-chroot                    Prevent the server from entering a chroot and changing directory\n"
+"    -p, --port <port=%05hu>        Set the port the server listens on for incoming connections\n"
+"    -u, --user <user=%s>%*sName of the user that child processes should run as\n",
+			argv[0], opts.time_limit_seconds, opts.port, opts.user, 13 - strlen(opts.user), "");
+			return EXIT_FAILURE;
+		}
+	}
+	
+	return serve(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler);
 }
 
