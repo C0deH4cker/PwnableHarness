@@ -35,7 +35,7 @@ docker-build: $(TARGET)
 # Rule for starting a docker container
 docker-start: docker-build
 	@echo "Starting docker container"
-	$(_v)-docker rm -f $(TARGET)
+	$(_v)docker rm -f $(TARGET) >/dev/null 2>&1 || true
 	$(_v)docker run --name $(TARGET) -itd -v /etc/localtime:/etc/localtime:ro -p 32101:32101 $(DOCKER_IMAGE)
 
 # Restart is an alias for start
