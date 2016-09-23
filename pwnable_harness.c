@@ -1,14 +1,13 @@
 //
-//  harness.c
+//  pwnable_harness.c
 //  PwnableHarness
 //
 //  Created by C0deH4cker on 11/15/13.
 //  Copyright (c) 2013 C0deH4cker. All rights reserved.
 //
 
-#include "harness.h"
+#include "pwnable_harness.h"
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,16 +21,30 @@
 #include <grp.h>
 #include <pwd.h>
 
+/* For reading argv[0] without access to argv. */
+extern char *program_invocation_name;
+
 /*! Actually output to standard error after it has been moved. */
 #define PERROR(msg) fprintf(stderr_fp, "%s: %s\n", (msg), strerror(errno))
 
-/* Original file descriptors. */
+/* Original file descriptors */
 static int real_stdin, real_stdout, real_stderr;
 static FILE* stdin_fp, *stdout_fp, *stderr_fp;
 
+/*! Name of the environment variable used to mark a connection handler process. */
+static const char* kEnvMarker = "PWNABLE_CONNECTION";
+
 
 /*! Changes directory to the user's home directory, chroots there, and then
- changes to the user's home directory relative to the chroot.
+ * changes to the user's home directory relative to the chroot.
+ * @note This expects the user's home directory to be the root for the chroot,
+ *   and it also assumes that once in the chroot it can access the user's home
+ *   directory relative to the chroot. So if the user's home directory is
+ *   /home/example, then there should be a /home/example/home/example.
+ *   In that case, the program will be chrooted within /home/example, and
+ *   it will run from /home/example/home/example (which appears to just be
+ *   /home/example from within the chroot). Yeah, I know, confusing. Just
+ *   use Docker, it's easier and less confusing ^_^.
  */
 static bool enter_chroot(struct passwd* pw) {
 	/* Change directory FIRST! */
@@ -41,14 +54,14 @@ static bool enter_chroot(struct passwd* pw) {
 		return false;
 	}
 	
-	/* NOW, we can call chroot */
+	/* NOW, we can call chroot. */
 	if(chroot(pw->pw_dir) != 0) {
 		fprintf(stderr, "Error: Couldn't chroot to user's home directory.\n");
 		perror("chroot");
 		return false;
 	}
 	
-	/* Once again chdir to the user's home directory, this time to the one in the chroot */
+	/* Once again chdir to the user's home directory, this time to the one in the chroot. */
 	if(chdir(pw->pw_dir) != 0) {
 		fprintf(stderr, "Error: Couldn't change to the chrooted home directory.\n");
 		perror(pw->pw_dir);
@@ -91,39 +104,64 @@ static bool drop_privileges(struct passwd* pw) {
 
 /* Moves standard IO file descriptors away from the default values. */
 static bool move_stdio(void) {
+	/* Make sure these are NULL */
+	stdin_fp = stdout_fp = stderr_fp = NULL;
+	
+	/* Duplicate standard file descriptors */
 	if((real_stdin  = dup(STDIN_FILENO))  == -1 ||
 	   (real_stdout = dup(STDOUT_FILENO)) == -1 ||
 	   (real_stderr = dup(STDERR_FILENO)) == -1) {
-		goto close_fds;
+		goto fail;
 	}
 	
-	if(!(stdin_fp = fdopen(real_stdin, "rb"))) {
-		goto close_fds;
+	/* Open file pointers to newly duplicated standard file descriptors */
+	stdin_fp = fdopen(real_stdin, "rb");
+	if(!stdin_fp) {
+		goto fail;
 	}
 	
-	if(!(stdout_fp = fdopen(real_stdout, "wb"))) {
-		fclose(stdin_fp);
-		real_stdin = -1;
-		goto close_fds;
+	stdout_fp = fdopen(real_stdout, "wb");
+	if(!stdout_fp) {
+		goto fail;
 	}
 	
-	if(!(stderr_fp = fdopen(real_stderr, "wb"))) {
-		fclose(stdin_fp);
-		fclose(stdout_fp);
-		real_stdin = real_stdout = -1;
-		goto close_fds;
+	stderr_fp = fdopen(real_stderr, "wb");
+	if(!stderr_fp) {
+		goto fail;
 	}
 	
+	/* Close original standard file descriptors */
 	close(STDIN_FILENO);
 	close(STDOUT_FILENO);
 	close(STDERR_FILENO);
 	
 	return true;
 	
-close_fds:
-	if(real_stdin  != -1) close(real_stdin);
-	if(real_stdout != -1) close(real_stdout);
-	if(real_stderr != -1) close(real_stderr);
+fail:
+	/*
+	 * fclose() will close() the fd associated with the given
+	 * file pointer, so no need to call close() after fclose().
+	 */
+	if(stdin_fp) {
+		fclose(stdin_fp);
+	}
+	else if(real_stdin != -1) {
+		close(real_stdin);
+	}
+	
+	if(stdout_fp) {
+		fclose(stdout_fp);
+	}
+	else if(real_stdout != -1) {
+		close(real_stdout);
+	}
+	
+	if(stderr_fp) {
+		fclose(stderr_fp);
+	}
+	else if(real_stderr != -1) {
+		close(real_stderr);
+	}
 	
 	return false;
 }
@@ -148,15 +186,28 @@ static bool redirect_output(int sock) {
 		return false;
 	}
 	
-	/* Make sure these standard output streams are line buffered */
-	setvbuf(stdout, NULL, _IOLBF, 0);
-	setvbuf(stderr, NULL, _IOLBF, 0);
-	
 	return true;
 }
 
 
 int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
+	/* 
+	 * For exec-ing servers, check for a marker environment variable.
+	 * If this is set, that means we have just been exec-ed to handle
+	 * a client connection. Therefore, instead of starting up the socket
+	 * server, just call the connection handler.
+	 */
+	char* marker = getenv(kEnvMarker);
+	if(marker != NULL) {
+		/* Make sure these standard output streams are not buffered */
+		setvbuf(stdout, NULL, _IONBF, 0);
+		setvbuf(stderr, NULL, _IONBF, 0);
+		
+		/* Invoke actual challenge function */
+		handler(atoi(marker));
+		return EXIT_SUCCESS;
+	}
+	
 	/* Elevate to root privileges before doing anything else */
 	if(setuid(0) != 0) {
 		fprintf(stderr, "Error: Unable to become root!\n");
@@ -207,6 +258,7 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t cli_len = sizeof(cli_addr);
 	
+	/* Allow incoming connections from anywhere */
 	memset(&serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -218,8 +270,8 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 		return EXIT_FAILURE;
 	}
 	
-	/* Listen for connections */
-	if(listen(sock, 5) != 0) {
+	/* Listen for connections, with a maximum backlog of 128 connections to accept */
+	if(listen(sock, 128) != 0) {
 		perror("listen");
 		return EXIT_FAILURE;
 	}
@@ -230,6 +282,8 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 		return EXIT_FAILURE;
 	}
 	
+	/* Display useful information about the server process */
+	fprintf(stderr_fp, "Server process id: %u\n", getpid());
 	fprintf(stderr_fp, "Now accepting connections on port %hu (0x%04hx)\n\n", port, port);
 	
 	/* Accept connections */
@@ -286,22 +340,24 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 				_exit(EXIT_FAILURE);
 			}
 			
-			/* Close duplicated IO file descriptors */
+			/* Set connection marker environment variable to the connection socket */
+			char conn_str[11];
+			snprintf(conn_str, sizeof(conn_str), "%u", conn);
+			if(setenv(kEnvMarker, conn_str, 0) != 0) {
+				PERROR("setenv");
+				_exit(EXIT_FAILURE);
+			}
+			
+			/* Close real standard file handles */
 			fclose(stdin_fp);
 			fclose(stdout_fp);
 			fclose(stderr_fp);
 			
-			/* Now jump over to the real code for the challenge */
-			handler(conn);
+			/* Now exec ourselves to run the actual challenge code */
+			execl("/proc/self/exe", program_invocation_name, NULL);
 			
-			/* Close the remaining file descriptors */
-			close(conn);
-			close(STDIN_FILENO);
-			close(STDOUT_FILENO);
-			close(STDERR_FILENO);
-			
-			/* Exit the child process */
-			_exit(EXIT_SUCCESS);
+			/* Should hopefully never make it this far */
+			abort();
 		}
 	} while(noclose || close(conn) != -1);
 	
@@ -327,13 +383,23 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		}
 		else {
 			printf(
-"Usage: %s [options]\n"
-"  Options:\n"
-"    -a, --alarm <seconds=%3d>      Time limit for child processes to run, or 0 to disable\n"
-"    --no-chroot                    Prevent the server from entering a chroot and changing directory\n"
-"    -p, --port <port=%05hu>        Set the port the server listens on for incoming connections\n"
-"    -u, --user <user=%s>%*sName of the user that child processes should run as\n",
-			argv[0], opts.time_limit_seconds, opts.port, opts.user, 13 - strlen(opts.user), "");
+				"Error: Unkown argument '%s'\n"
+				"Usage: %s [options]\n"
+				"  Options:\n"
+				"    -a, --alarm <seconds=%3d>      "
+					"Time limit for child processes to run, or 0 to disable\n"
+				"    --no-chroot                    "
+					"Prevent the server from entering a chroot and changing directory\n"
+				"    -p, --port <port=%05hu>        "
+					"Set the port the server listens on for incoming connections\n"
+				"    -u, --user <user=%s>%*s"
+					"Name of the user that child processes should run as\n",
+				argv[i],
+				argv[0],
+				opts.time_limit_seconds,
+				opts.port,
+				opts.user, 13 - (int)strlen(opts.user), ""
+			);
 			return EXIT_FAILURE;
 		}
 	}

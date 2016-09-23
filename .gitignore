@@ -1,6 +1,6 @@
 build/
-stack0
-*.o
-*.a
 *.so
-*.dylib
+stack0
+stack0.*
+peda-session-*.txt
+.gdb_history

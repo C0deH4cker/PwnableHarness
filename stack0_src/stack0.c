@@ -10,20 +10,15 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
-#include <sys/socket.h>
-#include "harness.h"
+#include <unistd.h>
+#include "pwnable_harness.h"
 
 
 /* Filename of the first flag */
 static const char* flagfile = "flag1.txt";
 
-/* Simple helper function to send a string of text to a socket. */
-static ssize_t sendText(int sock, const char* text) {
-	return send(sock, text, strlen(text), 0);
-}
-
 /* Send the user the contents of the first flag file. */
-static void giveFlag(int sock) {
+static void giveFlag(void) {
 	char flag[64];
 	FILE* fp = fopen(flagfile, "r");
 	if(!fp) {
@@ -34,33 +29,30 @@ static void giveFlag(int sock) {
 	fgets(flag, sizeof(flag), fp);
 	fclose(fp);
 	
-	sendText(sock, "Here is your first flag:\n");
-	sendText(sock, flag);
+	printf("Here is your first flag: %s\n", flag);
 }
 
 /* Called when an incoming client connection is received. */
 static void handle_connection(int sock) {
-	char txt[64];
 	bool didPurchase = false;
 	char input[50];
 	
-	snprintf(txt, sizeof(txt), "Debug info: Address of input buffer = %p\n", input);
-	sendText(sock, txt);
+	printf("Debug info: Address of input buffer = %p\n", input);
 	
-	sendText(sock, "Enter the name you used to purchase this program: ");
-	recv(sock, input, 1024, 0);
+	printf("Enter the name you used to purchase this program: ");
+	read(STDIN_FILENO, input, 1024);
 	
 	if(didPurchase) {
-		sendText(sock, "Thank you for purchasing Hackersoft Powersploit!\n");
-		giveFlag(sock);
+		printf("Thank you for purchasing Hackersoft Powersploit!\n");
+		giveFlag();
 	}
 	else {
-		sendText(sock, "This program has not been purchased.\n");
+		printf("This program has not been purchased.\n");
 	}
 }
 
-int main(int argc, char* argv[]) {
-	/* Run on port 32101 for 30 seconds as user "ctf_stack0" inside a chroot */
+int main(int argc, char** argv) {
+	/* Defaults: Run on port 32101 for 30 seconds as user "ctf_stack0" inside a chroot */
 	server_options opts = {
 		.user = "ctf_stack0",
 		.chrooted = true,
