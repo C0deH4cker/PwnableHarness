@@ -1,6 +1,9 @@
+# Build products
 build/
 *.so
 stack0
-stack0.*
+
+# Debugger files
+*.idb
 peda-session-*.txt
 .gdb_history
