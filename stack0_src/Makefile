@@ -4,8 +4,8 @@ GCC := gcc -m32
 CC := $(GCC)
 LD := $(GCC)
 
-CFLAGS := -O0 -fno-stack-protector
-LDFLAGS := -Wl,-rpath,/usr/local/lib -Wl,-z,execstack
+CFLAGS := -I.. -O0 -fno-stack-protector
+LDFLAGS := -L.. -Wl,-rpath,/usr/local/lib -Wl,-z,execstack
 LDLIBS := -lpwnable_harness32
 
 # Setting up source and build paths
