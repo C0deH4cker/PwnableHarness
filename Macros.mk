@@ -296,7 +296,7 @@ docker-stop: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
 
 # Stop the docker container
 docker-stop[$$($1/DOCKER_RUNTIME_NAME)]:
-	@echo "Stopping docker container $$($1/DOCKER_RUNTIME_NAME"
+	@echo "Stopping docker container $$($1/DOCKER_RUNTIME_NAME)"
 	$$(_v)docker stop $$($1/DOCKER_RUNTIME_NAME)
 
 .PHONY: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
