@@ -128,17 +128,17 @@ generate_target = $(eval $(call _generate_target,$1,$2))
 define _include_subdir
 
 # Exactly one of these must be defined by Build.mk
-undefine TARGET
-undefine TARGETS
+TARGET :=
+TARGETS :=
 
 # These can optionally be defined by Build.mk
-undefine DOCKER_IMAGE
-undefine DOCKER_RUNTIME_NAME
-undefine DOCKER_BUILD_ARGS
-undefine DOCKER_PORTS
-undefine DOCKER_RUN_ARGS
-undefine DOCKER_ENTRYPOINT_ARGS
-undefine DOCKER_RUNNABLE
+DOCKER_IMAGE :=
+DOCKER_RUNTIME_NAME :=
+DOCKER_BUILD_ARGS :=
+DOCKER_PORTS :=
+DOCKER_RUN_ARGS :=
+DOCKER_ENTRYPOINT_ARGS :=
+DOCKER_RUNNABLE :=
 
 # Define DIR for use by Build.mk files
 DIR := $1
@@ -148,13 +148,13 @@ $$(info Including $1/Build.mk)
 include $1/Build.mk
 
 # Look for new definition of TARGET/TARGETS
-ifneq "$$(origin TARGET)" "undefined"
+ifdef TARGET
 # It's an error to define both TARGET and TARGETS
-ifneq "$$(origin TARGETS)" "undefined"
+ifdef TARGETS
 $$(error $1/Build.mk defined both TARGET ($$(TARGET)) and TARGETS ($$(TARGETS))!)
 endif
 $1/TARGETS := $$(TARGET)
-else ifneq "$$(origin TARGETS)" "undefined"
+else ifdef TARGETS
 $1/TARGETS := $$(TARGETS)
 else
 # It's an error if neither TARGET nor TARGETS are defined
@@ -193,12 +193,12 @@ $$(BUILD)/$1/.dir:
 ## Docker variables
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
-ifneq "$$(origin DOCKER_IMAGE)" "undefined"
+ifdef DOCKER_IMAGE
 $1/DOCKER_IMAGE := $$(DOCKER_IMAGE)
 
 # Ensure that DIR/DOCKER_RUNTIME_NAME has a value, default to the
 # first target in DIR/TARGETS
-ifneq "$$(origin DOCKER_RUNTIME_NAME)" "undefined"
+ifdef DOCKER_RUNTIME_NAME
 $1/DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
 $1/DOCKER_RUNNABLE := true
 else
@@ -206,36 +206,36 @@ $1/DOCKER_RUNTIME_NAME := $$(firstword $$($1/TARGETS))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
-ifneq "$$(origin DOCKER_PORTS)" "undefined"
+ifdef DOCKER_PORTS
 $1/DOCKER_PORTS := $$(DOCKER_PORTS)
 $1/DOCKER_PORT_ARGS := $$(foreach port,$$($1/DOCKER_PORTS),-p $$(port):$$(port))
 $1/DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_RUN_ARGS was defined
-ifneq "$$(origin DOCKER_RUN_ARGS)" "undefined"
+ifdef DOCKER_RUN_ARGS
 $1/DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
 $1/DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_ENTRYPOINT_ARGS was defined
-ifneq "$$(origin DOCKER_ENTRYPOINT_ARGS)" "undefined"
+ifdef DOCKER_ENTRYPOINT_ARGS
 $1/DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
 $1/DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_RUNNABLE was defined
-ifneq "$$(origin DOCKER_RUNNABLE)" "undefined"
+ifdef DOCKER_RUNNABLE
 $1/DOCKER_RUNNABLE = $$(DOCKER_RUNNABLE)
 endif
 
 # Ensure that DIR/DOCKER_BUILD_ARGS has a value
-ifneq "$$(origin $1/DOCKER_RUNNABLE)" "undefined"
+ifdef $1/DOCKER_RUNNABLE
 $1/DOCKER_BUILD_ARGS := RUNTIME_NAME=$$($1/DOCKER_RUNTIME_NAME)
 else
 $1/DOCKER_BUILD_ARGS :=
 endif
-ifneq "$$(origin DOCKER_BUILD_ARGS)" "undefined"
+ifdef DOCKER_BUILD_ARGS
 $1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) $$(DOCKER_BUILD_ARGS)
 endif
 
@@ -265,7 +265,7 @@ docker-rebuild[$$($1/DOCKER_IMAGE)]: | $$($1/PRODUCTS) $$($1/DOCKER_BUILD_DEPS)
 
 ## Docker run rules
 
-ifneq "$$(origin $1/DOCKER_RUNNABLE)" "undefined"
+ifdef $1/DOCKER_RUNNABLE
 
 # Rule for starting a docker container
 docker-start: docker-start[$$($1/DOCKER_RUNTIME_NAME)]
