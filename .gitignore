@@ -1,7 +1,8 @@
 # Build products
 build/
 *.so
-stack0
+*.jar
+*.class
 
 # Debugger files
 *.idb
