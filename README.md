@@ -7,7 +7,7 @@ It is designed to be secure against hostile child processes. It accomplishes thi
 * The server runs as root and drops down to an unprivileged user to handle connections, so the child cannot kill the parent server process.
 * When dropping privileges, care is taken to make sure that the privileges cannot be restored later.
 * The service is chroot-ed to the home directory of the unprivileged user.
-* Although Docker is not required to use PwnableHarness, it is highly recommended for its easy of use and added security.
+* Although Docker is not required to use PwnableHarness, it is highly recommended for its ease of use and added security.
 
 Another feature of this project is that the server will redirect the child's stdin, stdout, and stderr to the socket upon receiving a connection.
 
