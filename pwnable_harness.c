@@ -367,8 +367,12 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 }
 
 int server_main(int argc, char** argv, server_options opts, conn_handler* handler) {
+	bool listen = false;
 	int i;
 	for(i = 1; i < argc; i++) {
+		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
+			listen = true;
+		}
 		if(strcmp(argv[i], "--no-chroot") == 0) {
 			opts.chrooted = false;
 		}
@@ -386,6 +390,8 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 				"Error: Unkown argument '%s'\n"
 				"Usage: %s [options]\n"
 				"  Options:\n"
+				"    -l, --listen                   "
+					"Run the server and listen for incoming connections\n"
 				"    -a, --alarm <seconds=%3d>      "
 					"Time limit for child processes to run, or 0 to disable\n"
 				"    --no-chroot                    "
@@ -402,6 +408,11 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 			);
 			return EXIT_FAILURE;
 		}
+	}
+	
+	/* If not run with --listen, just call the connection handler function directly */
+	if(!listen) {
+		setenv(kEnvMarker, "0", 0);
 	}
 	
 	return serve(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler);
