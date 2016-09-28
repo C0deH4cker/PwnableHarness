@@ -111,10 +111,22 @@ $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 # Compilation dependency rules
 -include $$($2_DEPS)
 
-# Linker rule to produce the final target
+ifeq "$$(suffix $2)" ".so"
+# Linker rule to produce the final target (specialization for shared libraries)
 $1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
-	@echo "Linking $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -L. -Wl,-rpath,/usr/local/lib $$($2_LDFLAGS) -o $$@ $$^ $$($2_LDLIBS)
+	@echo "Linking shared library $$@"
+	$$(_v)$$($2_LD) -m$$($2_BITS) -shared -L. $$($2_LDFLAGS) \
+		-o $$@ $$^ $$($2_LDLIBS)
+
+else
+# Linker rule to produce the final target (specialization for executables)
+$1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
+	@echo "Linking executable $$@"
+	$$(_v)$$($2_LD) -m$$($2_BITS) -L. $$($2_LDFLAGS) \
+		-Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN \
+		-o $$@ $$^ $$($2_LDLIBS)
+
+endif #.so
 
 endef #_generate_target
 generate_target = $(eval $(call _generate_target,$1,$2))
