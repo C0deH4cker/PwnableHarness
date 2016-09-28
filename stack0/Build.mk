@@ -70,7 +70,18 @@ DOCKER_RUN_ARGS := --read-only
 
 
 
-## Target-specific variables
+## Target-specific variables: Each of the following variables of the
+# format target_VAR are specific to that target. If the variable is
+# set without the target prefix, it will be applied to every target
+# defined in this file unless a target defines the version with the
+# target prefix, in which case only that target will use its own.
+#
+# For example, in the following example, both slowpoke and lethargic
+# will be built with -O0, while gottagofast will be built with -O3.
+#
+# TARGETS := slowpoke lethargic gottagofast
+# CFLAGS := -O0
+# gottagofast_CFLAGS := -O3
 
 # target_CFLAGS:   Command line options passed to CC when compiling
 #                  C source files.

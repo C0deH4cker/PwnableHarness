@@ -30,62 +30,62 @@ $$(info Generating target rules for $1/$2)
 
 # Ensure that target_BITS has a value, default to 32-bits
 ifeq "$$(origin $2_BITS)" "undefined"
-$2_BITS := 32
+$2_BITS := $$(or $$($1/BITS),32)
 endif
 
 # Ensure that target_CFLAGS is defined
 ifeq "$$(origin $2_CFLAGS)" "undefined"
-$2_CFLAGS :=
+$2_CFLAGS := $$($1/CFLAGS)
 endif
 
 # Ensure that target_CXXFLAGS is defined
 ifeq "$$(origin $2_CXXFLAGS)" "undefined"
-$2_CXXFLAGS :=
+$2_CXXFLAGS := $$($1/CXXFLAGS)
 endif
 
 # Ensure that target_LDFLAGS is defined
 ifeq "$$(origin $2_LDFLAGS)" "undefined"
-$2_LDFLAGS :=
+$2_LDFLAGS := $$($1/LDFLAGS)
 endif
 
 # Ensure that target_LDLIBS has a value, default to -lpwnableharness(32/64)
 ifeq "$$(origin $2_LDLIBS)" "undefined"
-$2_LDLIBS := -lpwnableharness$$($2_BITS)
+$2_LDLIBS := $$(or $$($1/LDLIBS),-lpwnableharness$$($2_BITS))
 endif
 
 # Ensure that target_SRCS has a value, default to searching for all C and
 # C++ sources in the same directory as Build.mk.
 ifeq "$$(origin $2_SRCS)" "undefined"
-$2_SRCS := $$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext)))
+$2_SRCS := $$(or $$($1/SRCS),$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
 endif
 
 # Ensure that target_OBJS has a value, default to modifying the value of each
 # src from target_SRCS into target_BUILD/src.target_BITS.o
 # Example: generate_target(proj, target) with main.cpp -> build/proj/main.cpp.32.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(patsubst %,$$(BUILD)/%.$$($2_BITS).o,$$($2_SRCS))
+$2_OBJS := $$(or $$($1/OBJS),$$(patsubst %,$$(BUILD)/%.$$($2_BITS).o,$$($2_SRCS)))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
 # but with .o extensions replaced with .d.
 ifeq "$$(origin $2_DEPS)" "undefined"
-$2_DEPS := $$($2_OBJS:.o=.d)
+$2_DEPS := $$(or $$($1/DEPS),$$($2_OBJS:.o=.d))
 endif
 
 # Ensure that target_CC has a value, defaulting to gcc
 ifeq "$$(origin $2_CC)" "undefined"
-$2_CC := gcc
+$2_CC := $$(or $$($1/CC),gcc)
 endif
 
 # Ensure that target_CXX has a value, defaulting to g++
 ifeq "$$(origin $2_CXX)" "undefined"
-$2_CXX := g++
+$2_CXX := $$(or $$($1/CXX),g++)
 endif
 
 # Ensure that target_LD has a value, defaulting to target_CC unless there are
 # C++ sources, in which case target_CXX is used instead
 ifeq "$$(origin $2_LD)" "undefined"
-$2_LD := $$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC))
+$2_LD := $$(or $$($1/LD),$$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC)))
 endif
 
 # Check if any of the targets in this directory use PwnableHarness
@@ -152,6 +152,19 @@ DOCKER_RUN_ARGS :=
 DOCKER_ENTRYPOINT_ARGS :=
 DOCKER_RUNNABLE :=
 
+# These can optionally be defined to set directory-specific variables
+BITS :=
+CFLAGS :=
+CXXFLAGS :=
+LDFLAGS :=
+LDLIBS :=
+SRCS :=
+OBJS :=
+DEPS :=
+CC :=
+CXX :=
+LD :=
+
 # Define DIR for use by Build.mk files
 DIR := $1
 
@@ -179,6 +192,20 @@ $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
 $$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
+
+
+## Directory specific variables
+$1/BITS := $$(BITS)
+$1/CFLAGS := $$(CFLAGS)
+$1/CXXFLAGS := $$(CXXFLAGS)
+$1/LDFLAGS := $$(LDFLAGS)
+$1/LDLIBS := $$(LDLIBS)
+$1/SRCS := $$(SRCS)
+$1/OBJS := $$(OBJS)
+$1/DEPS := $$(DEPS)
+$1/CC := $$(CC)
+$1/CXX := $$(CXX)
+$1/LD := $$(LD)
 
 
 ## Directory specific build rules
