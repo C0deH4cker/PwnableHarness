@@ -373,7 +373,7 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
 			listen = true;
 		}
-		if(strcmp(argv[i], "--no-chroot") == 0) {
+		else if(strcmp(argv[i], "--no-chroot") == 0) {
 			opts.chrooted = false;
 		}
 		else if(strcmp(argv[i], "--user") == 0 || strcmp(argv[i], "-u") == 0) {
