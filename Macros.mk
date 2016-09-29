@@ -30,7 +30,7 @@ $$(info Generating target rules for $1/$2)
 
 # Ensure that target_BITS has a value, default to 32-bits
 ifeq "$$(origin $2_BITS)" "undefined"
-$2_BITS := $$(or $$($1/BITS),32)
+$2_BITS := $$($1/BITS)
 endif
 
 # Ensure that target_CFLAGS is defined
@@ -50,36 +50,42 @@ endif
 
 # Ensure that target_LDLIBS has a value, default to -lpwnableharness(32/64)
 ifeq "$$(origin $2_LDLIBS)" "undefined"
+# LDLIBS can be set to the string "none" to include no LDLIBS. Otherwise,
+# it will default to linking against PwnableHarness if empty.
+ifeq "$$($1/LDLIBS)" "none"
+$2_LDLIBS :=
+else
 $2_LDLIBS := $$(or $$($1/LDLIBS),-lpwnableharness$$($2_BITS))
+endif
 endif
 
 # Ensure that target_SRCS has a value, default to searching for all C and
 # C++ sources in the same directory as Build.mk.
 ifeq "$$(origin $2_SRCS)" "undefined"
-$2_SRCS := $$(or $$($1/SRCS),$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
+$2_SRCS := $$($1/SRCS)
 endif
 
 # Ensure that target_OBJS has a value, default to modifying the value of each
 # src from target_SRCS into target_BUILD/src.target_BITS.o
 # Example: generate_target(proj, target) with main.cpp -> build/proj/main.cpp.32.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(or $$($1/OBJS),$$(patsubst %,$$(BUILD)/%.$$($2_BITS).o,$$($2_SRCS)))
+$2_OBJS := $$(patsubst %,$$(BUILD)/%.$$($2_BITS).o,$$($2_SRCS))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
 # but with .o extensions replaced with .d.
 ifeq "$$(origin $2_DEPS)" "undefined"
-$2_DEPS := $$(or $$($1/DEPS),$$($2_OBJS:.o=.d))
+$2_DEPS := $$($2_OBJS:.o=.d)
 endif
 
 # Ensure that target_CC has a value, defaulting to gcc
 ifeq "$$(origin $2_CC)" "undefined"
-$2_CC := $$(or $$($1/CC),gcc)
+$2_CC := $$($1/CC)
 endif
 
 # Ensure that target_CXX has a value, defaulting to g++
 ifeq "$$(origin $2_CXX)" "undefined"
-$2_CXX := $$(or $$($1/CXX),g++)
+$2_CXX := $$($1/CXX)
 endif
 
 # Ensure that target_LD has a value, defaulting to target_CC unless there are
@@ -153,16 +159,14 @@ DOCKER_ENTRYPOINT_ARGS :=
 DOCKER_RUNNABLE :=
 
 # These can optionally be defined to set directory-specific variables
-BITS :=
+BITS := 32
 CFLAGS :=
 CXXFLAGS :=
 LDFLAGS :=
 LDLIBS :=
-SRCS :=
-OBJS :=
-DEPS :=
-CC :=
-CXX :=
+SRCS := $$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext)))
+CC := gcc
+CXX := g++
 LD :=
 
 # Define DIR for use by Build.mk files
@@ -189,12 +193,7 @@ endif
 # List of target files produced by Build.mk
 $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
 
-# Produce target specific variables and build rules
-# $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
-$$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
-
-
-## Directory specific variables
+# Directory specific variables
 $1/BITS := $$(BITS)
 $1/CFLAGS := $$(CFLAGS)
 $1/CXXFLAGS := $$(CXXFLAGS)
@@ -206,6 +205,10 @@ $1/DEPS := $$(DEPS)
 $1/CC := $$(CC)
 $1/CXX := $$(CXX)
 $1/LD := $$(LD)
+
+# Produce target specific variables and build rules
+# $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
+$$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
 
 
 ## Directory specific build rules
