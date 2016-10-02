@@ -112,12 +112,12 @@ endif
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) -fPIC $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) -fPIC $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compilation dependency rules
 -include $$($2_DEPS)
