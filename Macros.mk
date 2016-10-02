@@ -57,12 +57,17 @@ $2_LDLIBS :=
 else
 $2_LDLIBS := $$(or $$($1/LDLIBS),-lpwnableharness$$($2_BITS))
 endif
+else ifeq "$$($2_LDLIBS)" "none"
+$2_LDLIBS :=
 endif
 
 # Ensure that target_SRCS has a value, default to searching for all C and
 # C++ sources in the same directory as Build.mk.
 ifeq "$$(origin $2_SRCS)" "undefined"
 $2_SRCS := $$($1/SRCS)
+else
+# Prefix each item with the project directory
+$2_SRCS := $$(addprefix $1/,$$($2_SRCS))
 endif
 
 # Ensure that target_OBJS has a value, default to modifying the value of each
@@ -107,12 +112,12 @@ endif
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) -fPIC $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) -fPIC $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compilation dependency rules
 -include $$($2_DEPS)
