@@ -141,7 +141,7 @@ $1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
 
 endif #.so
 
-$$(PUBLISH)/$1/$2: $1/$2 $$(PUBLISH)/$1/.dir
+$$(PUBLISH)/$2: $1/$2
 	@echo "Publishing $2"
 	$$(_v)cp $$< $$@
 
@@ -205,7 +205,7 @@ endif
 
 # List of target files produced by Build.mk
 $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
-$1/PUBLISHED := $$(addprefix $$(PUBLISH)/$1/,$$($1/TARGETS))
+$1/PUBLISHED := $$(addprefix $$(PUBLISH)/,$$($1/TARGETS))
 
 # Directory specific variables
 $1/BITS := $$(BITS)
@@ -249,10 +249,6 @@ clean[$1]:
 
 # Automatic creation of build directories
 $$(BUILD)/$1/.dir:
-	$$(_v)mkdir -p $$(@D) && touch $$@
-
-# Automatic creation of publish directories
-$$(PUBLISH)/$1/.dir:
 	$$(_v)mkdir -p $$(@D) && touch $$@
 
 ## Docker variables
