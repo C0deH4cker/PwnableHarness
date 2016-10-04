@@ -26,7 +26,9 @@
 # generate_target($1: subdirectory, $2: target)
 #####
 define _generate_target
+ifdef VERBOSE
 $$(info Generating target rules for $1/$2)
+endif
 
 # Ensure that target_BITS has a value, default to 32-bits
 ifeq "$$(origin $2_BITS)" "undefined"
@@ -178,7 +180,9 @@ LD :=
 DIR := $1
 
 # First, include the subdirectory's makefile
+ifdef VERBOSE
 $$(info Including $1/Build.mk)
+endif
 include $1/Build.mk
 
 # Look for new definition of TARGET/TARGETS
