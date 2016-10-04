@@ -297,9 +297,13 @@ docker-build: docker-build[$$($1/DOCKER_IMAGE)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
-docker-build[$$($1/DOCKER_IMAGE)]: $$($1/PRODUCTS) | $$($1/DOCKER_BUILD_DEPS)
+docker-build[$$($1/DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
+
+# Create a marker file to track last docker build time
+$$(BUILD)/$1/.docker_build_marker: $$($1/PRODUCTS) | $$($1/DOCKER_BUILD_DEPS)
 	@echo "Building docker image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1
+	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
+		&& touch $$@
 
 # Force build a docker image
 docker-rebuild: docker-rebuild[$$($1/DOCKER_IMAGE)]
@@ -307,7 +311,8 @@ docker-rebuild: docker-rebuild[$$($1/DOCKER_IMAGE)]
 # This rebuilds the docker image no matter what
 docker-rebuild[$$($1/DOCKER_IMAGE)]: | $$($1/PRODUCTS) $$($1/DOCKER_BUILD_DEPS)
 	@echo "Rebuilding docker image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1
+	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
+		&& touch $$(BUILD)/$1/.docker_build_marker
 
 
 ## Docker run rules
