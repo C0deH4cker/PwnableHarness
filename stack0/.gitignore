@@ -1,9 +1,2 @@
 # Build product
 stack0
-
-# Real flag files
-real_flag1.txt
-real_flag2.txt
-
-# Solutions
-*.py

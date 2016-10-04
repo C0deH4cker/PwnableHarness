@@ -13,3 +13,9 @@ build/
 *.i64
 peda-session-*.txt
 .gdb_history
+
+# Real flags
+real_flag*.txt
+
+# Solutions
+*.py
