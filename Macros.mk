@@ -322,7 +322,7 @@ docker-start: docker-start[$$($1/DOCKER_RUNTIME_NAME)]
 docker-start[$$($1/DOCKER_RUNTIME_NAME)]: docker-build[$$($1/DOCKER_IMAGE)]
 	@echo "Starting docker container $$($1/DOCKER_RUNTIME_NAME) from image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
-	$$(_v)docker run --name $$($1/DOCKER_RUNTIME_NAME) -itd \
+	$$(_v)docker run --restart=unless-stopped --name $$($1/DOCKER_RUNTIME_NAME) -itd \
 		-v /etc/localtime:/etc/localtime:ro $$($1/DOCKER_PORT_ARGS) \
 		$$($1/DOCKER_RUN_ARGS) $$($1/DOCKER_IMAGE) $$($1/DOCKER_ENTRYPOINT_ARGS)
 
