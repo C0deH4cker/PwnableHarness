@@ -5,7 +5,7 @@ all:
 BUILD := build
 
 # Path to the publish directory (this is generally a symlink to /var/www/html)
-PUBLISH := publish
+PUB_DIR := publish
 
 # Print all commands executed when VERBOSE is defined
 VERBOSE ?=

@@ -141,10 +141,6 @@ $1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
 
 endif #.so
 
-$$(PUBLISH)/$2: $1/$2
-	@echo "Publishing $2"
-	$$(_v)cp $$< $$@
-
 endef #_generate_target
 generate_target = $(eval $(call _generate_target,$1,$2))
 #####
@@ -159,6 +155,9 @@ define _include_subdir
 # Exactly one of these must be defined by Build.mk
 TARGET :=
 TARGETS :=
+
+# Optional list of files to publish
+PUBLISH :=
 
 # These can optionally be defined by Build.mk
 DOCKER_IMAGE :=
@@ -205,7 +204,7 @@ endif
 
 # List of target files produced by Build.mk
 $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
-$1/PUBLISHED := $$(addprefix $$(PUBLISH)/,$$($1/TARGETS))
+$1/PUBLISH := $$(PUBLISH)
 
 # Directory specific variables
 $1/BITS := $$(BITS)
@@ -214,8 +213,6 @@ $1/CXXFLAGS := $$(CXXFLAGS)
 $1/LDFLAGS := $$(LDFLAGS)
 $1/LDLIBS := $$(LDLIBS)
 $1/SRCS := $$(SRCS)
-$1/OBJS := $$(OBJS)
-$1/DEPS := $$(DEPS)
 $1/CC := $$(CC)
 $1/CXX := $$(CXX)
 $1/LD := $$(LD)
@@ -227,18 +224,27 @@ $$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
 
 ## Directory specific build rules
 
+# Build rules
 all: all[$1]
 
 all[$1]: $$($1/PRODUCTS)
 
 .PHONY: all[$1]
 
+# Publish rules
+ifdef $1/PUBLISH
 publish: publish[$1]
 
-publish[$1]: $$($1/PUBLISHED)
+publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH))
+
+$$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH)): $$(PUB_DIR)/%: $1/%
+	@echo "Publishing $$*"
+	$$(_v)cp $$< $$@
 
 .PHONY: publish[$1]
+endif
 
+# Clean rules
 clean: clean[$1]
 
 clean[$1]:

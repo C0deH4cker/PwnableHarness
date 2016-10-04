@@ -18,6 +18,15 @@
 # Note: It is an error to define both TARGET and TARGETS.
 TARGET := stack0
 
+# PUBLISH is a list of files within this directory to publish when
+# running "make publish". By default, PUBLISH is empty.
+#
+# Note: make publish will copy every file listed to be published
+# to the directory (or symlink) named "publish" in the top level
+# of this repo. This feature is useful for publishing files to a web
+# server to instantly update challenges.
+PUBLISH := $(TARGET) stack0.c
+
 # DOCKER_IMAGE is the name of the docker image to create when
 # running "make docker-build".
 #
