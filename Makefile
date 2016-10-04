@@ -4,6 +4,9 @@ all:
 # Path to the root build directory
 BUILD := build
 
+# Path to the publish directory (this is generally a symlink to /var/www/html)
+PUBLISH := publish
+
 # Print all commands executed when VERBOSE is defined
 VERBOSE ?=
 _v = $(if $(VERBOSE),,@)
@@ -24,6 +27,7 @@ base: all[.]
 .SECONDARY:
 
 # Global targets that are "phony", aka don't name a file to be created
-.PHONY: all base clean
+.PHONY: all base clean publish
 
+# Phony Docker targets
 .PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
