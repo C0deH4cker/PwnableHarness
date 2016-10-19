@@ -30,5 +30,5 @@ ONBUILD COPY $RUNTIME_NAME ./
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \
-	"/home/$RUNTIME_NAME/$RUNTIME_NAME --listen --no-chroot --user $RUNTIME_NAME" \
+	"exec /home/$RUNTIME_NAME/$RUNTIME_NAME --listen --no-chroot --user $RUNTIME_NAME" \
 ]

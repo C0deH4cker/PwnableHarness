@@ -189,6 +189,11 @@ static bool redirect_output(int sock) {
 	return true;
 }
 
+static void handle_term(int signum) {
+	fprintf(stderr_fp, "Got SIGTERM, exiting...");
+	exit(signum);
+}
+
 
 int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
 	/* 
@@ -237,6 +242,12 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	
 	/* Ignore dead children so they don't turn into zombies */
 	if(signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
+		perror("signal");
+		return EXIT_FAILURE;
+	}
+	
+	/* Handle SIGTERM so that when running in Docker as PID 1 we properly exit */
+	if(signal(SIGTERM, &handle_term) == SIG_ERR) {
 		perror("signal");
 		return EXIT_FAILURE;
 	}

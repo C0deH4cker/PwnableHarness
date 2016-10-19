@@ -380,7 +380,7 @@ docker-clean: docker-clean[$$($1/DOCKER_IMAGE)]
 docker-clean[$$($1/DOCKER_IMAGE)]:
 	@echo "Cleaning docker image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
-	$$(_v)docker rmi -f $$($1/DOCKER_IMAGE)
+	$$(_v)docker rmi -f $$($1/DOCKER_IMAGE) >/dev/null 2>&1 || true
 
 endif #DOCKER_RUNNABLE
 
