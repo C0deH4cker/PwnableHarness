@@ -1,6 +1,6 @@
 # Build products
 build/
-publish/
+publish
 *.so
 *.jar
 *.class
