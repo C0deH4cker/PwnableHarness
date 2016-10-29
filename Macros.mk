@@ -35,6 +35,11 @@ ifeq "$$(origin $2_BITS)" "undefined"
 $2_BITS := $$($1/BITS)
 endif
 
+# Ensure that target_OFLAGS has a value, default to no optimization
+ifeq "$$(origin $2_BITS)" "undefined"
+$2_OFLAGS := $$($1/OFLAGS)
+endif
+
 # Ensure that target_CFLAGS is defined
 ifeq "$$(origin $2_CFLAGS)" "undefined"
 $2_CFLAGS := $$($1/CFLAGS)
@@ -101,6 +106,7 @@ ifeq "$$(origin $2_LD)" "undefined"
 $2_LD := $$(or $$($1/LD),$$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC)))
 endif
 
+
 # Check if any of the targets in this directory use PwnableHarness
 ifneq "$$(filter -lpwnableharness%,$$($2_LDLIBS))" ""
 $1/DOCKER_BUILD_DEPS := docker-build[c0deh4cker/pwnableharness]
@@ -111,15 +117,66 @@ $1/LINKER_DEPS :=
 endif
 
 
+## Hardening flags
+
+# Ensure that target_RELRO has a value
+ifeq "$$(origin $2_RELRO)" "undefined"
+$2_RELRO := $$($1/CANARY)
+endif
+
+# Ensure that target_CANARY has a value
+ifeq "$$(origin $2_CANARY)" "undefined"
+$2_CANARY := $$($1/CANARY)
+endif
+
+# Ensure that target_NX has a value
+ifeq "$$(origin $2_NX)" "undefined"
+$2_NX := $$($1/NX)
+endif
+
+# Ensure that target_ASLR has a value
+ifeq "$$(origin $2_ASLR)" "undefined"
+$2_ASLR := $$($1/ASLR)
+endif
+
+
+## Apply hardening flags
+
+# RELRO (Read-only relocations)
+ifdef $2_RELRO
+ifneq "$$($2_RELRO)" "partial"
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,relro,-z,now
+endif #partial
+else #RELRO
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,norelro
+endif #RELRO
+
+# Stack canary
+ifndef $2_CANARY
+$2_CFLAGS := $$($2_CFLAGS) -fno-stack-protector
+endif
+
+# NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
+ifndef $2_NX
+$2_LDFLAGS := $$($2_LDFLAGS) -z execstack
+endif
+
+# ASLR (Address Space Layout Randomization)
+ifdef $2_ASLR
+$2_CFLAGS := $$($2_CFLAGS) -fPIC
+$2_LDFLAGS := $$($2_LDFLAGS) -pie
+endif
+
+
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compilation dependency rules
 -include $$($2_DEPS)
@@ -170,6 +227,7 @@ DOCKER_RUNNABLE :=
 
 # These can optionally be defined to set directory-specific variables
 BITS := 32
+OFLAGS := -O0
 CFLAGS :=
 CXXFLAGS :=
 LDFLAGS :=
@@ -178,6 +236,12 @@ SRCS := $$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext)))
 CC := gcc
 CXX := g++
 LD :=
+
+# Hardening flags
+RELRO :=
+CANARY :=
+NX :=
+ASLR :=
 
 # Define DIR for use by Build.mk files
 DIR := $1
@@ -208,6 +272,7 @@ $1/PUBLISH := $$(PUBLISH)
 
 # Directory specific variables
 $1/BITS := $$(BITS)
+$1/OFLAGS := $$(OFLAGS)
 $1/CFLAGS := $$(CFLAGS)
 $1/CXXFLAGS := $$(CXXFLAGS)
 $1/LDFLAGS := $$(LDFLAGS)
@@ -216,6 +281,12 @@ $1/SRCS := $$(SRCS)
 $1/CC := $$(CC)
 $1/CXX := $$(CXX)
 $1/LD := $$(LD)
+
+# Directory specific hardening flags
+$1/RELRO := $$(RELRO)
+$1/CANARY := $$(CANARY)
+$1/NX := $$(NX)
+$1/ASLR := $$(ASLR)
 
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
