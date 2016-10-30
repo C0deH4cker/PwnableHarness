@@ -121,7 +121,7 @@ endif
 
 # Ensure that target_RELRO has a value
 ifeq "$$(origin $2_RELRO)" "undefined"
-$2_RELRO := $$($1/CANARY)
+$2_RELRO := $$($1/RELRO)
 endif
 
 # Ensure that target_CANARY has a value
