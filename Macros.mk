@@ -216,6 +216,7 @@ TARGETS :=
 
 # Optional list of files to publish
 PUBLISH :=
+PUBLISH_LIBC :=
 
 # These can optionally be defined by Build.mk
 DOCKER_IMAGE :=
