@@ -11,10 +11,11 @@
 # whereas a macro named make_rule must be called using:
 # $(call make_rule,args)
 # Also, when both forms are present, make_rule is defined like so:
-# make_rule = $(eval $(_make_rule))
+# make_rule = $(eval $(call _make_rule,args...))
 # In this way, _make_rule is recursively expanded in the call context and
 # therefore has access to the parameter variables $1, $2, etc that come
 # from calling make_rule.
+#
 # Because the only difference between the two forms is that the one without
 # the leading underscore is eval-ed, when defining such a macro that needs
 # to call other macros, call the non-eval-ed version. That prevents double
@@ -36,7 +37,7 @@ $2_BITS := $$($1/BITS)
 endif
 
 # Ensure that target_OFLAGS has a value, default to no optimization
-ifeq "$$(origin $2_BITS)" "undefined"
+ifeq "$$(origin $2_OFLAGS)" "undefined"
 $2_OFLAGS := $$($1/OFLAGS)
 endif
 
@@ -269,6 +270,7 @@ endif
 # List of target files produced by Build.mk
 $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
 $1/PUBLISH := $$(PUBLISH)
+$1/PUBLISH_LIBC := $$(PUBLISH_LIBC)
 
 # Directory specific variables
 $1/BITS := $$(BITS)
@@ -304,13 +306,14 @@ all[$1]: $$($1/PRODUCTS)
 
 # Publish rules
 ifdef $1/PUBLISH
+
 publish: publish[$1]
 
 publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH))
 
 $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH)): $$(PUB_DIR)/%: $1/%
 	@echo "Publishing $$*"
-	$$(_v)cp $$< $$@
+	$$(_v)cat $$< > $$@
 
 .PHONY: publish[$1]
 endif
@@ -456,6 +459,42 @@ docker-clean[$$($1/DOCKER_IMAGE)]:
 endif #DOCKER_RUNNABLE
 
 endif #DOCKER_IMAGE
+
+
+# Publish libc for the challenge
+ifdef $1/PUBLISH_LIBC
+
+# Decide whether to grab the 32-bit or 64-bit libc
+ifeq "$$($1/BITS)" "32"
+$1/LIBC_PATH := /lib/i386-linux-gnu/libc.so.6
+else
+$1/LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
+endif
+
+publish[$1]: $$(PUB_DIR)/$$($1/PUBLISH_LIBC)
+
+# Copy the libc from Docker only if the challenge is configured to run in Docker
+ifdef $1/DOCKER_RUNNABLE
+# If the challenge runs within Docker, copy the libc from the docker image
+$$(PUB_DIR)/$$($1/PUBLISH_LIBC): docker-build[$$($1/DOCKER_IMAGE)]
+	@echo "Publishing $$($1/PUBLISH_LIBC) from docker image $$($1/DOCKER_IMAGE):$$($1/LIBC_PATH)"
+	$$(_v)docker run --rm --entrypoint /bin/cat $$($1/DOCKER_IMAGE) $$($1/LIBC_PATH) > $$@
+
+else #DOCKER_RUNNABLE
+# If the challenge doesn't run in Docker, copy the system's libc
+$$(PUB_DIR)/$$($1/PUBLISH_LIBC): $$($1/LIBC_PATH)
+	@echo "Publishing $$($1/PUBLISH_LIBC) from $$<"
+	$$(_v)cat $$< > $$@
+
+endif #DOCKER_RUNNABLE
+endif #PUBLISH_LIBC
+
+
+# Recurse into subdirectories that contain Build.mk files
+$1/SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/Build.mk)))
+
+# Include each subdirectory's Build.mk (including this directory)
+$$(foreach sd,$$($1/SUBDIRS),$$(call include_subdir,$$(sd)))
 
 
 endef #_include_subdir

@@ -46,6 +46,7 @@ TARGET := stack0
 #
 # target_OFLAGS:   Command line options passed to CC to control the
 #                  compiler's optimization settings.
+#                  Default: -O0
 #
 # target_NX:       Define this to enable NX aka DEP aka W^X.
 #                  Default: empty
@@ -97,6 +98,13 @@ TARGET := stack0
 # of this repo. This feature is useful for publishing files to a web
 # server to instantly update challenges.
 PUBLISH := $(TARGET) stack0.c
+
+# PUBLISH_LIBC is the desired filename used when publishing this
+# challenge's libc. When this is defined, the exact libc used will
+# be published to publish/$(PUBLISH_LIBC). This libc will be copied
+# from the docker image if the challenge is configured to run in
+# docker, otherwise the local system's libc will be copied.
+#PUBLISH_LIBC := stack0-libc.so
 
 # DOCKER_IMAGE is the name of the docker image to create when
 # running "make docker-build".
