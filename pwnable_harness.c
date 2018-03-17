@@ -398,7 +398,7 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		}
 		else {
 			printf(
-				"Error: Unkown argument '%s'\n"
+				"Error: Unknown argument '%s'\n"
 				"Usage: %s [options]\n"
 				"  Options:\n"
 				"    -l, --listen                   "

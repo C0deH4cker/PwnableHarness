@@ -11,14 +11,11 @@ PUB_DIR := publish
 VERBOSE ?=
 _v = $(if $(VERBOSE),,@)
 
-# A list of every directory that contains a Build.mk file
-SUBDIRS := . $(patsubst %/,%,$(dir $(wildcard */Build.mk)))
-
 # Define useful build macros
 include Macros.mk
 
 # Include each subdirectory's Build.mk (including this directory)
-$(foreach sd,$(SUBDIRS),$(call include_subdir,$(sd)))
+$(call include_subdir,.)
 
 # Running "make base" builds only libpwnableharness*.so
 base: all[.]
