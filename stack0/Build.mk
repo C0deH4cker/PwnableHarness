@@ -33,59 +33,65 @@ TARGET := stack0
 # gottagofast_OFLAGS := -O3 -DSPEED=fast
 
 
-# These are the other target-specific variables may be defined here
-# to override their defaults:
+# These are the variables may be defined here to override
+# their defaults:
 #
-# target_CFLAGS:   Command line options passed to CC when compiling
+# CFLAGS:          Command line options passed to CC when compiling
 #                  C source files.
 #                  Default: empty
 #
-# target_LDFLAGS:  Command line options passed to LD when linking the
+# LDFLAGS:         Command line options passed to LD when linking the
 #                  TARGET executable.
 #                  Default: empty
 #
-# target_OFLAGS:   Command line options passed to CC to control the
+# OFLAGS:          Command line options passed to CC to control the
 #                  compiler's optimization settings.
 #                  Default: -O0
 #
-# target_NX:       Define this to enable NX aka DEP aka W^X.
+# NX:              Define this to enable NX aka DEP aka W^X.
 #                  Default: empty
 #
-# target_ASLR:     Define this to enable ASLR.
+# ASLR:            Define this to enable ASLR.
 #                  Default: empty
 #
-# target_CANARY:   Define this to enable stack protector canaries.
+# CANARY:          Define this to enable stack protector canaries.
 #                  Default: empty
 #
-# target_RELRO:    Define this to enable full RELRO. This can be set
+# RELRO:           Define this to enable full RELRO. This can be set
 #                  to "partial" to enable partial RELRO, which is the
 #                  default in GCC.
 #                  Default: empty
 #
-# target_BITS:     Either 32 or 64, for deciding the architecture to
+# STRIP:           Define this to strip symbols from the binary.
+#                  Default: empty
+#
+# DEBUG:           Define this to include debugger symbols.
+#                  Default: empty
+#
+# BITS:            Either 32 or 64, for deciding the architecture to
 #                  build for (i386/amd64).
 #                  Default: 32
 #
-# target_CXXFLAGS: Command line options passed to CXX when compiling
+# CXXFLAGS:        Command line options passed to CXX when compiling
 #                  C++ source files.
 #                  Default: empty
 #
-# target_LDLIBS:   Command line options passed to LD when linking the
+# LDLIBS:          Command line options passed to LD when linking the
 #                  TARGET executable, used specifically to list the
 #                  libraries to link against.
 #                  Default: -lpwnableharness$(target_BITS).so
 #
-# target_SRCS:     List of source files belonging to the TARGET.
+# SRCS:            List of source files belonging to the TARGET.
 #                  Default: Every file matching *.c or *.cpp in the
 #                  same directory as Build.mk.
 #
-# target_CC:       Compiler to use for C sources.
+# CC:              Compiler to use for C sources.
 #                  Default: gcc
 #
-# target_CXX:      Compiler to use for C++ sources.
+# CXX:             Compiler to use for C++ sources.
 #                  Default: g++
 #
-# target_LD:       Linker to use.
+# LD:              Linker to use.
 #                  Default: target_CXX if there are any C++ source
 #                  files in target_SRCS, otherwise target_CC.
 

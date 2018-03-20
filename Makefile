@@ -7,15 +7,23 @@ BUILD := build
 # Path to the publish directory (this is generally a symlink to /var/www/html)
 PUB_DIR := publish
 
+# For debugging development of this Makefile
+MKDEBUG ?=
+
 # Print all commands executed when VERBOSE is defined
 VERBOSE ?=
 _v = $(if $(VERBOSE),,@)
+_V = $(if $(VERBOSE),@\#,@)
 
 # Define useful build macros
 include Macros.mk
 
-# Include each subdirectory's Build.mk (including this directory)
-$(call include_subdir,.)
+# Directories to avoid recursing into
+RECURSION_BLACKLIST ?=
+RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) .git $(RECURSION_BLACKLIST)
+
+# Recursively grab each subdirectory's Build.mk file and generate rules for its targets
+$(call recurse_subdir,.)
 
 # Running "make base" builds only libpwnableharness*.so
 base: all[.]

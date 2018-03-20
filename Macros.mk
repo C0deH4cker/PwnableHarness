@@ -25,9 +25,11 @@
 
 #####
 # generate_target($1: subdirectory, $2: target)
+#
+# Generate the rules to build the given target contained within the given directory.
 #####
 define _generate_target
-ifdef VERBOSE
+ifdef MKDEBUG
 $$(info Generating target rules for $1/$2)
 endif
 
@@ -140,6 +142,16 @@ ifeq "$$(origin $2_ASLR)" "undefined"
 $2_ASLR := $$($1/ASLR)
 endif
 
+# Ensure that target_STRIP has a value
+ifeq "$$(origin $2_STRIP)" "undefined"
+$2_STRIP := $$($1/STRIP)
+endif
+
+# Ensure that target_DEBUG has a value
+ifeq "$$(origin $2_DEBUG)" "undefined"
+$2_DEBUG := $$($1/DEBUG)
+endif
+
 
 ## Apply hardening flags
 
@@ -168,16 +180,27 @@ $2_CFLAGS := $$($2_CFLAGS) -fPIC
 $2_LDFLAGS := $$($2_LDFLAGS) -pie
 endif
 
+# Strip symbols
+ifdef $2_STRIP
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-s
+endif
+
+# Debug symbols
+ifdef $2_DEBUG
+$2_CFLAGS := $$($2_CFLAGS) -ggdb
+$2_LDFLAGS := $$($2_LDFLAGS) -ggdb
+endif
+
 
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
-	@echo "Compiling $$<"
+	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
-	@echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_V)echo "Compiling $$<"
+	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compilation dependency rules
 -include $$($2_DEPS)
@@ -185,14 +208,14 @@ $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 ifeq "$$(suffix $2)" ".so"
 # Linker rule to produce the final target (specialization for shared libraries)
 $1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
-	@echo "Linking shared library $$@"
+	$$(_V)echo "Linking shared library $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -shared -L. $$($2_LDFLAGS) \
 		-o $$@ $$^ $$($2_LDLIBS)
 
-else
+else #.so
 # Linker rule to produce the final target (specialization for executables)
 $1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
-	@echo "Linking executable $$@"
+	$$(_V)echo "Linking executable $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -L. $$($2_LDFLAGS) \
 		-Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN \
 		-o $$@ $$^ $$($2_LDLIBS)
@@ -207,8 +230,13 @@ generate_target = $(eval $(call _generate_target,$1,$2))
 
 #####
 # include_subdir($1: subdirectory)
+#
+# Check for a Build.mk file in the given directory. If one exists, include it and
+# automatically generate all target dependencies and rules to build the products.
 #####
 define _include_subdir
+
+ifneq "$$(wildcard $1/Build.mk)" ""
 
 # Exactly one of these must be defined by Build.mk
 TARGET :=
@@ -244,12 +272,14 @@ RELRO :=
 CANARY :=
 NX :=
 ASLR :=
+STRIP :=
+DEBUG :=
 
 # Define DIR for use by Build.mk files
 DIR := $1
 
 # First, include the subdirectory's makefile
-ifdef VERBOSE
+ifdef MKDEBUG
 $$(info Including $1/Build.mk)
 endif
 include $1/Build.mk
@@ -290,6 +320,8 @@ $1/RELRO := $$(RELRO)
 $1/CANARY := $$(CANARY)
 $1/NX := $$(NX)
 $1/ASLR := $$(ASLR)
+$1/STRIP := $$(STRIP)
+$1/DEBUG := $$(DEBUG)
 
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
@@ -313,7 +345,7 @@ publish: publish[$1]
 publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH))
 
 $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH)): $$(PUB_DIR)/%: $1/%
-	@echo "Publishing $$*"
+	$$(_V)echo "Publishing $$*"
 	$$(_v)cat $$< > $$@
 
 .PHONY: publish[$1]
@@ -323,7 +355,7 @@ endif
 clean: clean[$1]
 
 clean[$1]:
-	@echo "Removing build directory and products for $1"
+	$$(_V)echo "Removing build directory and products for $1"
 	$$(_v)rm -rf $$(patsubst %/.,%,$$(BUILD)/$1) $$($1/PRODUCTS)
 
 .PHONY: clean[$1]
@@ -396,7 +428,7 @@ docker-build[$$($1/DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
 
 # Create a marker file to track last docker build time
 $$(BUILD)/$1/.docker_build_marker: $$($1/PRODUCTS) | $$($1/DOCKER_BUILD_DEPS)
-	@echo "Building docker image $$($1/DOCKER_IMAGE)"
+	$$(_V)echo "Building docker image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$@
 
@@ -405,7 +437,7 @@ docker-rebuild: docker-rebuild[$$($1/DOCKER_IMAGE)]
 
 # This rebuilds the docker image no matter what
 docker-rebuild[$$($1/DOCKER_IMAGE)]: | $$($1/PRODUCTS) $$($1/DOCKER_BUILD_DEPS)
-	@echo "Rebuilding docker image $$($1/DOCKER_IMAGE)"
+	$$(_V)echo "Rebuilding docker image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$(BUILD)/$1/.docker_build_marker
 
@@ -420,7 +452,7 @@ docker-start: docker-start[$$($1/DOCKER_RUNTIME_NAME)]
 # When starting a container, make sure the docker image is built
 # and up to date
 docker-start[$$($1/DOCKER_RUNTIME_NAME)]: docker-build[$$($1/DOCKER_IMAGE)]
-	@echo "Starting docker container $$($1/DOCKER_RUNTIME_NAME) from image $$($1/DOCKER_IMAGE)"
+	$$(_V)echo "Starting docker container $$($1/DOCKER_RUNTIME_NAME) from image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
 	$$(_v)docker run --restart=unless-stopped --name $$($1/DOCKER_RUNTIME_NAME) -itd \
 		-v /etc/localtime:/etc/localtime:ro $$($1/DOCKER_PORT_ARGS) \
@@ -433,7 +465,7 @@ docker-restart: docker-restart[$$($1/DOCKER_RUNTIME_NAME)]
 
 # Restart a docker container
 docker-restart[$$($1/DOCKER_RUNTIME_NAME)]:
-	@echo "Restarting docker container $$($1/DOCKER_RUNTIME_NAME)"
+	$$(_V)echo "Restarting docker container $$($1/DOCKER_RUNTIME_NAME)"
 	$$(_v)docker restart $$($1/DOCKER_RUNTIME_NAME)
 
 .PHONY: docker-restart[$$($1/DOCKER_RUNTIME_NAME)]
@@ -443,7 +475,7 @@ docker-stop: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
 
 # Stop the docker container
 docker-stop[$$($1/DOCKER_RUNTIME_NAME)]:
-	@echo "Stopping docker container $$($1/DOCKER_RUNTIME_NAME)"
+	$$(_V)echo "Stopping docker container $$($1/DOCKER_RUNTIME_NAME)"
 	$$(_v)docker stop $$($1/DOCKER_RUNTIME_NAME)
 
 .PHONY: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
@@ -453,7 +485,7 @@ docker-clean: docker-clean[$$($1/DOCKER_IMAGE)]
 
 # Force remove the container and image
 docker-clean[$$($1/DOCKER_IMAGE)]:
-	@echo "Cleaning docker image $$($1/DOCKER_IMAGE)"
+	$$(_V)echo "Cleaning docker image $$($1/DOCKER_IMAGE)"
 	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
 	$$(_v)docker rmi -f $$($1/DOCKER_IMAGE) >/dev/null 2>&1 || true
 
@@ -478,26 +510,52 @@ publish[$1]: $$(PUB_DIR)/$$($1/PUBLISH_LIBC)
 ifdef $1/DOCKER_RUNNABLE
 # If the challenge runs within Docker, copy the libc from the docker image
 $$(PUB_DIR)/$$($1/PUBLISH_LIBC): docker-build[$$($1/DOCKER_IMAGE)]
-	@echo "Publishing $$($1/PUBLISH_LIBC) from docker image $$($1/DOCKER_IMAGE):$$($1/LIBC_PATH)"
+	$$(_V)echo "Publishing $$($1/PUBLISH_LIBC) from docker image $$($1/DOCKER_IMAGE):$$($1/LIBC_PATH)"
 	$$(_v)docker run --rm --entrypoint /bin/cat $$($1/DOCKER_IMAGE) $$($1/LIBC_PATH) > $$@
 
 else #DOCKER_RUNNABLE
 # If the challenge doesn't run in Docker, copy the system's libc
 $$(PUB_DIR)/$$($1/PUBLISH_LIBC): $$($1/LIBC_PATH)
-	@echo "Publishing $$($1/PUBLISH_LIBC) from $$<"
+	$$(_V)echo "Publishing $$($1/PUBLISH_LIBC) from $$<"
 	$$(_v)cat $$< > $$@
 
 endif #DOCKER_RUNNABLE
 endif #PUBLISH_LIBC
-
-
-# Recurse into subdirectories that contain Build.mk files
-$1/SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/Build.mk)))
-
-# Include each subdirectory's Build.mk (including this directory)
-$$(foreach sd,$$($1/SUBDIRS),$$(call include_subdir,$$(sd)))
-
+endif #exists $1/Build.mk
 
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
+#####
+
+
+#####
+# recurse_subdir($1: subdirectory)
+#
+# Perform a depth-first recursion through the given directory including all Build.mk files found.
+#####
+define _recurse_subdir
+
+# Include this directory's Build.mk file if it exists
+$$(call include_subdir,$1)
+
+# Make a list of all items in this directory that are directories and strip the trailing "/"
+$1/SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
+
+# Remove current directory and blacklisted items from the list of subdirectories
+$1/SUBDIRS := $$(filter-out $1 $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1/SUBDIRS))
+
+# Strip off the leading "./" in the subdirectory names
+$1/SUBDIRS := $$(patsubst ./%,%,$$($1/SUBDIRS))
+
+ifdef MKDEBUG
+ifdef $1/SUBDIRS
+$$(info Recursing from $1 into $$($1/SUBDIRS))
+endif
+endif
+
+# Recurse into each subdirectory
+$$(foreach sd,$$($1/SUBDIRS),$$(call recurse_subdir,$$(sd)))
+
+endef #_recurse_subdir
+recurse_subdir = $(eval $(call _recurse_subdir,$1))
 #####
