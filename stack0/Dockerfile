@@ -1,5 +1,5 @@
 FROM c0deh4cker/pwnableharness
-MAINTAINER C0deH4cker <c0deh4cker@gmail.com>
+LABEL maintainer=c0deh4cker@gmail.com
 
 # Allow passing docker build args for the source paths
 # in order to copy the real flag files if they exist.

@@ -4,6 +4,7 @@ publish
 *.so
 *.jar
 *.class
+*/default.Dockerfile
 
 # Debugger files
 *.idb

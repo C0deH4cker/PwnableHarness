@@ -246,7 +246,13 @@ TARGETS :=
 PUBLISH :=
 PUBLISH_LIBC :=
 
-# These can optionally be defined by Build.mk
+# Optional CTF flag management
+FLAG :=
+FLAG_FILE := $(wildcard $1/flag.txt)
+FLAG_DST := flag.txt
+
+# These can optionally be defined by Build.mk for Docker management
+DOCKERFILE :=
 DOCKER_IMAGE :=
 DOCKER_RUNTIME_NAME :=
 DOCKER_BUILD_ARGS :=
@@ -302,6 +308,21 @@ endif
 $1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
 $1/PUBLISH := $$(PUBLISH)
 $1/PUBLISH_LIBC := $$(PUBLISH_LIBC)
+
+# CTF flag management
+$1/FLAG := $$(FLAG)
+$1/FLAG_FILE := $$(FLAG_FILE)
+$1/FLAG_DST := $$(FLAG_DST)
+
+# Docker variables
+$1/DOCKERFILE := $$(DOCKERFILE)
+$1/DOCKER_IMAGE := $$(DOCKER_IMAGE)
+$1/DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
+$1/DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
+$1/DOCKER_PORTS := $$(DOCKER_PORTS)
+$1/DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
+$1/DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
+$1/DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 
 # Directory specific variables
 $1/BITS := $$(BITS)
@@ -367,54 +388,91 @@ $$(BUILD)/$1/.dir:
 ## Docker variables
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
-ifdef DOCKER_IMAGE
-$1/DOCKER_IMAGE := $$(DOCKER_IMAGE)
+ifdef $1/DOCKER_IMAGE
+
+# Check if there is a Dockerfile in this directory
+ifndef $1/DOCKERFILE
+$1/DOCKERFILE := $$(wildcard $1/Dockerfile)
+
+# If $1/Dockerfile doesn't exist, we will use the default Dockerfile
+ifndef $1/DOCKERFILE
+$1/DOCKERFILE := default.Dockerfile
+endif #exists $1/Dockerfile
+endif #DOCKERFILE
+
+# If the Dockerfile to use isn't in the project directory, add a rule to copy it there
+ifneq "$$(dir $$($1/DOCKERFILE))" "$1/"
+
+$1/$$(notdir $$($1/DOCKERFILE)): $$($1/DOCKERFILE)
+	$$(_V)echo 'Copying $$< to $$@'
+	$$(_v)cp $$< $$@
+
+endif #dir DOCKERFILE
+
+# If the Dockerfile doesn't have the standard name, add an argument telling
+# docker build which Dockerfile to use
+ifneq "$$($1/DOCKERFILE)" "$1/Dockerfile"
+$1/DOCKER_BUILD_ARGS := -f $1/$$(notdir $$($1/DOCKERFILE)) $$($1/DOCKER_BUILD_ARGS)
+endif #Dockerfile
+
+# Add the Dockerfile as a dependency for the docker-build target
+$1/DOCKER_BUILD_DEPS := $1/$$(notdir $$($1/DOCKERFILE)) $$($1/DOCKER_BUILD_DEPS)
 
 # Ensure that DIR/DOCKER_RUNTIME_NAME has a value, default to the
 # first target in DIR/TARGETS
-ifdef DOCKER_RUNTIME_NAME
-$1/DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
+ifdef $1/DOCKER_RUNTIME_NAME
 $1/DOCKER_RUNNABLE := true
 else
 $1/DOCKER_RUNTIME_NAME := $$(firstword $$($1/TARGETS))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
-ifdef DOCKER_PORTS
-$1/DOCKER_PORTS := $$(DOCKER_PORTS)
+ifdef $1/DOCKER_PORTS
 $1/DOCKER_PORT_ARGS := $$(foreach port,$$($1/DOCKER_PORTS),-p $$(port):$$(port))
+$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "PORTS=$$($1/DOCKER_PORTS)"
 $1/DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_RUN_ARGS was defined
-ifdef DOCKER_RUN_ARGS
-$1/DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
+ifdef $1/DOCKER_RUN_ARGS
 $1/DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_ENTRYPOINT_ARGS was defined
-ifdef DOCKER_ENTRYPOINT_ARGS
-$1/DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
+ifdef $1/DOCKER_ENTRYPOINT_ARGS
 $1/DOCKER_RUNNABLE := true
 endif
 
-# Check if DOCKER_RUNNABLE was defined
-ifdef DOCKER_RUNNABLE
-$1/DOCKER_RUNNABLE = $$(DOCKER_RUNNABLE)
-endif
-
-# Ensure that DIR/DOCKER_BUILD_ARGS has a value
+# Append the RUNTIME_NAME to the list of docker build arg
 ifdef $1/DOCKER_RUNNABLE
-$1/DOCKER_BUILD_ARGS := RUNTIME_NAME=$$($1/DOCKER_RUNTIME_NAME)
-else
-$1/DOCKER_BUILD_ARGS :=
-endif
-ifdef DOCKER_BUILD_ARGS
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) $$(DOCKER_BUILD_ARGS)
+$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "RUNTIME_NAME=$$($1/DOCKER_RUNTIME_NAME)"
 endif
 
-# Convert a list of name=value to a list of --build-arg name=value
-$1/DOCKER_BUILD_FLAGS := $$(addprefix --build-arg ,$$($1/DOCKER_BUILD_ARGS))
+# Adding the flag to the docker image
+$1/HAS_FLAG := true
+ifdef $1/FLAG_FILE
+$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG=`cat $$($1/FLAG_FILE)`"
+else #FLAG_FILE
+ifdef $1/FLAG
+$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG=$$($1/FLAG)"
+else #FLAG
+$1/HAS_FLAG :=
+endif #FLAG
+endif #FLAG_FILE
+
+# Adding flag destination if the project includes a flag
+ifdef $1/HAS_FLAG
+ifdef $1/FLAG_DST
+ifdef MKDEBUG
+$$(info Placing flag for docker image $$($1/DOCKER_IMAGE) in $$($1/FLAG_DST))
+endif #MKDEBUG
+
+$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1/FLAG_DST)"
+endif #FLAG_DST
+endif #HAS_FLAG
+
+# Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
+$1/DOCKER_BUILD_FLAGS := $$($1/DOCKER_BUILD_ARGS)
 
 
 ## Docker build rules

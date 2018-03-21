@@ -4,7 +4,7 @@ all:
 # Path to the root build directory
 BUILD := build
 
-# Path to the publish directory (this is generally a symlink to /var/www/html)
+# Path to the publish directory (this could be a symlink to /var/www/html)
 PUB_DIR := publish
 
 # For debugging development of this Makefile
@@ -24,6 +24,11 @@ RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) .git $(RECURSION_BLACKLIST)
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
+
+# Used for debugging this Makefile
+# `make stack0/DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
+%?:
+	@echo '$* := $($*)'
 
 # Running "make base" builds only libpwnableharness*.so
 base: all[.]

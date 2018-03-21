@@ -1,5 +1,5 @@
-FROM ubuntu
-MAINTAINER C0deH4cker <c0deh4cker@gmail.com>
+FROM ubuntu:16.04
+LABEL maintainer="c0deh4cker@gmail.com"
 
 # Add support for running 32-bit executables
 RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y libc6:i386
@@ -23,6 +23,19 @@ ONBUILD RUN useradd -m -s /bin/bash -U $RUNTIME_NAME
 # will be owned and only writeable by root.
 ONBUILD WORKDIR /home/$RUNTIME_NAME
 ONBUILD COPY $RUNTIME_NAME ./
+
+# If given a flag, write it to the given destination file
+ONBUILD ARG FLAG=
+ONBUILD ARG FLAG_DST=flag.txt
+ONBUILD RUN if [ -n "$FLAG" -a -n "$FLAG_DST" ]; then \
+		echo "$FLAG" > "$FLAG_DST" && \
+		chown "root:$RUNTIME_NAME" "$FLAG_DST" && \
+		chmod 0640 "$FLAG_DST"; \
+	fi
+
+# Which ports are exposed by this docker container
+ONBUILD ARG PORTS
+ONBUILD EXPOSE $PORTS
 
 # Run the executable without a chroot since this is already
 # running in a docker container. Also specify the username
