@@ -35,7 +35,7 @@ static FILE* stdin_fp, *stdout_fp, *stderr_fp;
 static const char* kEnvMarker = "PWNABLE_CONNECTION";
 
 /*! Need to avoid setenv(), which does a hidden malloc */
-static bool skipListen = false;
+static bool skipListen = true;
 
 
 /*! Changes directory to the user's home directory, chroots there, and then
@@ -384,7 +384,7 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 	int i;
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
-			skipListen = true;
+			skipListen = false;
 		}
 		else if(strcmp(argv[i], "--no-chroot") == 0) {
 			opts.chrooted = false;
