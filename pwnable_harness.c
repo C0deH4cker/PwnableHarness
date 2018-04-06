@@ -34,6 +34,9 @@ static FILE* stdin_fp, *stdout_fp, *stderr_fp;
 /*! Name of the environment variable used to mark a connection handler process. */
 static const char* kEnvMarker = "PWNABLE_CONNECTION";
 
+/*! Need to avoid setenv(), which does a hidden malloc */
+static const bool skipListen = false;
+
 
 /*! Changes directory to the user's home directory, chroots there, and then
  * changes to the user's home directory relative to the chroot.
@@ -203,13 +206,13 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	 * server, just call the connection handler.
 	 */
 	char* marker = getenv(kEnvMarker);
-	if(marker != NULL) {
+	if(marker != NULL || skipListen) {
 		/* Make sure these standard output streams are not buffered */
 		setvbuf(stdout, NULL, _IONBF, 0);
 		setvbuf(stderr, NULL, _IONBF, 0);
 		
 		/* Invoke actual challenge function */
-		handler(atoi(marker));
+		handler(skipListen ? 0 : atoi(marker));
 		return EXIT_SUCCESS;
 	}
 	
@@ -382,7 +385,7 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 	int i;
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
-			listen = true;
+			skipListen = true;
 		}
 		else if(strcmp(argv[i], "--no-chroot") == 0) {
 			opts.chrooted = false;
@@ -419,11 +422,6 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 			);
 			return EXIT_FAILURE;
 		}
-	}
-	
-	/* If not run with --listen, just call the connection handler function directly */
-	if(!listen) {
-		setenv(kEnvMarker, "0", 0);
 	}
 	
 	return serve(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler);
