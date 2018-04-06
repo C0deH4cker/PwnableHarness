@@ -35,7 +35,7 @@ static FILE* stdin_fp, *stdout_fp, *stderr_fp;
 static const char* kEnvMarker = "PWNABLE_CONNECTION";
 
 /*! Need to avoid setenv(), which does a hidden malloc */
-static const bool skipListen = false;
+static bool skipListen = false;
 
 
 /*! Changes directory to the user's home directory, chroots there, and then
@@ -381,7 +381,6 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 }
 
 int server_main(int argc, char** argv, server_options opts, conn_handler* handler) {
-	bool listen = false;
 	int i;
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
