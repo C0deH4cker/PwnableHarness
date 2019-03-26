@@ -1,0 +1,4 @@
+TARGET := charity
+
+DOCKER_IMAGE := charity
+DOCKER_PORTS := 19891

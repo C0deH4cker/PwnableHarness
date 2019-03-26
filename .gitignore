@@ -1,10 +1,11 @@
 # Build products
 build/
-publish
+publish/
 *.so
 *.jar
 *.class
 */default.Dockerfile
+pwnablerunner
 
 # Debugger files
 *.idb
@@ -20,5 +21,9 @@ core
 # Real flags
 real_flag*.txt
 
+# Private challenges
+private/
+
 # Solutions
 *.py
+*.pyc

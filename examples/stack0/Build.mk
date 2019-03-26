@@ -37,15 +37,15 @@ TARGET := stack0
 # their defaults:
 #
 # CFLAGS:          Command line options passed to CC when compiling
-#                  C source files.
+#                    C source files.
 #                  Default: empty
 #
 # LDFLAGS:         Command line options passed to LD when linking the
-#                  TARGET executable.
+#                    TARGET executable.
 #                  Default: empty
 #
 # OFLAGS:          Command line options passed to CC to control the
-#                  compiler's optimization settings.
+#                    compiler's optimization settings.
 #                  Default: -O0
 #
 # NX:              Define this to enable NX aka DEP aka W^X.
@@ -58,8 +58,8 @@ TARGET := stack0
 #                  Default: empty
 #
 # RELRO:           Define this to enable full RELRO. This can be set
-#                  to "partial" to enable partial RELRO, which is the
-#                  default in GCC.
+#                    to "partial" to enable partial RELRO, which is
+#                    the default in GCC.
 #                  Default: empty
 #
 # STRIP:           Define this to strip symbols from the binary.
@@ -69,21 +69,16 @@ TARGET := stack0
 #                  Default: empty
 #
 # BITS:            Either 32 or 64, for deciding the architecture to
-#                  build for (i386/amd64).
+#                    build for (i386/amd64).
 #                  Default: 32
 #
 # CXXFLAGS:        Command line options passed to CXX when compiling
-#                  C++ source files.
+#                    C++ source files.
 #                  Default: empty
-#
-# LDLIBS:          Command line options passed to LD when linking the
-#                  TARGET executable, used specifically to list the
-#                  libraries to link against.
-#                  Default: -lpwnableharness$(target_BITS).so
 #
 # SRCS:            List of source files belonging to the TARGET.
 #                  Default: Every file matching *.c or *.cpp in the
-#                  same directory as Build.mk.
+#                    same directory as Build.mk.
 #
 # CC:              Compiler to use for C sources.
 #                  Default: gcc
@@ -93,7 +88,20 @@ TARGET := stack0
 #
 # LD:              Linker to use.
 #                  Default: target_CXX if there are any C++ source
-#                  files in target_SRCS, otherwise target_CC.
+#                    files in target_SRCS, otherwise target_CC.
+#
+# BINTYPE:         Type of binary to build, either "dynamiclib" or
+#                    "executable". You can set this to "custom" if
+#                    you wish to provide your own linker rule.
+#                    However, this is discouraged if it can be
+#                    avoided.
+#                  Default: "dynamiclib" if target ends in ".so",
+#                    otherwise "executable".
+#
+# LIBS:            List of dynamic libraries to link against.
+#                  Default: Empty unless USE_LIBPWNABLEHARNESS is
+#                    defined, in which case the relevant 32/64-bit
+#                    version of libpwnableharness*.so is used.
 
 
 # PUBLISH is a list of files within this directory to publish when
@@ -124,6 +132,14 @@ DOCKER_IMAGE := c0deh4cker/stack0
 # These variables will be usable in a Dockerfile with ARG.
 #
 # Use the real flag files if they exist.
+#
+# Note: This logic is more complicated than needed for most challenges.
+# If you have a single flag file named "flag.txt" in the same directory
+# as your Build.mk, then it will automatically be included in the
+# Docker image in the correct location. If you have multiple flag files,
+# or if you plan to put your challenge on GitHub or similar with a
+# different flag than the real one, then some of this logic may be
+# needed.
 REAL_FLAG1 := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/real_flag1.txt))
 REAL_FLAG2 := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/real_flag2.txt))
 FLAG1_ARG := $(if $(REAL_FLAG1),FLAG1=$(REAL_FLAG1))
@@ -153,12 +169,33 @@ DOCKER_BUILD_ARGS := $(FLAG1_ARG) $(FLAG2_ARG)
 # stack0 listens on port 32101, so bind that to the host.
 DOCKER_PORTS := 32101
 
+# DOCKER_TIMELIMIT defines the number of seconds that the target program
+# will run before being killed. This is implemented by calling the
+# alarm() syscall with this value as the seconds parameter. If this is
+# set to 0 (which is the default if left undefined), then there will
+# be no timelimit set.
+DOCKER_TIMELIMIT := 30
+
 # DOCKER_RUN_ARGS is a list of extra arguments to pass to "docker run".
 #
-# Mount the root filesystem of the container as read only
-DOCKER_RUN_ARGS := --read-only
+# Mount the root filesystem of the container as read only.
+# (NOW USING DOCKER_WRITEABLE INSTEAD)
+#DOCKER_RUN_ARGS := --read-only
+
+# DOCKER_WRITEABLE is used to make the Docker container's filesystem
+# writeable. By default, the Docker container's filesystem is read-only.
+#DOCKER_WRITEABLE := 1
 
 # DOCKER_ENTRYPOINT_ARGS is a list of arguments to pass to the docker
 # container's ENTRYPOINT, which is DOCKER_RUNTIME_NAME.
 #DOCKER_ENTRYPOINT_ARGS :=
+
+# USE_LIBPWNABLEHARNESS is used to tell PwnableHarness that the targets
+# expect to directly link against libpwnableharness in the old style.
+# By default, libpwnableharness*.so is no longer linked to your targets.
+# The new way of using PwnableHarness is for your program to just talk
+# over stdin/stdout directly and doesn't require any code changes.
+# PwnableHarness will even make sure to set stdout/stderr as unbbuffered,
+# so you don't need to manually add calls to fflush(stdout) in your code.
+USE_LIBPWNABLEHARNESS := 1
 
