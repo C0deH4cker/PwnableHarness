@@ -51,7 +51,7 @@ PwnableHarness assumes that the challenge process will be compromised, as that i
 
 ### Documentation for Build.mk Settings
 
-Refer to the stack0 example challenge's [`Build.mk`](examples/stack0/Build.mk), which documents every supported build configuration.
+Refer to the stack0 example challenge's [`Build.mk`](examples/stack0/Build.mk), which documents every supported build variable.
 
 
 ### Usage and Deployment
