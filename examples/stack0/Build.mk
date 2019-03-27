@@ -146,6 +146,12 @@ FLAG1_ARG := $(if $(REAL_FLAG1),FLAG1=$(REAL_FLAG1))
 FLAG2_ARG := $(if $(REAL_FLAG2),FLAG2=$(REAL_FLAG2))
 DOCKER_BUILD_ARGS := $(FLAG1_ARG) $(FLAG2_ARG)
 
+# DOCKER_BUILD_DEPS is a list of Makefile dependencies that when changed
+# will require the Docker image to be rebuilt. For example, if a challenge
+# provides its own Dockerfile which is based on c0deh4cker/pwnableharness
+# and copies the file "foo.bin" into the image:
+#DOCKER_BUILD_DEPS := $(DIR)/foo.bin
+
 # If DOCKER_RUNNABLE is defined at all, this docker image will be
 # considered runnable.
 #

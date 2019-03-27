@@ -34,6 +34,5 @@ $(PWNABLE_PRELOAD64)_SRCS := pwnable_preload.c
 $(PWNABLE_PRELOAD64)_STRIP := 1
 
 DOCKER_IMAGE := c0deh4cker/pwnableharness
-DOCKER_BUILD_DEPS :=
 
 PUBLISH := $(LIB32) $(LIB64)

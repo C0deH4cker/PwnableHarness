@@ -281,7 +281,7 @@ DOCKERFILE :=
 DOCKER_IMAGE :=
 DOCKER_RUNTIME_NAME :=
 DOCKER_BUILD_ARGS :=
-DOCKER_BUILD_DEPS := docker-build[c0deh4cker/pwnableharness]
+DOCKER_BUILD_DEPS :=
 DOCKER_PORTS :=
 DOCKER_RUN_ARGS :=
 DOCKER_ENTRYPOINT_ARGS :=
@@ -451,8 +451,13 @@ ifneq "$$($1+DOCKERFILE)" "$1+Dockerfile"
 $1+DOCKER_BUILD_ARGS := -f $1/$$(notdir $$($1+DOCKERFILE)) $$($1+DOCKER_BUILD_ARGS)
 endif #Dockerfile
 
+# Docker images depend on the base PwnableHarness Docker image
+ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[c0deh4cker/pwnableharness]
+endif
+
 # Add the Dockerfile as a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $1/$$(notdir $$($1+DOCKERFILE)) $$($1+DOCKER_BUILD_DEPS)
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
 
 # Ensure that DIR+DOCKER_RUNTIME_NAME has a value, default to the
 # first target in DIR+TARGETS
