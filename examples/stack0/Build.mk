@@ -190,12 +190,12 @@ DOCKER_TIMELIMIT := 30
 # container's ENTRYPOINT, which is DOCKER_RUNTIME_NAME.
 #DOCKER_ENTRYPOINT_ARGS :=
 
-# USE_LIBPWNABLEHARNESS is used to tell PwnableHarness that the targets
-# expect to directly link against libpwnableharness in the old style.
-# By default, libpwnableharness*.so is no longer linked to your targets.
-# The new way of using PwnableHarness is for your program to just talk
-# over stdin/stdout directly and doesn't require any code changes.
-# PwnableHarness will even make sure to set stdout/stderr as unbbuffered,
+# [DEPRECATED] USE_LIBPWNABLEHARNESS is used to tell PwnableHarness that
+# the targets expect to directly link against libpwnableharness in the old
+# style. By default, libpwnableharness*.so is no longer linked to your
+# targets. The new way of using PwnableHarness is for your program to just
+# talk over stdin/stdout directly and doesn't require any code changes.
+# PwnableHarness will even make sure to set stdout/stderr as unbuffered,
 # so you don't need to manually add calls to fflush(stdout) in your code.
 USE_LIBPWNABLEHARNESS := 1
 

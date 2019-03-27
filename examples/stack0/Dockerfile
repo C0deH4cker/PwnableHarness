@@ -13,6 +13,3 @@ COPY $FLAG2 flag2.txt
 
 # Make the flag readable only by root or the challenge's group.
 RUN chown root:$RUNTIME_NAME flag*.txt && chmod 0640 flag1.txt flag2.txt
-
-# stack0 listens on port 32101.
-EXPOSE 32101

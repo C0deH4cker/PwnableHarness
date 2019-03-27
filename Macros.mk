@@ -268,7 +268,7 @@ PUBLISH_LIBC :=
 
 # Optional CTF flag management
 FLAG :=
-FLAG_FILE := $(wildcard $1/flag.txt)
+FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
 
 # These can optionally be defined by Build.mk for Docker management
