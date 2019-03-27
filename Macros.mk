@@ -207,6 +207,10 @@ $2_LDFLAGS := $$($2_LDFLAGS) -ggdb
 endif
 
 
+# Rebuild all build products when the Build.mk is modified
+$$($2_OBJS): $1/Build.mk
+$1/$2: $1/Build.mk
+
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
 	$$(_V)echo "Compiling $$<"
