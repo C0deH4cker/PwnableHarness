@@ -4,7 +4,7 @@ publish/
 *.so
 *.jar
 *.class
-*/default.Dockerfile
+**/default.Dockerfile
 pwnablerunner
 
 # Debugger files
@@ -27,3 +27,4 @@ private/
 # Solutions
 *.py
 *.pyc
+*.pyo
