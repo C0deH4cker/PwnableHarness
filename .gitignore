@@ -28,3 +28,9 @@ private/
 *.py
 *.pyc
 *.pyo
+
+# Random OS files
+.DS_Store
+thumbs.db
+._*
+*.swp
