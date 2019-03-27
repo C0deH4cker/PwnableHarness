@@ -1,5 +1,5 @@
 //
-//  pwnable_runner.c
+//  pwnable_server.c
 //  PwnableHarness
 //
 //  Created by C0deH4cker on 3/24/19.

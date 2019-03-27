@@ -5,7 +5,7 @@ publish/
 *.jar
 *.class
 **/default.Dockerfile
-pwnablerunner
+pwnableserver
 
 # Debugger files
 *.idb

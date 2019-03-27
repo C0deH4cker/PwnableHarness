@@ -11,8 +11,8 @@ COPY libpwnableharness32.so libpwnableharness64.so /usr/local/lib/
 COPY pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
 COPY pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
 
-# Copy pwnable-runner program to /usr/local/bin
-COPY pwnablerunner /usr/local/bin/
+# Copy pwnable server program to /usr/local/bin
+COPY pwnableserver /usr/local/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \
@@ -20,7 +20,7 @@ RUN chmod 0755 \
 	/usr/local/lib/libpwnableharness64.so \
 	/lib/i386-linux-gnu/pwnablepreload.so \
 	/lib/x86_64-linux-gnu/pwnablepreload.so \
-	/usr/local/bin/pwnablerunner
+	/usr/local/bin/pwnableserver
 
 # Just run bash shell when no command is given. This isn't intended
 # to be a runnable docker image anyway
@@ -58,11 +58,13 @@ ONBUILD EXPOSE $PORT
 ONBUILD ARG TIMELIMIT
 ONBUILD ENV TIMELIMIT=$TIMELIMIT
 
-# Run the executable without a chroot since this is already
-# running in a docker container. Also specify the username
-# explicitly in case the default is different.
+# Run the executable without a chroot since this is already running in a
+# Docker container. Also specify the username explicitly in case the
+# default is different. We inject the pwnablepreload.so library into the
+# spawned challenge process to set the buffering mode of stdout & stderr
+# to unbuffered.
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \
-	"exec /usr/local/bin/pwnablerunner --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $RUNTIME_NAME --inject '/$LIB/pwnablepreload.so' --exec /home/$RUNTIME_NAME/$RUNTIME_NAME" \
+	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $RUNTIME_NAME --inject '/$LIB/pwnablepreload.so' --exec /home/$RUNTIME_NAME/$RUNTIME_NAME" \
 ]

@@ -108,8 +108,7 @@ $2_BINTYPE := executable
 endif #BINTYPE & suffix .so
 endif #target_BINTYPE undefined
 
-# Ensure that target_LIBS has a value, defaulting to
-# "libpwnableharness[32|64].so" unless PWNABLE_RUNNER is defined.
+# Ensure that target_LIBS has a value
 ifeq "$$(origin $2_LIBS)" "undefined"
 $2_LIBS := $$($1+LIBS)
 endif #target_LIBS undefined
