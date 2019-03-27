@@ -190,6 +190,8 @@ $2_CXXFLAGS := $$($2_CXXFLAGS) -fPIC
 ifeq "$$($2_BINTYPE)" "executable"
 $2_LDFLAGS := $$($2_LDFLAGS) -pie
 endif #executable
+else #ASLR
+$2_LDFLAGS := $$($2_LDFLAGS) -no-pie
 endif #ASLR
 
 # Strip symbols
