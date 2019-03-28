@@ -10,7 +10,7 @@ PUB_DIR := publish
 # For debugging development of this Makefile
 MKDEBUG ?=
 
-# Print all commands executed when VERBOSE is defined
+# Print all commands executed when VERBOSE is defined, but don't echo explanations
 VERBOSE ?=
 _v = $(if $(VERBOSE),,@)
 _V = $(if $(VERBOSE),@\#,@)
@@ -22,11 +22,16 @@ include Macros.mk
 RECURSION_BLACKLIST ?=
 RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) .git $(RECURSION_BLACKLIST)
 
+# Only include examples when invoked like `make WITH_EXAMPLES=1`
+ifndef WITH_EXAMPLES
+RECURSION_BLACKLIST := examples $(RECURSION_BLACKLIST)
+endif
+
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
 
 # Used for debugging this Makefile
-# `make stack0/DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
+# `make stack0:DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
 %?:
 	@echo '$* := $($*)'
 

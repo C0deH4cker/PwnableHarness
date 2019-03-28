@@ -9,7 +9,7 @@ the stack is executable).
 
 To connect to this challenge, run the following:
 
-    nc ctf.c0deh4cker.com 32101
+    nc ctf.hackucf.org 32101
 
 
 This will connect you to the challenge running on my server.
@@ -48,14 +48,14 @@ First, make sure you can build and run 32-bit executables:
     sudo dpkg --add-architecture i386
     sudo apt-get update && sudo apt-get install -y libc6:i386 gcc-multilib
 
-Then, build PwnableHarness (run this in the root PwnableHarness directory):
+Then, build PwnableHarness and stack0 (run this in the root PwnableHarness directory):
 
-    make && sudo make install
+    make WITH_EXAMPLES=1
 
-Next, build and run stack0 (run this in the stack0_src directory):
+Next, run stack0 (run this in the stack0 directory):
 
-    make
-    ./stack0 --no-chroot --user $USER --alarm 0
+    cp ../../libpwnableharness32.so ./
+    sudo ./stack0 --no-chroot --user $USER --alarm 0
 
 
 ## Connecting to the locally running challenge
@@ -68,18 +68,12 @@ to it with:
 
 ## Debugging your exploits
 
-First, copy the process id of the stack0 server. If you ran it using docker, look
-at the first line of output from running this command:
+First, copy the process id of the stack0 server.
 
     docker logs stack0
 
 While stack0 is listening for connections, open a root shell in the directory it's
-running from. If you ran stack0 with the docker method, that means running:
-
-    docker exec -it stack0 bash
-
-You'll also need to install gdb if you're using the docker method or if you don't
-already have gdb installed. Then, run the following to attach to the stack0 server
+running from. Then, run the following to attach to the stack0 server
 process and set a breakpoint that is hit when the challenge code starts:
 
     gdb stack0

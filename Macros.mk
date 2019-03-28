@@ -30,51 +30,38 @@
 #####
 define _generate_target
 ifdef MKDEBUG
-$$(info Generating target rules for $1/$2)
+$$(info Generating target rules for $1+$2)
 endif
 
 # Ensure that target_BITS has a value, default to 32-bits
 ifeq "$$(origin $2_BITS)" "undefined"
-$2_BITS := $$($1/BITS)
+$2_BITS := $$($1+BITS)
 endif
 
 # Ensure that target_OFLAGS has a value, default to no optimization
 ifeq "$$(origin $2_OFLAGS)" "undefined"
-$2_OFLAGS := $$($1/OFLAGS)
+$2_OFLAGS := $$($1+OFLAGS)
 endif
 
 # Ensure that target_CFLAGS is defined
 ifeq "$$(origin $2_CFLAGS)" "undefined"
-$2_CFLAGS := $$($1/CFLAGS)
+$2_CFLAGS := $$($1+CFLAGS)
 endif
 
 # Ensure that target_CXXFLAGS is defined
 ifeq "$$(origin $2_CXXFLAGS)" "undefined"
-$2_CXXFLAGS := $$($1/CXXFLAGS)
+$2_CXXFLAGS := $$($1+CXXFLAGS)
 endif
 
 # Ensure that target_LDFLAGS is defined
 ifeq "$$(origin $2_LDFLAGS)" "undefined"
-$2_LDFLAGS := $$($1/LDFLAGS)
-endif
-
-# Ensure that target_LDLIBS has a value, default to -lpwnableharness(32/64)
-ifeq "$$(origin $2_LDLIBS)" "undefined"
-# LDLIBS can be set to the string "none" to include no LDLIBS. Otherwise,
-# it will default to linking against PwnableHarness if empty.
-ifeq "$$($1/LDLIBS)" "none"
-$2_LDLIBS :=
-else
-$2_LDLIBS := $$(or $$($1/LDLIBS),-lpwnableharness$$($2_BITS))
-endif
-else ifeq "$$($2_LDLIBS)" "none"
-$2_LDLIBS :=
+$2_LDFLAGS := $$($1+LDFLAGS)
 endif
 
 # Ensure that target_SRCS has a value, default to searching for all C and
 # C++ sources in the same directory as Build.mk.
 ifeq "$$(origin $2_SRCS)" "undefined"
-$2_SRCS := $$($1/SRCS)
+$2_SRCS := $$($1+SRCS)
 else
 # Prefix each item with the project directory
 $2_SRCS := $$(addprefix $1/,$$($2_SRCS))
@@ -95,61 +82,82 @@ endif
 
 # Ensure that target_CC has a value, defaulting to gcc
 ifeq "$$(origin $2_CC)" "undefined"
-$2_CC := $$($1/CC)
+$2_CC := $$($1+CC)
 endif
 
 # Ensure that target_CXX has a value, defaulting to g++
 ifeq "$$(origin $2_CXX)" "undefined"
-$2_CXX := $$($1/CXX)
+$2_CXX := $$($1+CXX)
 endif
 
 # Ensure that target_LD has a value, defaulting to target_CC unless there are
 # C++ sources, in which case target_CXX is used instead
 ifeq "$$(origin $2_LD)" "undefined"
-$2_LD := $$(or $$($1/LD),$$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC)))
+$2_LD := $$(or $$($1+LD),$$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC)))
 endif
 
+# Ensure that target_BINTYPE has a value, defaulting to "dynamiclib" if target
+# name ends in ".so" otherwise "executable".
+ifeq "$$(origin $2_BINTYPE)" "undefined"
+ifdef $1+BINTYPE
+$2_BINTYPE := $$($1+BINTYPE)
+else ifeq "$$(suffix $2)" ".so"
+$2_BINTYPE := dynamiclib
+else #BINTYPE & suffix .so
+$2_BINTYPE := executable
+endif #BINTYPE & suffix .so
+endif #target_BINTYPE undefined
 
-# Check if any of the targets in this directory use PwnableHarness
-ifneq "$$(filter -lpwnableharness%,$$($2_LDLIBS))" ""
-$1/DOCKER_BUILD_DEPS := docker-build[c0deh4cker/pwnableharness]
-$1/LINKER_DEPS := libpwnableharness$$($2_BITS).so
-else
-$1/DOCKER_BUILD_DEPS :=
-$1/LINKER_DEPS :=
+# Ensure that target_LIBS has a value
+ifeq "$$(origin $2_LIBS)" "undefined"
+$2_LIBS := $$($1+LIBS)
+endif #target_LIBS undefined
+
+# Ensure that target_USE_LIBPWNABLEHARNESS has a value
+ifeq "$$(origin $2_USE_LIBPWNABLEHARNESS)" "undefined"
+$2_USE_LIBPWNABLEHARNESS := $$($1+USE_LIBPWNABLEHARNESS)
 endif
+
+# Add dependency on libpwnableharness[32|64] if requested
+ifdef $2_USE_LIBPWNABLEHARNESS
+$2_LIBS := $$($2_LIBS) libpwnableharness$$($2_BITS).so
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN
+endif
+
+# Convert a list of dynamic library names into linker arguments
+$2_LDLIBS := $$(patsubst lib%.so,-l%,$$($2_LIBS))
 
 
 ## Hardening flags
 
 # Ensure that target_RELRO has a value
 ifeq "$$(origin $2_RELRO)" "undefined"
-$2_RELRO := $$($1/RELRO)
+$2_RELRO := $$($1+RELRO)
 endif
 
 # Ensure that target_CANARY has a value
 ifeq "$$(origin $2_CANARY)" "undefined"
-$2_CANARY := $$($1/CANARY)
+$2_CANARY := $$($1+CANARY)
 endif
 
 # Ensure that target_NX has a value
 ifeq "$$(origin $2_NX)" "undefined"
-$2_NX := $$($1/NX)
+$2_NX := $$($1+NX)
 endif
 
 # Ensure that target_ASLR has a value
 ifeq "$$(origin $2_ASLR)" "undefined"
-$2_ASLR := $$($1/ASLR)
+$2_ASLR := $$($1+ASLR)
 endif
 
 # Ensure that target_STRIP has a value
 ifeq "$$(origin $2_STRIP)" "undefined"
-$2_STRIP := $$($1/STRIP)
+$2_STRIP := $$($1+STRIP)
 endif
 
 # Ensure that target_DEBUG has a value
 ifeq "$$(origin $2_DEBUG)" "undefined"
-$2_DEBUG := $$($1/DEBUG)
+$2_DEBUG := $$($1+DEBUG)
 endif
 
 
@@ -167,6 +175,7 @@ endif #RELRO
 # Stack canary
 ifndef $2_CANARY
 $2_CFLAGS := $$($2_CFLAGS) -fno-stack-protector
+$2_CXXFLAGS := $$($2_CXXFLAGS) -fno-stack-protector
 endif
 
 # NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
@@ -177,8 +186,13 @@ endif
 # ASLR (Address Space Layout Randomization)
 ifdef $2_ASLR
 $2_CFLAGS := $$($2_CFLAGS) -fPIC
+$2_CXXFLAGS := $$($2_CXXFLAGS) -fPIC
+ifeq "$$($2_BINTYPE)" "executable"
 $2_LDFLAGS := $$($2_LDFLAGS) -pie
-endif
+endif #executable
+else #ASLR
+$2_LDFLAGS := $$($2_LDFLAGS) -no-pie
+endif #ASLR
 
 # Strip symbols
 ifdef $2_STRIP
@@ -188,9 +202,14 @@ endif
 # Debug symbols
 ifdef $2_DEBUG
 $2_CFLAGS := $$($2_CFLAGS) -ggdb
+$2_CXXFLAGS := $$($2_CXXFLAGS) -ggdb
 $2_LDFLAGS := $$($2_LDFLAGS) -ggdb
 endif
 
+
+# Rebuild all build products when the Build.mk is modified
+$$($2_OBJS): $1/Build.mk
+$1/$2: $1/Build.mk
 
 # Compiler rule for C sources
 $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
@@ -200,27 +219,33 @@ $$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
 # Compiler rule for C++ sources
 $$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
 	$$(_V)echo "Compiling $$<"
-	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compilation dependency rules
 -include $$($2_DEPS)
 
-ifeq "$$(suffix $2)" ".so"
+ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
+$1/$2: $$($2_OBJS) $$($2_LIBS)
 	$$(_V)echo "Linking shared library $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -shared -L. $$($2_LDFLAGS) \
-		-o $$@ $$^ $$($2_LDLIBS)
+		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
-else #.so
+else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$1/$2: $$($2_OBJS) | $$($1/LINKER_DEPS)
+$1/$2: $$($2_OBJS) $$($2_LIBS)
 	$$(_V)echo "Linking executable $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -L. $$($2_LDFLAGS) \
-		-Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN \
-		-o $$@ $$^ $$($2_LDLIBS)
+		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
-endif #.so
+else #dynamiclib & executable
+
+# Assume that the user will provide their own linker rule here
+ifdef MKDEBUG
+$$(info Not generating a linker rule for $1/$2 because its BINTYPE is "$$($2_BINTYPE)")
+endif #MKDEBUG
+
+endif #dynamiclib & executable
 
 endef #_generate_target
 generate_target = $(eval $(call _generate_target,$1,$2))
@@ -248,7 +273,7 @@ PUBLISH_LIBC :=
 
 # Optional CTF flag management
 FLAG :=
-FLAG_FILE := $(wildcard $1/flag.txt)
+FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
 
 # These can optionally be defined by Build.mk for Docker management
@@ -256,10 +281,13 @@ DOCKERFILE :=
 DOCKER_IMAGE :=
 DOCKER_RUNTIME_NAME :=
 DOCKER_BUILD_ARGS :=
+DOCKER_BUILD_DEPS :=
 DOCKER_PORTS :=
 DOCKER_RUN_ARGS :=
 DOCKER_ENTRYPOINT_ARGS :=
 DOCKER_RUNNABLE :=
+DOCKER_TIMELIMIT := 0
+DOCKER_WRITEABLE :=
 
 # These can optionally be defined to set directory-specific variables
 BITS := 32
@@ -267,11 +295,13 @@ OFLAGS := -O0
 CFLAGS :=
 CXXFLAGS :=
 LDFLAGS :=
-LDLIBS :=
-SRCS := $$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext)))
+SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
 CC := gcc
 CXX := g++
 LD :=
+BINTYPE :=
+LIBS :=
+USE_LIBPWNABLEHARNESS :=
 
 # Hardening flags
 RELRO :=
@@ -296,57 +326,62 @@ ifdef TARGET
 ifdef TARGETS
 $$(error $1/Build.mk defined both TARGET ($$(TARGET)) and TARGETS ($$(TARGETS))!)
 endif
-$1/TARGETS := $$(TARGET)
+$1+TARGETS := $$(TARGET)
 else ifdef TARGETS
-$1/TARGETS := $$(TARGETS)
+$1+TARGETS := $$(TARGETS)
 else
 # It's an error if neither TARGET nor TARGETS are defined
 $$(error $1/Build.mk did not define either TARGET or TARGETS!)
 endif
 
 # List of target files produced by Build.mk
-$1/PRODUCTS := $$(addprefix $1/,$$($1/TARGETS))
-$1/PUBLISH := $$(PUBLISH)
-$1/PUBLISH_LIBC := $$(PUBLISH_LIBC)
+$1+PRODUCTS := $$(addprefix $1/,$$($1+TARGETS))
+$1+PUBLISH := $$(PUBLISH)
+$1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
 
 # CTF flag management
-$1/FLAG := $$(FLAG)
-$1/FLAG_FILE := $$(FLAG_FILE)
-$1/FLAG_DST := $$(FLAG_DST)
+$1+FLAG := $$(FLAG)
+$1+FLAG_FILE := $$(FLAG_FILE)
+$1+FLAG_DST := $$(FLAG_DST)
 
 # Docker variables
-$1/DOCKERFILE := $$(DOCKERFILE)
-$1/DOCKER_IMAGE := $$(DOCKER_IMAGE)
-$1/DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
-$1/DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
-$1/DOCKER_PORTS := $$(DOCKER_PORTS)
-$1/DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
-$1/DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
-$1/DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
+$1+DOCKERFILE := $$(DOCKERFILE)
+$1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
+$1+DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
+$1+DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
+$1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
+$1+DOCKER_PORTS := $$(DOCKER_PORTS)
+$1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
+$1+DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
+$1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
+$1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
+$1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
 
 # Directory specific variables
-$1/BITS := $$(BITS)
-$1/OFLAGS := $$(OFLAGS)
-$1/CFLAGS := $$(CFLAGS)
-$1/CXXFLAGS := $$(CXXFLAGS)
-$1/LDFLAGS := $$(LDFLAGS)
-$1/LDLIBS := $$(LDLIBS)
-$1/SRCS := $$(SRCS)
-$1/CC := $$(CC)
-$1/CXX := $$(CXX)
-$1/LD := $$(LD)
+$1+BITS := $$(BITS)
+$1+OFLAGS := $$(OFLAGS)
+$1+CFLAGS := $$(CFLAGS)
+$1+CXXFLAGS := $$(CXXFLAGS)
+$1+LDFLAGS := $$(LDFLAGS)
+$1+SRCS := $$(addprefix $1/,$$(SRCS))
+$1+CC := $$(CC)
+$1+CXX := $$(CXX)
+$1+LD := $$(LD)
+$1+BINTYPE := $$(BINTYPE)
+$1+LIBS := $$(LIBS)
+$1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 
 # Directory specific hardening flags
-$1/RELRO := $$(RELRO)
-$1/CANARY := $$(CANARY)
-$1/NX := $$(NX)
-$1/ASLR := $$(ASLR)
-$1/STRIP := $$(STRIP)
-$1/DEBUG := $$(DEBUG)
+$1+RELRO := $$(RELRO)
+$1+CANARY := $$(CANARY)
+$1+NX := $$(NX)
+$1+ASLR := $$(ASLR)
+$1+STRIP := $$(STRIP)
+$1+DEBUG := $$(DEBUG)
 
 # Produce target specific variables and build rules
-# $$(foreach target,$$($1/TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
-$$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
+# $$(foreach target,$$($1+TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
+$$(foreach target,$$($1+TARGETS),$$(call generate_target,$1,$$(target)))
 
 
 ## Directory specific build rules
@@ -354,30 +389,31 @@ $$(foreach target,$$($1/TARGETS),$$(call generate_target,$1,$$(target)))
 # Build rules
 all: all[$1]
 
-all[$1]: $$($1/PRODUCTS)
+all[$1]: $$($1+PRODUCTS)
 
 .PHONY: all[$1]
 
 # Publish rules
-ifdef $1/PUBLISH
+ifdef $1+PUBLISH
 
 publish: publish[$1]
 
-publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH))
+publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1+PUBLISH))
 
-$$(addprefix $$(PUB_DIR)/,$$($1/PUBLISH)): $$(PUB_DIR)/%: $1/%
+$$(addprefix $$(PUB_DIR)/,$$($1+PUBLISH)): $$(PUB_DIR)/%: $1/%
 	$$(_V)echo "Publishing $$*"
 	$$(_v)cat $$< > $$@
 
 .PHONY: publish[$1]
-endif
+
+endif #$1+PUBLISH
 
 # Clean rules
 clean: clean[$1]
 
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
-	$$(_v)rm -rf $$(patsubst %/.,%,$$(BUILD)/$1) $$($1/PRODUCTS)
+	$$(_v)rm -rf $$(patsubst %/.,%,$$(BUILD)/$1) $$($1+PRODUCTS)
 
 .PHONY: clean[$1]
 
@@ -388,22 +424,22 @@ $$(BUILD)/$1/.dir:
 ## Docker variables
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
-ifdef $1/DOCKER_IMAGE
+ifdef $1+DOCKER_IMAGE
 
 # Check if there is a Dockerfile in this directory
-ifndef $1/DOCKERFILE
-$1/DOCKERFILE := $$(wildcard $1/Dockerfile)
+ifndef $1+DOCKERFILE
+$1+DOCKERFILE := $$(wildcard $1/Dockerfile)
 
-# If $1/Dockerfile doesn't exist, we will use the default Dockerfile
-ifndef $1/DOCKERFILE
-$1/DOCKERFILE := default.Dockerfile
-endif #exists $1/Dockerfile
+# If $1+Dockerfile doesn't exist, we will use the default Dockerfile
+ifndef $1+DOCKERFILE
+$1+DOCKERFILE := default.Dockerfile
+endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
 # If the Dockerfile to use isn't in the project directory, add a rule to copy it there
-ifneq "$$(dir $$($1/DOCKERFILE))" "$1/"
+ifneq "$$(dir $$($1+DOCKERFILE))" "$1/"
 
-$1/$$(notdir $$($1/DOCKERFILE)): $$($1/DOCKERFILE)
+$1/$$(notdir $$($1+DOCKERFILE)): $$($1+DOCKERFILE)
 	$$(_V)echo 'Copying $$< to $$@'
 	$$(_v)cp $$< $$@
 
@@ -411,141 +447,153 @@ endif #dir DOCKERFILE
 
 # If the Dockerfile doesn't have the standard name, add an argument telling
 # docker build which Dockerfile to use
-ifneq "$$($1/DOCKERFILE)" "$1/Dockerfile"
-$1/DOCKER_BUILD_ARGS := -f $1/$$(notdir $$($1/DOCKERFILE)) $$($1/DOCKER_BUILD_ARGS)
+ifneq "$$($1+DOCKERFILE)" "$1+Dockerfile"
+$1+DOCKER_BUILD_ARGS := -f $1/$$(notdir $$($1+DOCKERFILE)) $$($1+DOCKER_BUILD_ARGS)
 endif #Dockerfile
 
-# Add the Dockerfile as a dependency for the docker-build target
-$1/DOCKER_BUILD_DEPS := $1/$$(notdir $$($1/DOCKERFILE)) $$($1/DOCKER_BUILD_DEPS)
+# Docker images depend on the base PwnableHarness Docker image
+ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[c0deh4cker/pwnableharness]
+endif
 
-# Ensure that DIR/DOCKER_RUNTIME_NAME has a value, default to the
-# first target in DIR/TARGETS
-ifdef $1/DOCKER_RUNTIME_NAME
-$1/DOCKER_RUNNABLE := true
+# Add the Dockerfile as a dependency for the docker-build target
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
+
+# Ensure that DIR+DOCKER_RUNTIME_NAME has a value, default to the
+# first target in DIR+TARGETS
+ifdef $1+DOCKER_RUNTIME_NAME
+$1+DOCKER_RUNNABLE := true
 else
-$1/DOCKER_RUNTIME_NAME := $$(firstword $$($1/TARGETS))
+$1+DOCKER_RUNTIME_NAME := $$(firstword $$($1+TARGETS))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
-ifdef $1/DOCKER_PORTS
-$1/DOCKER_PORT_ARGS := $$(foreach port,$$($1/DOCKER_PORTS),-p $$(port):$$(port))
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "PORTS=$$($1/DOCKER_PORTS)"
-$1/DOCKER_RUNNABLE := true
+ifdef $1+DOCKER_PORTS
+$1+DOCKER_PORT_ARGS := $$(foreach port,$$($1+DOCKER_PORTS),-p $$(port):$$(port))
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))" --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+$1+DOCKER_RUNNABLE := true
 endif
 
 # Check if DOCKER_RUN_ARGS was defined
-ifdef $1/DOCKER_RUN_ARGS
-$1/DOCKER_RUNNABLE := true
+ifdef $1+DOCKER_RUN_ARGS
+$1+DOCKER_RUNNABLE := true
+endif
+
+# Add flag if the Docker container's filesystem should be read-only
+ifndef $1+DOCKER_WRITEABLE
+ifeq "$$(filter --read-only,$$($1+DOCKER_RUN_ARGS))" ""
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --read-only
+endif
 endif
 
 # Check if DOCKER_ENTRYPOINT_ARGS was defined
-ifdef $1/DOCKER_ENTRYPOINT_ARGS
-$1/DOCKER_RUNNABLE := true
+ifdef $1+DOCKER_ENTRYPOINT_ARGS
+$1+DOCKER_RUNNABLE := true
 endif
 
 # Append the RUNTIME_NAME to the list of docker build arg
-ifdef $1/DOCKER_RUNNABLE
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "RUNTIME_NAME=$$($1/DOCKER_RUNTIME_NAME)"
+ifdef $1+DOCKER_RUNNABLE
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "RUNTIME_NAME=$$($1+DOCKER_RUNTIME_NAME)"
 endif
 
 # Adding the flag to the docker image
-$1/HAS_FLAG := true
-ifdef $1/FLAG_FILE
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG=`cat $$($1/FLAG_FILE)`"
+$1+HAS_FLAG := true
+ifdef $1+FLAG_FILE
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=`cat $$($1+FLAG_FILE)`"
 else #FLAG_FILE
-ifdef $1/FLAG
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG=$$($1/FLAG)"
+ifdef $1+FLAG
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=$$($1+FLAG)"
 else #FLAG
-$1/HAS_FLAG :=
+$1+HAS_FLAG :=
 endif #FLAG
 endif #FLAG_FILE
 
 # Adding flag destination if the project includes a flag
-ifdef $1/HAS_FLAG
-ifdef $1/FLAG_DST
+ifdef $1+HAS_FLAG
+ifdef $1+FLAG_DST
 ifdef MKDEBUG
-$$(info Placing flag for docker image $$($1/DOCKER_IMAGE) in $$($1/FLAG_DST))
+$$(info Placing flag for docker image $$($1+DOCKER_IMAGE) in $$($1+FLAG_DST))
 endif #MKDEBUG
 
-$1/DOCKER_BUILD_ARGS := $$($1/DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1/FLAG_DST)"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
 endif #FLAG_DST
 endif #HAS_FLAG
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
-$1/DOCKER_BUILD_FLAGS := $$($1/DOCKER_BUILD_ARGS)
+$1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
 
 ## Docker build rules
 
 # Build a docker image
-docker-build: docker-build[$$($1/DOCKER_IMAGE)]
+docker-build: docker-build[$$($1+DOCKER_IMAGE)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
-docker-build[$$($1/DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
+docker-build[$$($1+DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
 
 # Create a marker file to track last docker build time
-$$(BUILD)/$1/.docker_build_marker: $$($1/PRODUCTS) | $$($1/DOCKER_BUILD_DEPS)
-	$$(_V)echo "Building docker image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
+$$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS)
+	$$(_V)echo "Building docker image $$($1+DOCKER_IMAGE)"
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$@
 
 # Force build a docker image
-docker-rebuild: docker-rebuild[$$($1/DOCKER_IMAGE)]
+docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE)]
 
 # This rebuilds the docker image no matter what
-docker-rebuild[$$($1/DOCKER_IMAGE)]: | $$($1/PRODUCTS) $$($1/DOCKER_BUILD_DEPS)
-	$$(_V)echo "Rebuilding docker image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1/DOCKER_IMAGE) $$($1/DOCKER_BUILD_FLAGS) $1 \
+docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS)
+	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_IMAGE)"
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$(BUILD)/$1/.docker_build_marker
 
 
 ## Docker run rules
 
-ifdef $1/DOCKER_RUNNABLE
+ifdef $1+DOCKER_RUNNABLE
 
 # Rule for starting a docker container
-docker-start: docker-start[$$($1/DOCKER_RUNTIME_NAME)]
+docker-start: docker-start[$$($1+DOCKER_RUNTIME_NAME)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
-docker-start[$$($1/DOCKER_RUNTIME_NAME)]: docker-build[$$($1/DOCKER_IMAGE)]
-	$$(_V)echo "Starting docker container $$($1/DOCKER_RUNTIME_NAME) from image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
-	$$(_v)docker run --restart=unless-stopped --name $$($1/DOCKER_RUNTIME_NAME) -itd \
-		-v /etc/localtime:/etc/localtime:ro $$($1/DOCKER_PORT_ARGS) \
-		$$($1/DOCKER_RUN_ARGS) $$($1/DOCKER_IMAGE) $$($1/DOCKER_ENTRYPOINT_ARGS)
+docker-start[$$($1+DOCKER_RUNTIME_NAME)]: docker-build[$$($1+DOCKER_IMAGE)]
+	$$(_V)echo "Starting docker container $$($1+DOCKER_RUNTIME_NAME) from image $$($1+DOCKER_IMAGE)"
+	$$(_v)docker rm -f $$($1+DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
+	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_RUNTIME_NAME) \
+		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
+		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_IMAGE) $$($1+DOCKER_ENTRYPOINT_ARGS)
 
-.PHONY: docker-start[$$($1/DOCKER_RUNTIME_NAME)]
+.PHONY: docker-start[$$($1+DOCKER_RUNTIME_NAME)]
 
 # Rule for restarting a docker container
-docker-restart: docker-restart[$$($1/DOCKER_RUNTIME_NAME)]
+docker-restart: docker-restart[$$($1+DOCKER_RUNTIME_NAME)]
 
 # Restart a docker container
-docker-restart[$$($1/DOCKER_RUNTIME_NAME)]:
-	$$(_V)echo "Restarting docker container $$($1/DOCKER_RUNTIME_NAME)"
-	$$(_v)docker restart $$($1/DOCKER_RUNTIME_NAME)
+docker-restart[$$($1+DOCKER_RUNTIME_NAME)]:
+	$$(_V)echo "Restarting docker container $$($1+DOCKER_RUNTIME_NAME)"
+	$$(_v)docker restart $$($1+DOCKER_RUNTIME_NAME)
 
-.PHONY: docker-restart[$$($1/DOCKER_RUNTIME_NAME)]
+.PHONY: docker-restart[$$($1+DOCKER_RUNTIME_NAME)]
 
 # Rule for stopping a docker container
-docker-stop: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
+docker-stop: docker-stop[$$($1+DOCKER_RUNTIME_NAME)]
 
 # Stop the docker container
-docker-stop[$$($1/DOCKER_RUNTIME_NAME)]:
-	$$(_V)echo "Stopping docker container $$($1/DOCKER_RUNTIME_NAME)"
-	$$(_v)docker stop $$($1/DOCKER_RUNTIME_NAME)
+docker-stop[$$($1+DOCKER_RUNTIME_NAME)]:
+	$$(_V)echo "Stopping docker container $$($1+DOCKER_RUNTIME_NAME)"
+	$$(_v)docker stop $$($1+DOCKER_RUNTIME_NAME)
 
-.PHONY: docker-stop[$$($1/DOCKER_RUNTIME_NAME)]
+.PHONY: docker-stop[$$($1+DOCKER_RUNTIME_NAME)]
 
 # Rule for removing a docker image and any containers based on it
-docker-clean: docker-clean[$$($1/DOCKER_IMAGE)]
+docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
 
 # Force remove the container and image
-docker-clean[$$($1/DOCKER_IMAGE)]:
-	$$(_V)echo "Cleaning docker image $$($1/DOCKER_IMAGE)"
-	$$(_v)docker rm -f $$($1/DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
-	$$(_v)docker rmi -f $$($1/DOCKER_IMAGE) >/dev/null 2>&1 || true
+docker-clean[$$($1+DOCKER_IMAGE)]:
+	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
+	$$(_v)docker rm -f $$($1+DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
+	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
 
 endif #DOCKER_RUNNABLE
 
@@ -553,33 +601,33 @@ endif #DOCKER_IMAGE
 
 
 # Publish libc for the challenge
-ifdef $1/PUBLISH_LIBC
+ifdef $1+PUBLISH_LIBC
 
 # Decide whether to grab the 32-bit or 64-bit libc
-ifeq "$$($1/BITS)" "32"
-$1/LIBC_PATH := /lib/i386-linux-gnu/libc.so.6
+ifeq "$$($1+BITS)" "32"
+$1+LIBC_PATH := /lib/i386-linux-gnu/libc.so.6
 else
-$1/LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
+$1+LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
 endif
 
-publish[$1]: $$(PUB_DIR)/$$($1/PUBLISH_LIBC)
+publish[$1]: $$(PUB_DIR)/$$($1+PUBLISH_LIBC)
 
 # Copy the libc from Docker only if the challenge is configured to run in Docker
-ifdef $1/DOCKER_RUNNABLE
+ifdef $1+DOCKER_RUNNABLE
 # If the challenge runs within Docker, copy the libc from the docker image
-$$(PUB_DIR)/$$($1/PUBLISH_LIBC): docker-build[$$($1/DOCKER_IMAGE)]
-	$$(_V)echo "Publishing $$($1/PUBLISH_LIBC) from docker image $$($1/DOCKER_IMAGE):$$($1/LIBC_PATH)"
-	$$(_v)docker run --rm --entrypoint /bin/cat $$($1/DOCKER_IMAGE) $$($1/LIBC_PATH) > $$@
+$$(PUB_DIR)/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)]
+	$$(_V)echo "Publishing $$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
+	$$(_v)docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_RUNNABLE
 # If the challenge doesn't run in Docker, copy the system's libc
-$$(PUB_DIR)/$$($1/PUBLISH_LIBC): $$($1/LIBC_PATH)
-	$$(_V)echo "Publishing $$($1/PUBLISH_LIBC) from $$<"
+$$(PUB_DIR)/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
+	$$(_V)echo "Publishing $$($1+PUBLISH_LIBC) from $$<"
 	$$(_v)cat $$< > $$@
 
 endif #DOCKER_RUNNABLE
 endif #PUBLISH_LIBC
-endif #exists $1/Build.mk
+endif #exists DIR+Build.mk
 
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
@@ -597,22 +645,22 @@ define _recurse_subdir
 $$(call include_subdir,$1)
 
 # Make a list of all items in this directory that are directories and strip the trailing "/"
-$1/SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
+$1+SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
 
 # Remove current directory and blacklisted items from the list of subdirectories
-$1/SUBDIRS := $$(filter-out $1 $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1/SUBDIRS))
+$1+SUBDIRS := $$(filter-out $1 $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
 
 # Strip off the leading "./" in the subdirectory names
-$1/SUBDIRS := $$(patsubst ./%,%,$$($1/SUBDIRS))
+$1+SUBDIRS := $$(patsubst ./%,%,$$($1+SUBDIRS))
 
 ifdef MKDEBUG
-ifdef $1/SUBDIRS
-$$(info Recursing from $1 into $$($1/SUBDIRS))
+ifdef $1+SUBDIRS
+$$(info Recursing from $1 into $$($1+SUBDIRS))
 endif
 endif
 
 # Recurse into each subdirectory
-$$(foreach sd,$$($1/SUBDIRS),$$(call recurse_subdir,$$(sd)))
+$$(foreach sd,$$($1+SUBDIRS),$$(call recurse_subdir,$$(sd)))
 
 endef #_recurse_subdir
 recurse_subdir = $(eval $(call _recurse_subdir,$1))

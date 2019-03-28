@@ -198,7 +198,20 @@ static void handle_term(int signum) {
 }
 
 
-int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
+static int serve_internal(
+	const char* user,
+	bool chrooted,
+	unsigned short port,
+	unsigned timeout,
+	conn_handler* handler,
+	const char* inject_lib,
+	const char* exec_prog
+) {
+	if(handler == NULL && exec_prog == NULL) {
+		fprintf(stderr, "Handler function pointer is NULL and no program to exec was provided!\n");
+		return EXIT_FAILURE;
+	}
+	
 	/* 
 	 * For exec-ing servers, check for a marker environment variable.
 	 * If this is set, that means we have just been exec-ed to handle
@@ -227,6 +240,11 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	if(getuid() != 0) {
 		fprintf(stderr, "Error: Still not root!\n");
 		return EXIT_FAILURE;
+	}
+	
+	/* Set LD_PRELOAD env var so that the library will be injected into exec-ed children */
+	if(inject_lib != NULL) {
+		setenv("LD_PRELOAD", inject_lib, 1);
 	}
 	
 	/* Look up user struct */
@@ -297,7 +315,7 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	}
 	
 	/* Display useful information about the server process */
-	fprintf(stderr_fp, "Server process id: %u\n", getpid());
+	fprintf(stderr_fp, "Server PID: %u\n", getpid());
 	fprintf(stderr_fp, "Now accepting connections on port %hu (0x%04hx)\n\n", port, port);
 	
 	/* Accept connections */
@@ -354,21 +372,27 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 				_exit(EXIT_FAILURE);
 			}
 			
-			/* Set connection marker environment variable to the connection socket */
-			char conn_str[11];
-			snprintf(conn_str, sizeof(conn_str), "%u", conn);
-			if(setenv(kEnvMarker, conn_str, 0) != 0) {
-				PERROR("setenv");
-				_exit(EXIT_FAILURE);
-			}
-			
 			/* Close real standard file handles */
 			fclose(stdin_fp);
 			fclose(stdout_fp);
 			fclose(stderr_fp);
 			
-			/* Now exec ourselves to run the actual challenge code */
-			execl("/proc/self/exe", program_invocation_name, NULL);
+			/* Exec ourselves or the target program to run the challenge code. */
+			if(exec_prog != NULL) {
+				/* Exec the target program */
+				execl(exec_prog, exec_prog, NULL);
+			}
+			else {
+				/* Set connection marker environment variable to the connection socket */
+				char conn_str[11];
+				snprintf(conn_str, sizeof(conn_str), "%u", conn);
+				if(setenv(kEnvMarker, conn_str, 0) != 0) {
+					_exit(EXIT_FAILURE);
+				}
+				
+				/* Exec ourselves to allow PIE to take effect */
+				execl("/proc/self/exe", program_invocation_name, NULL);
+			}
 			
 			/* Should hopefully never make it this far */
 			abort();
@@ -380,10 +404,67 @@ int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout
 	return EXIT_FAILURE;
 }
 
+static void show_usage(server_options* opts) {
+	int alarmpad = 16 - snprintf(NULL, 0, "%d", opts->time_limit_seconds);
+	if(alarmpad <= 0) {
+		alarmpad = 1;
+	}
+	
+	int portpad = 20 - snprintf(NULL, 0, "%hu", opts->port);
+	if(portpad <= 0) {
+		portpad = 1;
+	}
+	
+	int userpad = 20 - (int)strlen(opts->user);
+	if(userpad <= 0) {
+		userpad = 1;
+	}
+	
+	int progpad = 17 - (int)strlen(program_invocation_name);
+	if(progpad <= 0) {
+		progpad = 1;
+	}
+	
+	printf("Usage: %s [options]\n"
+		"  Options:\n"
+		"    -h, --help                            "
+			"Display this help message\n"
+		"    -l, --listen                          "
+			"Run the server and listen for incoming connections\n"
+		"    -a, --alarm <seconds=%d>%*s"
+			"Time limit for child processes to run, or 0 to disable\n"
+		"    --no-chroot                           "
+			"Prevent the server from entering a chroot and changing directory\n"
+		"    -p, --port <port=%hu>%*s"
+			"Set the port the server listens on for incoming connections\n"
+		"    -u, --user <user=%s>%*s"
+			"Name of the user that child processes should run as\n"
+		"    -i, --inject <dynamic-library>        "
+			"Path to dynamic library that should be injected into the target process\n"
+		"    -e, --exec <program=%s>%*s"
+			"Program to execute upon receiving a connection\n",
+		program_invocation_name,
+		opts->time_limit_seconds, alarmpad, "",
+		opts->port, portpad, "",
+		opts->user, userpad, "",
+		program_invocation_name, progpad, ""
+	);
+}
+
+int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
+	return serve_internal(user, chrooted, port, timeout, handler, NULL, NULL);
+}
+
 int server_main(int argc, char** argv, server_options opts, conn_handler* handler) {
+	const char* inject_lib = NULL;
+	const char* exec_prog = NULL;
 	int i;
 	for(i = 1; i < argc; i++) {
-		if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
+		if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+			show_usage(&opts);
+			return EXIT_FAILURE;
+		}
+		else if(strcmp(argv[i], "--listen") == 0 || strcmp(argv[i], "-l") == 0) {
 			skipListen = false;
 		}
 		else if(strcmp(argv[i], "--no-chroot") == 0) {
@@ -398,31 +479,19 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		else if(strcmp(argv[i], "--alarm") == 0 || strcmp(argv[i], "-a") == 0) {
 			opts.time_limit_seconds = atoi(argv[++i]);
 		}
+		else if(strcmp(argv[i], "--inject") == 0 || strcmp(argv[i], "-i") == 0) {
+			inject_lib = argv[++i];
+		}
+		else if(strcmp(argv[i], "--exec") == 0 || strcmp(argv[i], "-e") == 0) {
+			exec_prog = argv[++i];
+		}
 		else {
-			printf(
-				"Error: Unknown argument '%s'\n"
-				"Usage: %s [options]\n"
-				"  Options:\n"
-				"    -l, --listen                   "
-					"Run the server and listen for incoming connections\n"
-				"    -a, --alarm <seconds=%3d>      "
-					"Time limit for child processes to run, or 0 to disable\n"
-				"    --no-chroot                    "
-					"Prevent the server from entering a chroot and changing directory\n"
-				"    -p, --port <port=%05hu>        "
-					"Set the port the server listens on for incoming connections\n"
-				"    -u, --user <user=%s>%*s"
-					"Name of the user that child processes should run as\n",
-				argv[i],
-				argv[0],
-				opts.time_limit_seconds,
-				opts.port,
-				opts.user, 13 - (int)strlen(opts.user), ""
-			);
+			printf("Error: Unknown argument '%s'\n", argv[i]);
+			show_usage(&opts);
 			return EXIT_FAILURE;
 		}
 	}
 	
-	return serve(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler);
+	return serve_internal(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler, inject_lib, exec_prog);
 }
 
