@@ -22,7 +22,7 @@ core
 real_flag*.txt
 
 # Private challenges
-private/
+/private
 
 # Solutions
 *.py
