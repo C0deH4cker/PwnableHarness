@@ -1,6 +1,9 @@
 # Make sure the default target is to "make all"
 all:
 
+# If there is a Config.mk present in the root of this repo or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
+
 # Path to the root build directory
 BUILD := build
 

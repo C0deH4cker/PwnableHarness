@@ -24,6 +24,9 @@ real_flag*.txt
 # Private challenges
 /private
 
+# Custom configuration
+/Config.mk
+
 # Solutions
 *.py
 *.pyc
