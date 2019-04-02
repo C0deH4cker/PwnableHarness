@@ -338,6 +338,7 @@ endif
 $1+PRODUCTS := $$(addprefix $1/,$$($1+TARGETS))
 $1+PUBLISH := $$(PUBLISH)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
+$1+PUBLISH_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH))
 
 # CTF flag management
 $1+FLAG := $$(FLAG)
@@ -398,15 +399,19 @@ ifdef $1+PUBLISH
 
 publish: publish[$1]
 
-publish[$1]: $$(addprefix $$(PUB_DIR)/,$$($1+PUBLISH))
+publish[$1]: $$($1+PUBLISH_DST)
 
-$$(addprefix $$(PUB_DIR)/,$$($1+PUBLISH)): $$(PUB_DIR)/%: $1/%
-	$$(_V)echo "Publishing $$*"
+$$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/% | $$(PUB_DIR)/$1/.dir
+	$$(_V)echo "Publishing $1/$$*"
 	$$(_v)cat $$< > $$@
 
 .PHONY: publish[$1]
 
 endif #$1+PUBLISH
+
+# Automatic creation of publish directory structure
+$$(PUB_DIR)/$1/.dir:
+	$$(_v)mkdir -p $$(@D) && touch $$@
 
 # Clean rules
 clean: clean[$1]
@@ -610,19 +615,19 @@ else
 $1+LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
 endif
 
-publish[$1]: $$(PUB_DIR)/$$($1+PUBLISH_LIBC)
+publish[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 
 # Copy the libc from Docker only if the challenge is configured to run in Docker
 ifdef $1+DOCKER_RUNNABLE
 # If the challenge runs within Docker, copy the libc from the docker image
-$$(PUB_DIR)/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)]
-	$$(_V)echo "Publishing $$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)] | $$(PUB_DIR)/$1/.dir
+	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
 	$$(_v)docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_RUNNABLE
 # If the challenge doesn't run in Docker, copy the system's libc
-$$(PUB_DIR)/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
-	$$(_V)echo "Publishing $$($1+PUBLISH_LIBC) from $$<"
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH) | $$(PUB_DIR)/$1/.dir
+	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from $$<"
 	$$(_v)cat $$< > $$@
 
 endif #DOCKER_RUNNABLE
