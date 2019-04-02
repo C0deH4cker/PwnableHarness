@@ -401,17 +401,13 @@ publish: publish[$1]
 
 publish[$1]: $$($1+PUBLISH_DST)
 
-$$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/% | $$(PUB_DIR)/$1/.dir
+$$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/%
 	$$(_V)echo "Publishing $1/$$*"
-	$$(_v)cat $$< > $$@
+	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 .PHONY: publish[$1]
 
 endif #$1+PUBLISH
-
-# Automatic creation of publish directory structure
-$$(PUB_DIR)/$1/.dir:
-	$$(_v)mkdir -p $$(@D) && touch $$@
 
 # Clean rules
 clean: clean[$1]
@@ -622,13 +618,13 @@ ifdef $1+DOCKER_RUNNABLE
 # If the challenge runs within Docker, copy the libc from the docker image
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)] | $$(PUB_DIR)/$1/.dir
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
-	$$(_v)docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
+	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_RUNNABLE
 # If the challenge doesn't run in Docker, copy the system's libc
-$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH) | $$(PUB_DIR)/$1/.dir
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from $$<"
-	$$(_v)cat $$< > $$@
+	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 endif #DOCKER_RUNNABLE
 endif #PUBLISH_LIBC
