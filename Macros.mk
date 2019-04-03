@@ -490,6 +490,9 @@ endif
 # Add the Dockerfile as a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
 
+# The Build.mk file is a dependency for the docker-build target
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/Build.mk
+
 # Ensure that DIR+DOCKER_RUNTIME_NAME has a value, default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image
 ifdef $1+DOCKER_RUNTIME_NAME
