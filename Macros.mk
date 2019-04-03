@@ -338,7 +338,7 @@ $1+TARGETS := $$(TARGETS)
 else
 # Neither TARGET nor TARGETS are defined. This Build.mk file may still be useful for deployment
 ifdef MKDEBUG
-$$(warn $1/Build.mk defines no targets.)
+$$(warning $1/Build.mk defines no targets.)
 endif
 $1+TARGETS :=
 endif
