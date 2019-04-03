@@ -706,6 +706,12 @@ endif
 # Recurse into each subdirectory
 $$(foreach sd,$$($1+SUBDIRS),$$(call recurse_subdir,$$(sd)))
 
+# If there's an After.mk present, include it after the Build.mk for the project and all
+# descendent projects have been included.
+ifneq "$$(wildcard $1/After.mk)" ""
+include $1/After.mk
+endif
+
 endef #_recurse_subdir
 recurse_subdir = $(eval $(call _recurse_subdir,$1))
 #####
