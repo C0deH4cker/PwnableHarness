@@ -1,3 +1,6 @@
+# This is not intended to be an example Build.mk file to reference.
+# Please instead look at examples/stack0/Build.mk for reference.
+
 LIB32 := libpwnableharness32.so
 LIB64 := libpwnableharness64.so
 PWNABLE_SERVER := pwnableserver

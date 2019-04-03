@@ -5,7 +5,7 @@ all:
 -include Config.mk $(wildcard */Config.mk)
 
 # Path to the root build directory
-BUILD := build
+BUILD := .build
 
 # Path to the publish directory (this could be a symlink to /var/www/html)
 PUB_DIR := publish
@@ -38,14 +38,17 @@ $(call recurse_subdir,.)
 %?:
 	@echo '$* := $($*)'
 
-# Running "make base" builds only libpwnableharness*.so
+# Running "make base" builds only PwnableHarness binaries
 base: all[.]
+
+# Running "make deploy" will build and start Docker containers and publish challenge artifacts
+deploy: docker-start publish
 
 # Make sure that the .dir files aren't automatically deleted after building
 .SECONDARY:
 
 # Global targets that are "phony", aka don't name a file to be created
-.PHONY: all base clean publish
+.PHONY: all base clean publish deploy
 
 # Phony Docker targets
 .PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean

@@ -205,3 +205,10 @@ DOCKER_TIMELIMIT := 30
 # so you don't need to manually add calls to fflush(stdout) in your code.
 USE_LIBPWNABLEHARNESS := 1
 
+# DEPLOY_COMMAND is a string containing a command that should be run during
+# `make deploy` from the project directory.
+#DEPLOY_COMMAND := echo "[DEPLOY] Dockerfile is: `cat Dockerfile`"
+
+# DEPLOY_DEPS is a list of Makefile dependencies that should be up to date
+# before the DEPLOY_COMMAND is run.
+#DEPLOY_DEPS := $(DIR)/flag1.txt

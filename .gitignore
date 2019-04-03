@@ -1,11 +1,10 @@
 # Build products
-build/
-publish/
+.build/
 *.so
 *.jar
 *.class
 **/default.Dockerfile
-pwnableserver
+/pwnableserver
 
 # Debugger files
 *.idb
@@ -20,6 +19,9 @@ core
 
 # Real flags
 real_flag*.txt
+
+# Publish destination directory
+/publish
 
 # Private challenges
 /private

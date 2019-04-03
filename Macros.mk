@@ -271,6 +271,10 @@ TARGETS :=
 PUBLISH :=
 PUBLISH_LIBC :=
 
+# Deployment
+DEPLOY_COMMAND :=
+DEPLOY_DEPS :=
+
 # Optional CTF flag management
 FLAG :=
 FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
@@ -330,8 +334,11 @@ $1+TARGETS := $$(TARGET)
 else ifdef TARGETS
 $1+TARGETS := $$(TARGETS)
 else
-# It's an error if neither TARGET nor TARGETS are defined
-$$(error $1/Build.mk did not define either TARGET or TARGETS!)
+# Neither TARGET nor TARGETS are defined. This Build.mk file may still be useful for deployment
+ifdef MKDEBUG
+$$(warn $1/Build.mk defines no targets.)
+endif
+$1+TARGETS :=
 endif
 
 # List of target files produced by Build.mk
@@ -339,6 +346,10 @@ $1+PRODUCTS := $$(addprefix $1/,$$($1+TARGETS))
 $1+PUBLISH := $$(PUBLISH)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
 $1+PUBLISH_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH))
+
+# Deployment
+$1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
+$1+DEPLOY_DEPS := $$(DEPLOY_DEPS)
 
 # CTF flag management
 $1+FLAG := $$(FLAG)
@@ -408,6 +419,19 @@ $$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/%
 .PHONY: publish[$1]
 
 endif #$1+PUBLISH
+
+# Deploy rules
+ifdef $1+DEPLOY_COMMAND
+
+deploy: deploy[$1]
+
+deploy[$1]: $$($1+DEPLOY_DEPS)
+	$$(_V)echo "Deploying $1"
+	$$(_v)cd $1 && $$($1+DEPLOY_COMMAND)
+
+.PHONY: deploy[$1]
+
+endif #$1+DEPLOY_COMMAND
 
 # Clean rules
 clean: clean[$1]
@@ -534,7 +558,7 @@ docker-build: docker-build[$$($1+DOCKER_IMAGE)]
 docker-build[$$($1+DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
 
 # Create a marker file to track last docker build time
-$$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS)
+$$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_IMAGE)"
 	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$@
@@ -543,7 +567,7 @@ $$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS)
 docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE)]
 
 # This rebuilds the docker image no matter what
-docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS)
+docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_IMAGE)"
 	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
 		&& touch $$(BUILD)/$1/.docker_build_marker
@@ -628,7 +652,7 @@ $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 
 endif #DOCKER_RUNNABLE
 endif #PUBLISH_LIBC
-endif #exists DIR+Build.mk
+endif #exists DIR/Build.mk
 
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
