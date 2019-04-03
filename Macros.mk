@@ -283,6 +283,7 @@ FLAG_DST := flag.txt
 # These can optionally be defined by Build.mk for Docker management
 DOCKERFILE :=
 DOCKER_IMAGE :=
+DOCKER_IMAGE_CUSTOM :=
 DOCKER_RUNTIME_NAME :=
 DOCKER_BUILD_ARGS :=
 DOCKER_BUILD_DEPS :=
@@ -359,6 +360,7 @@ $1+FLAG_DST := $$(FLAG_DST)
 # Docker variables
 $1+DOCKERFILE := $$(DOCKERFILE)
 $1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
+$1+DOCKER_IMAGE_CUSTOM := $$(DOCKER_IMAGE_CUSTOM)
 $1+DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
 $1+DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
 $1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
@@ -478,26 +480,31 @@ endif #Dockerfile
 
 # Docker images depend on the base PwnableHarness Docker image
 ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
+ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[c0deh4cker/pwnableharness]
+endif
 endif
 
 # Add the Dockerfile as a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
 
 # Ensure that DIR+DOCKER_RUNTIME_NAME has a value, default to the
-# first target in DIR+TARGETS
+# first target in DIR+TARGETS, or if that's not defined, the name of the image
 ifdef $1+DOCKER_RUNTIME_NAME
 $1+DOCKER_RUNNABLE := true
 else
-$1+DOCKER_RUNTIME_NAME := $$(firstword $$($1+TARGETS))
+$1+DOCKER_RUNTIME_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
 ifdef $1+DOCKER_PORTS
 $1+DOCKER_PORT_ARGS := $$(foreach port,$$($1+DOCKER_PORTS),-p $$(port):$$(port))
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))" --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
 $1+DOCKER_RUNNABLE := true
-endif
+
+ifndef $1+DOCKER_IMAGE_CUSTOM
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))" --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+endif #DOCKER_IMAGE_CUSTOM
+endif #DOCKDER_PORTS
 
 # Check if DOCKER_RUN_ARGS was defined
 ifdef $1+DOCKER_RUN_ARGS
@@ -518,8 +525,13 @@ endif
 
 # Append the RUNTIME_NAME to the list of docker build arg
 ifdef $1+DOCKER_RUNNABLE
+ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "RUNTIME_NAME=$$($1+DOCKER_RUNTIME_NAME)"
 endif
+endif
+
+# Automatic flag support is only provided for non-custom Docker images
+ifndef $1+DOCKER_IMAGE_CUSTOM
 
 # Adding the flag to the docker image
 $1+HAS_FLAG := true
@@ -543,6 +555,8 @@ endif #MKDEBUG
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
 endif #FLAG_DST
 endif #HAS_FLAG
+
+endif #DOCKER_IMAGE_CUSTOM
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
