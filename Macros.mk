@@ -253,6 +253,68 @@ generate_target = $(eval $(call _generate_target,$1,$2))
 
 
 
+
+#####
+# docker_compose($1: project directory, $2: challenge name)
+#
+# Rules for deploying a docker-compose project
+#####
+define _docker_compose
+
+# make docker-build
+docker-build: docker-build[$2]
+
+docker-build[$2]: docker-rebuild[$2]
+
+.PHONY: docker-build[$2]
+
+
+# make docker-rebuild
+docker-rebuild: docker-rebuild[$2]
+
+docker-rebuild[$2]:
+	$$(_V)echo "Building $2 images with docker-compose"
+	$$(_v)cd $1 && docker-compose build
+
+
+# make docker-start
+docker-start: docker-start[$2]
+
+docker-start[$2]:
+	$$(_V)echo "Starting $2 containers with docker-compose"
+	$$(_v)cd $1 && docker-compose up -d
+
+
+# make docker-restart
+docker-restart: docker-restart[$2]
+
+docker-restart[$2]:
+	$$(_V)echo "Restarting $2 containers with docker-compose"
+	$$(_v)cd $1 && docker-compose restart
+
+
+# make docker-stop
+docker-stop: docker-stop[$2]
+
+docker-stop[$2]:
+	$$(_V)echo "Stopping $2 containers with docker-compose"
+	$$(_v)cd $1 && docker-compose down
+
+
+# make docker-clean
+docker-clean: docker-clean[$2]
+
+docker-clean[$2]:
+	$$(_V)echo "Removing $2 containers with docker-compose"
+	$$(_v)cd $1 && docker-compose rm --stop
+
+endef #_docker_compose
+docker_compose = $(eval $(call _docker_compose,$1,$2))
+#####
+
+
+
+
 #####
 # include_subdir($1: subdirectory)
 #
@@ -372,6 +434,7 @@ $1+DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
 $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
+$1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
 
 # Directory specific variables
 $1+BITS := $$(BITS)
@@ -451,6 +514,10 @@ $$(BUILD)/$1/.dir:
 	$$(_v)mkdir -p $$(@D) && touch $$@
 
 ## Docker variables
+
+ifdef $1+DOCKER_COMPOSE
+$$(call docker_compose,$1,$$(notdir $1))
+endif #DOCKER_COMPOSE
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
 ifdef $1+DOCKER_IMAGE
