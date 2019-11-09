@@ -201,10 +201,12 @@ endif
 
 # Debug symbols
 ifdef $2_DEBUG
-$2_CFLAGS := $$($2_CFLAGS) -ggdb
+$2_CFLAGS := $$($2_CFLAGS) -ggdb -DDEBUG=1 -UNDEBUG
 $2_CXXFLAGS := $$($2_CXXFLAGS) -ggdb
 $2_LDFLAGS := $$($2_LDFLAGS) -ggdb
-endif
+else #DEBUG
+$2_CFLAGS := $$($2_CFLAGS) -DNDEBUG=1
+endif #DEBUG
 
 
 # Rebuild all build products when the Build.mk is modified
