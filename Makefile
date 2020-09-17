@@ -42,7 +42,7 @@ $(call recurse_subdir,.)
 	@echo '$* := $($*)'
 
 list:
-	@$(foreach x,$(PROJECT_LIST),echo '$x';)
+	@$(foreach x,$(sort $(PROJECT_LIST)),echo '$x';)
 
 # Running "make base" builds only PwnableHarness binaries
 base: all[.]
