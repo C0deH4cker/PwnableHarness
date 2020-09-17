@@ -331,6 +331,9 @@ ifneq "$$(wildcard $1/Build.mk)" ""
 TARGET :=
 TARGETS :=
 
+# For advanced users that want to define custom build rules for a directory
+PRODUCTS :=
+
 # Optional list of files to publish
 PUBLISH :=
 PUBLISH_LIBC :=
@@ -408,7 +411,12 @@ $1+TARGETS :=
 endif
 
 # List of target files produced by Build.mk
+$1+PRODUCTS := $$(PRODUCTS)
+ifndef $1+PRODUCTS
 $1+PRODUCTS := $$(addprefix $1/,$$($1+TARGETS))
+endif
+
+# Publishing
 $1+PUBLISH := $$(PUBLISH)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
 $1+PUBLISH_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH))
