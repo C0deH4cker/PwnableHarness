@@ -44,6 +44,10 @@ base: all[.]
 # Running "make deploy" will build and start Docker containers and publish challenge artifacts
 deploy: docker-start publish
 
+# Automatic creation of build directories
+%/.dir:
+	$(_v)mkdir -p $(@D) && touch $@
+
 # Make sure that the .dir files aren't automatically deleted after building
 .SECONDARY:
 

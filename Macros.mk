@@ -519,10 +519,6 @@ clean[$1]:
 
 .PHONY: clean[$1]
 
-# Automatic creation of build directories
-$$(BUILD)/$1/.dir:
-	$$(_v)mkdir -p $$(@D) && touch $$@
-
 ## Docker variables
 
 ifdef $1+DOCKER_COMPOSE
