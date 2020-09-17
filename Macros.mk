@@ -327,6 +327,9 @@ define _include_subdir
 
 ifneq "$$(wildcard $1/Build.mk)" ""
 
+# Append project directory to the list of discovered projects
+PROJECT_LIST := $$(PROJECT_LIST) $1
+
 # Exactly one of these must be defined by Build.mk
 TARGET :=
 TARGETS :=

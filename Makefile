@@ -30,6 +30,9 @@ ifndef WITH_EXAMPLES
 RECURSION_BLACKLIST := examples $(RECURSION_BLACKLIST)
 endif
 
+# List of PwnableHarness projects discovered
+PROJECT_LIST :=
+
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
 
@@ -37,6 +40,9 @@ $(call recurse_subdir,.)
 # `make stack0:DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
 %?:
 	@echo '$* := $($*)'
+
+list:
+	@echo '$(PROJECT_LIST)'
 
 # Running "make base" builds only PwnableHarness binaries
 base: all[.]
