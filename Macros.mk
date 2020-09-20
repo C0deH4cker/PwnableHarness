@@ -68,10 +68,10 @@ $2_SRCS := $$(addprefix $1/,$$($2_SRCS))
 endif
 
 # Ensure that target_OBJS has a value, default to modifying the value of each
-# src from target_SRCS into target_BUILD/src.target_BITS.o
-# Example: generate_target(proj, target) with main.cpp -> build/proj/main.cpp.32.o
+# src from target_SRCS into target_BUILD/src.o
+# Example: generate_target(proj, target) with main.cpp -> build/proj/target_objs/main.cpp.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(patsubst %,$$(BUILD)/%.$$($2_BITS).o,$$($2_SRCS))
+$2_OBJS := $$(patsubst $1/%,$$(BUILD)/$1/$2_objs/%.o,$$($2_SRCS))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
@@ -213,10 +213,11 @@ endif
 # Debug symbols
 ifdef $2_DEBUG
 $2_CFLAGS := $$($2_CFLAGS) -ggdb -DDEBUG=1 -UNDEBUG
-$2_CXXFLAGS := $$($2_CXXFLAGS) -ggdb
+$2_CXXFLAGS := $$($2_CXXFLAGS) -ggdb -DDEBUG=1 -UNDEBUG
 $2_LDFLAGS := $$($2_LDFLAGS) -ggdb
 else #DEBUG
 $2_CFLAGS := $$($2_CFLAGS) -DNDEBUG=1
+$2_CXXFLAGS := $$($2_CXXFLAGS) -DNDEBUG=1
 endif #DEBUG
 
 
@@ -225,12 +226,12 @@ $$($2_OBJS): $1/Build.mk
 $1/$2: $1/Build.mk
 
 # Compiler rule for C sources
-$$(BUILD)/$1/%.c.$$($2_BITS).o: $1/%.c $$(BUILD)/$1/.dir
+$$(filter %.c.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.c.o: $1/%.c $$(BUILD)/$1/$2_objs/.dir
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(BUILD)/$1/%.cpp.$$($2_BITS).o: $1/%.cpp $$(BUILD)/$1/.dir
+$$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp $$(BUILD)/$1/$2_objs/.dir
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
