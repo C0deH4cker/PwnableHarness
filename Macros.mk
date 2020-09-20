@@ -120,14 +120,21 @@ endif
 
 # Add dependency on libpwnableharness[32|64] if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_LIBS := $$($2_LIBS) libpwnableharness$$($2_BITS).so
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN
+$2_ALLLIBS := $$($2_LIBS) libpwnableharness$$($2_BITS).so
+else
+$2_ALLLIBS := $$($2_LIBS)
 endif
 
+# If additional shared libraries should be linked, allow loading them from the
+# executable's directory and from /usr/local/lib
+ifdef $2_ALLLIBS
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN
+endif #target_ALLLIBS
+
 # Convert a list of dynamic library names into linker arguments
-$2_LIBPATHS := $$(sort $$(dir $$($2_LIBS)))
+$2_LIBPATHS := $$(sort $$(dir $$($2_ALLLIBS)))
 $2_LDPATHARGS := $$(addprefix -L,$$($2_LIBPATHS))
-$2_LDLIBS := $$(patsubst lib%.so,-l%,$$(notdir $$($2_LIBS)))
+$2_LDLIBS := $$(patsubst lib%.so,-l%,$$(notdir $$($2_ALLLIBS)))
 
 
 ## Hardening flags
