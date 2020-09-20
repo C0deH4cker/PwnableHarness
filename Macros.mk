@@ -240,14 +240,14 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp $$(BUILD)
 
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$1/$2: $$($2_OBJS) $$($2_LIBS)
+$1/$2: $$($2_OBJS) $$($2_ALLLIBS)
 	$$(_V)echo "Linking shared library $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$1/$2: $$($2_OBJS) $$($2_LIBS)
+$1/$2: $$($2_OBJS) $$($2_ALLLIBS)
 	$$(_V)echo "Linking executable $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
