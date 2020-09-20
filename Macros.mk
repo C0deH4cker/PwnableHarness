@@ -779,7 +779,7 @@ $$(call include_subdir,$1)
 $1+SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
 
 # Remove current directory and blacklisted items from the list of subdirectories
-$1+SUBDIRS := $$(filter-out $1 $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
+$1+SUBDIRS := $$(filter-out $1 %.disabled $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
 
 # Strip off the leading "./" in the subdirectory names
 $1+SUBDIRS := $$(patsubst ./%,%,$$($1+SUBDIRS))
