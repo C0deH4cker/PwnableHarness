@@ -125,7 +125,9 @@ $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORI
 endif
 
 # Convert a list of dynamic library names into linker arguments
-$2_LDLIBS := $$(patsubst lib%.so,-l%,$$($2_LIBS))
+$2_LIBPATHS := $$(sort $$(dir $$($2_LIBS)))
+$2_LDPATHARGS := $$(addprefix -L,$$($2_LIBPATHS))
+$2_LDLIBS := $$(patsubst lib%.so,-l%,$$(notdir $$($2_LIBS)))
 
 
 ## Hardening flags
@@ -191,7 +193,9 @@ ifeq "$$($2_BINTYPE)" "executable"
 $2_LDFLAGS := $$($2_LDFLAGS) -pie
 endif #executable
 else #ASLR
+ifeq "$$($2_BINTYPE)" "executable"
 $2_LDFLAGS := $$($2_LDFLAGS) -no-pie
+endif #executable
 endif #ASLR
 
 # Strip symbols
@@ -230,14 +234,14 @@ ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
 $1/$2: $$($2_OBJS) $$($2_LIBS)
 	$$(_V)echo "Linking shared library $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -shared -L. $$($2_LDFLAGS) \
+	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
 $1/$2: $$($2_OBJS) $$($2_LIBS)
 	$$(_V)echo "Linking executable $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -L. $$($2_LDFLAGS) \
+	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else #dynamiclib & executable
