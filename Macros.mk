@@ -366,7 +366,8 @@ FLAG_DST := flag.txt
 DOCKERFILE :=
 DOCKER_IMAGE :=
 DOCKER_IMAGE_CUSTOM :=
-DOCKER_RUNTIME_NAME :=
+DOCKER_CONTAINER :=
+DOCKER_CHALLENGE_NAME :=
 DOCKER_BUILD_ARGS :=
 DOCKER_BUILD_DEPS :=
 DOCKER_PORTS :=
@@ -449,7 +450,8 @@ $1+FLAG_DST := $$(FLAG_DST)
 $1+DOCKERFILE := $$(DOCKERFILE)
 $1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
 $1+DOCKER_IMAGE_CUSTOM := $$(DOCKER_IMAGE_CUSTOM)
-$1+DOCKER_RUNTIME_NAME := $$(DOCKER_RUNTIME_NAME)
+$1+DOCKER_CONTAINER := $$(DOCKER_CONTAINER)
+$1+DOCKER_CHALLENGE_NAME := $$(DOCKER_CHALLENGE_NAME)
 $1+DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
 $1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
 $1+DOCKER_PORTS := $$(DOCKER_PORTS)
@@ -581,12 +583,20 @@ $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
 # The Build.mk file is a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/Build.mk
 
-# Ensure that DIR+DOCKER_RUNTIME_NAME has a value, default to the
+# Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image
-ifdef $1+DOCKER_RUNTIME_NAME
+ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
-$1+DOCKER_RUNTIME_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
+$1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
+endif
+
+# Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
+# or if that's not defined, the challenge name
+ifdef $1+DOCKER_CONTAINER
+$1+DOCKER_RUNNABLE := true
+else
+$1+DOCKER_CONTAINER := $$(or $$($1+DOCKER_IMAGE),$$($1+DOCKER_CHALLENGE_NAME))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
@@ -616,10 +626,10 @@ ifdef $1+DOCKER_ENTRYPOINT_ARGS
 $1+DOCKER_RUNNABLE := true
 endif
 
-# Append the RUNTIME_NAME to the list of docker build arg
+# Append the CHALLENGE_NAME to the list of docker build arg
 ifdef $1+DOCKER_RUNNABLE
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "RUNTIME_NAME=$$($1+DOCKER_RUNTIME_NAME)"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)"
 endif
 endif
 
@@ -685,38 +695,38 @@ docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) 
 ifdef $1+DOCKER_RUNNABLE
 
 # Rule for starting a docker container
-docker-start: docker-start[$$($1+DOCKER_RUNTIME_NAME)]
+docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
-docker-start[$$($1+DOCKER_RUNTIME_NAME)]: docker-build[$$($1+DOCKER_IMAGE)]
-	$$(_V)echo "Starting docker container $$($1+DOCKER_RUNTIME_NAME) from image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker rm -f $$($1+DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
-	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_RUNTIME_NAME) \
+docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE)]
+	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_IMAGE)"
+	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
 		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_IMAGE) $$($1+DOCKER_ENTRYPOINT_ARGS)
 
-.PHONY: docker-start[$$($1+DOCKER_RUNTIME_NAME)]
+.PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # Rule for restarting a docker container
-docker-restart: docker-restart[$$($1+DOCKER_RUNTIME_NAME)]
+docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
 
 # Restart a docker container
-docker-restart[$$($1+DOCKER_RUNTIME_NAME)]:
-	$$(_V)echo "Restarting docker container $$($1+DOCKER_RUNTIME_NAME)"
-	$$(_v)docker restart $$($1+DOCKER_RUNTIME_NAME)
+docker-restart[$$($1+DOCKER_CONTAINER)]:
+	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
+	$$(_v)docker restart $$($1+DOCKER_CONTAINER)
 
-.PHONY: docker-restart[$$($1+DOCKER_RUNTIME_NAME)]
+.PHONY: docker-restart[$$($1+DOCKER_CONTAINER)]
 
 # Rule for stopping a docker container
-docker-stop: docker-stop[$$($1+DOCKER_RUNTIME_NAME)]
+docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 
 # Stop the docker container
-docker-stop[$$($1+DOCKER_RUNTIME_NAME)]:
-	$$(_V)echo "Stopping docker container $$($1+DOCKER_RUNTIME_NAME)"
-	$$(_v)docker stop $$($1+DOCKER_RUNTIME_NAME)
+docker-stop[$$($1+DOCKER_CONTAINER)]:
+	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
+	$$(_v)docker stop $$($1+DOCKER_CONTAINER)
 
-.PHONY: docker-stop[$$($1+DOCKER_RUNTIME_NAME)]
+.PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
 
 # Rule for removing a docker image and any containers based on it
 docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
@@ -724,7 +734,7 @@ docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
 # Force remove the container and image
 docker-clean[$$($1+DOCKER_IMAGE)]:
 	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker rm -f $$($1+DOCKER_RUNTIME_NAME) >/dev/null 2>&1 || true
+	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
 
 endif #DOCKER_RUNNABLE

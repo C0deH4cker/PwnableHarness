@@ -27,25 +27,25 @@ RUN chmod 0755 \
 CMD /bin/bash
 
 
-# RUNTIME_NAME is the name of both the user and executable
-ONBUILD ARG RUNTIME_NAME
-ONBUILD ENV RUNTIME_NAME=$RUNTIME_NAME
+# CHALLENGE_NAME is the name of both the user and executable
+ONBUILD ARG CHALLENGE_NAME
+ONBUILD ENV CHALLENGE_NAME=$CHALLENGE_NAME
 
 # Create the user this challenge runs as
-ONBUILD RUN useradd -m -s /bin/bash -U $RUNTIME_NAME
+ONBUILD RUN useradd -m -s /bin/bash -U $CHALLENGE_NAME
 
 # Copy the executable to the new user's home directory. It
 # will be owned and only writeable by root.
-ONBUILD WORKDIR /home/$RUNTIME_NAME
-ONBUILD COPY $RUNTIME_NAME ./
-ONBUILD RUN chmod 0755 $RUNTIME_NAME
+ONBUILD WORKDIR /home/$CHALLENGE_NAME
+ONBUILD COPY $CHALLENGE_NAME ./
+ONBUILD RUN chmod 0755 $CHALLENGE_NAME
 
 # If given a flag, write it to the given destination file
 ONBUILD ARG FLAG=
 ONBUILD ARG FLAG_DST=flag.txt
 ONBUILD RUN if [ -n "$FLAG" -a -n "$FLAG_DST" ]; then \
 		echo "$FLAG" > "$FLAG_DST" && \
-		chown "root:$RUNTIME_NAME" "$FLAG_DST" && \
+		chown "root:$CHALLENGE_NAME" "$FLAG_DST" && \
 		chmod 0640 "$FLAG_DST"; \
 	fi
 
@@ -66,5 +66,5 @@ ONBUILD ENV TIMELIMIT=$TIMELIMIT
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \
-	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $RUNTIME_NAME --inject '/$LIB/pwnablepreload.so' --exec /home/$RUNTIME_NAME/$RUNTIME_NAME" \
+	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $CHALLENGE_NAME --inject '/$LIB/pwnablepreload.so' --exec /home/$CHALLENGE_NAME/$CHALLENGE_NAME" \
 ]
