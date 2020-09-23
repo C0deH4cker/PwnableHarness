@@ -551,23 +551,20 @@ $1+DOCKERFILE := $$(wildcard $1/Dockerfile)
 
 # If $1+Dockerfile doesn't exist, we will use the default Dockerfile
 ifndef $1+DOCKERFILE
-$1+DOCKERFILE := default.Dockerfile
-endif #exists DIR+Dockerfile
-endif #DOCKERFILE
+$1+DOCKERFILE := $1/default.Dockerfile
 
-# If the Dockerfile to use isn't in the project directory, add a rule to copy it there
-ifneq "$$(dir $$($1+DOCKERFILE))" "$1/"
-
-$1/$$(notdir $$($1+DOCKERFILE)): $$($1+DOCKERFILE)
+# Add a rule to copy the default.Dockerfile to the project directory
+$1/default.Dockerfile: default.Dockerfile
 	$$(_V)echo 'Copying $$< to $$@'
 	$$(_v)cp $$< $$@
 
-endif #dir DOCKERFILE
+endif #exists DIR+Dockerfile
+endif #DOCKERFILE
 
 # If the Dockerfile doesn't have the standard name, add an argument telling
 # docker build which Dockerfile to use
 ifneq "$$($1+DOCKERFILE)" "$1+Dockerfile"
-$1+DOCKER_BUILD_ARGS := -f $1/$$(notdir $$($1+DOCKERFILE)) $$($1+DOCKER_BUILD_ARGS)
+$1+DOCKER_BUILD_ARGS := -f $$($1+DOCKERFILE) $$($1+DOCKER_BUILD_ARGS)
 endif #Dockerfile
 
 # Docker images depend on the base PwnableHarness Docker image
@@ -578,7 +575,7 @@ endif
 endif
 
 # Add the Dockerfile as a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/$$(notdir $$($1+DOCKERFILE))
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/Build.mk
