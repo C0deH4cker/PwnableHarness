@@ -506,7 +506,7 @@ all[$1]: $$($1+PRODUCTS)
 .PHONY: all[$1]
 
 # Publish rules
-ifdef $1+PUBLISH
+ifdef $1+PUBLISH_DST_ALL
 
 publish: publish[$1]
 
@@ -524,7 +524,7 @@ $$($1+PUBLISH_BUILD_DST): $$(PUB_DIR)/$1/%: $$(BUILD)/$1/%
 
 .PHONY: publish[$1]
 
-endif #$1+PUBLISH
+endif #$1+PUBLISH_DST_ALL
 
 # Deploy rules
 ifdef $1+DEPLOY_COMMAND
