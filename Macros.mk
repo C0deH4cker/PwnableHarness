@@ -672,7 +672,7 @@ docker-build[$$($1+DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
 # Create a marker file to track last docker build time
 $$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $$(dir $1+DOCKERFILE) \
 		&& touch $$@
 
 # Force build a docker image
@@ -681,7 +681,7 @@ docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE)]
 # This rebuilds the docker image no matter what
 docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $1 \
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $$(dir $1+DOCKERFILE) \
 		&& touch $$(BUILD)/$1/.docker_build_marker
 
 
