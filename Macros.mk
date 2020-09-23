@@ -585,7 +585,9 @@ $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/Build.mk
 ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
+ifneq "$1" "."
 $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
+endif
 endif
 
 # Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
@@ -624,8 +626,10 @@ $1+DOCKER_RUNNABLE := true
 endif
 
 # Append the CHALLENGE_NAME to the list of docker build arg
+ifneq "$1" "."
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)"
+endif
 endif
 
 # Automatic flag support is only provided for non-custom Docker images
