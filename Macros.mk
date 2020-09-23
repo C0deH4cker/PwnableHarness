@@ -351,6 +351,7 @@ PRODUCTS :=
 
 # Optional list of files to publish
 PUBLISH :=
+PUBLISH_BUILD :=
 PUBLISH_LIBC :=
 
 # Deployment
@@ -434,8 +435,11 @@ endif
 
 # Publishing
 $1+PUBLISH := $$(PUBLISH)
+$1+PUBLISH_BUILD := $$(PUBLISH_BUILD)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
 $1+PUBLISH_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH))
+$1+PUBLISH_BUILD_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH_BUILD))
+$1+PUBLISH_DST_ALL := $$($1+PUBLISH_DST) $$($1+PUBLISH_BUILD_DST)
 
 # Deployment
 $1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
@@ -504,10 +508,16 @@ ifdef $1+PUBLISH
 
 publish: publish[$1]
 
-publish[$1]: $$($1+PUBLISH_DST)
+publish[$1]: $$($1+PUBLISH_DST_ALL)
 
+# Publishing from the project directory
 $$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/%
 	$$(_V)echo "Publishing $1/$$*"
+	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
+
+# Publishing from the build directory
+$$($1+PUBLISH_BUILD_DST): $$(PUB_DIR)/$1/%: $$(BUILD)/$1/%
+	$$(_V)echo "Publishing $$(BUILD)/$1/$$*"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 .PHONY: publish[$1]
