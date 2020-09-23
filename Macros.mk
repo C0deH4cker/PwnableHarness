@@ -627,10 +627,8 @@ $1+DOCKER_RUNNABLE := true
 endif
 
 # Append the CHALLENGE_NAME to the list of docker build arg
-ifdef $1+DOCKER_RUNNABLE
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)"
-endif
 endif
 
 # Automatic flag support is only provided for non-custom Docker images
