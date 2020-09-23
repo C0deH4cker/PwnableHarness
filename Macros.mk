@@ -698,6 +698,17 @@ docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) 
 	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $$(dir $$($1+DOCKERFILE)) \
 		&& touch $$(BUILD)/$1/.docker_build_marker
 
+# Rule for removing a docker image and any containers based on it
+docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
+
+# Force remove the container and image
+docker-clean[$$($1+DOCKER_IMAGE)]:
+	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
+ifdef $1+DOCKER_RUNNABLE
+	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+endif
+	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
+	$$(_v)rm -f $$(BUILD)/$1/.docker_build_marker
 
 ## Docker run rules
 
@@ -736,16 +747,6 @@ docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_v)docker stop $$($1+DOCKER_CONTAINER)
 
 .PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
-
-# Rule for removing a docker image and any containers based on it
-docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
-
-# Force remove the container and image
-docker-clean[$$($1+DOCKER_IMAGE)]:
-	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
-	$$(_v)rm -f $$(BUILD)/$1/.docker_build_marker
 
 endif #DOCKER_RUNNABLE
 
