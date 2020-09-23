@@ -377,7 +377,7 @@ DOCKER_RUN_ARGS :=
 DOCKER_ENTRYPOINT_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
-DOCKER_TIMELIMIT := 0
+DOCKER_TIMELIMIT :=
 DOCKER_WRITEABLE :=
 
 # These can optionally be defined to set directory-specific variables

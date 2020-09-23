@@ -55,7 +55,7 @@ ONBUILD ENV PORT=$PORT
 ONBUILD EXPOSE $PORT
 
 # Is there a time limit specified for this docker container?
-ONBUILD ARG TIMELIMIT
+ONBUILD ARG TIMELIMIT=0
 ONBUILD ENV TIMELIMIT=$TIMELIMIT
 
 # Run the executable without a chroot since this is already running in a
