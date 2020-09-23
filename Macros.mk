@@ -745,6 +745,7 @@ docker-clean[$$($1+DOCKER_IMAGE)]:
 	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
+	$$(_v)rm -f $$(BUILD)/$1/.docker_build_marker
 
 endif #DOCKER_RUNNABLE
 
