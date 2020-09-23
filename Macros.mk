@@ -376,6 +376,7 @@ DOCKER_PORT_ARGS :=
 DOCKER_RUN_ARGS :=
 DOCKER_ENTRYPOINT_ARGS :=
 DOCKER_RUNNABLE :=
+DOCKER_BUILD_ONLY :=
 DOCKER_TIMELIMIT := 0
 DOCKER_WRITEABLE :=
 
@@ -463,6 +464,7 @@ $1+DOCKER_PORT_ARGS := $$(DOCKER_PORT_ARGS)
 $1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
 $1+DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
 $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
+$1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
 $1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
@@ -614,9 +616,16 @@ $1+DOCKER_PORT_ARGS := $$(foreach port,$$($1+DOCKER_PORTS),-p $$(port):$$(port))
 $1+DOCKER_RUNNABLE := true
 
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))" --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))"
 endif #DOCKER_IMAGE_CUSTOM
-endif #DOCKDER_PORTS
+endif #DOCKER_PORTS
+
+# Pass DOCKER_TIMELIMIT through as a build arg
+ifdef $1+DOCKER_TIMELIMIT
+ifndef $1+DOCKER_IMAGE_CUSTOM
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg="TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+endif #DOCKER_IMAGE_CUSTOM
+endif #DOCKER_TIMELIMIT
 
 # Check if DOCKER_RUN_ARGS was defined
 ifdef $1+DOCKER_RUN_ARGS
@@ -633,6 +642,11 @@ endif
 # Check if DOCKER_ENTRYPOINT_ARGS was defined
 ifdef $1+DOCKER_ENTRYPOINT_ARGS
 $1+DOCKER_RUNNABLE := true
+endif
+
+# Apply DOCKER_BUILD_ONLY to cancel out DOCKER_RUNNABLE
+ifdef $1+DOCKER_BUILD_ONLY
+$1+DOCKER_RUNNABLE :=
 endif
 
 # Append the CHALLENGE_NAME to the list of docker build arg
@@ -765,20 +779,20 @@ endif
 
 publish[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 
-# Copy the libc from Docker only if the challenge is configured to run in Docker
-ifdef $1+DOCKER_RUNNABLE
-# If the challenge runs within Docker, copy the libc from the docker image
+# Copy the libc from Docker only if the challenge builds a Docker image
+ifdef $1+DOCKER_IMAGE
+# If the challenge has a Docker image, copy the libc from there
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)] | $$(PUB_DIR)/$1/.dir
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
 	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
 
-else #DOCKER_RUNNABLE
+else #DOCKER_IMAGE
 # If the challenge doesn't run in Docker, copy the system's libc
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from $$<"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
-endif #DOCKER_RUNNABLE
+endif #DOCKER_IMAGE
 endif #PUBLISH_LIBC
 endif #exists DIR/Build.mk
 
