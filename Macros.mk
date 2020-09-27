@@ -816,8 +816,13 @@ define _recurse_subdir
 # Include this directory's Build.mk file if it exists
 $$(call include_subdir,$1)
 
+# Ensure DIR+SUBDIRS has a value
+ifndef $1+SUBDIRS
+$1+SUBDIRS :=
+endif
+
 # Make a list of all items in this directory that are directories and strip the trailing "/"
-$1+SUBDIRS := $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
+$1+SUBDIRS := $$($1+SUBDIRS) $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
 
 # Remove current directory and blacklisted items from the list of subdirectories
 $1+SUBDIRS := $$(filter-out $1 %.disabled $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
