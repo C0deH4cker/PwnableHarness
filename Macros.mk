@@ -337,7 +337,12 @@ docker_compose = $(eval $(call _docker_compose,$1,$2))
 #####
 define _include_subdir
 
-ifneq "$$(wildcard $1/Build.mk)" ""
+# Allow overriding the Build.mk path for a directory
+ifndef $1+BUILD_MK
+$1+BUILD_MK := $$(wildcard $1/Build.mk)
+endif
+
+ifdef $1+BUILD_MK
 
 # Append project directory to the list of discovered projects
 PROJECT_LIST := $$(PROJECT_LIST) $1
@@ -794,7 +799,7 @@ $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 
 endif #DOCKER_IMAGE
 endif #PUBLISH_LIBC
-endif #exists DIR/Build.mk
+endif #DIR+BUILD_MK
 
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
