@@ -828,7 +828,7 @@ $1+SUBDIRS := $$($1+SUBDIRS) $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
 $1+SUBDIRS := $$(filter-out $1 %.disabled $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
 
 # Strip off the leading "./" in the subdirectory names
-$1+SUBDIRS := $$(patsubst ./%,%,$$($1+SUBDIRS))
+$1+SUBDIRS := $$(sort $$(patsubst ./%,%,$$($1+SUBDIRS)))
 
 ifdef MKDEBUG
 ifdef $1+SUBDIRS
