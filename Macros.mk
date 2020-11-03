@@ -141,7 +141,7 @@ endif #target_ALLLIBS
 # Convert a list of dynamic library names into linker arguments
 $2_LIBPATHS := $$(sort $$(dir $$($2_ALLLIBS)))
 $2_LDPATHARGS := $$(addprefix -L,$$($2_LIBPATHS))
-$2_LDLIBS := $$(patsubst lib%.so,-l%,$$(notdir $$($2_ALLLIBS)))
+$2_LDLIBS := $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
 
 
 ## Hardening flags
