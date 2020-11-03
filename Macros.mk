@@ -96,6 +96,11 @@ ifeq "$$(origin $2_LD)" "undefined"
 $2_LD := $$(or $$($1+LD),$$(if $$(filter %.cpp,$$($2_SRCS)),$$($2_CXX),$$($2_CC)))
 endif
 
+# Ensure that target_AR has a value
+ifeq "$$(origin $2_AR)" "undefined"
+$2_AR := $$($1+AR)
+endif
+
 # Ensure that target_BINTYPE has a value, defaulting to "dynamiclib" if target
 # name ends in ".so" otherwise "executable".
 ifeq "$$(origin $2_BINTYPE)" "undefined"
@@ -103,9 +108,11 @@ ifdef $1+BINTYPE
 $2_BINTYPE := $$($1+BINTYPE)
 else ifeq "$$(suffix $2)" ".so"
 $2_BINTYPE := dynamiclib
-else #BINTYPE & suffix .so
+else ifeq "$$(suffix $2)" ".a"
+$2_BINTYPE := staticlib
+else #BINTYPE & suffix .so/a
 $2_BINTYPE := executable
-endif #BINTYPE & suffix .so
+endif #BINTYPE & suffix .so/a
 endif #target_BINTYPE undefined
 
 # Ensure that target_LIBS has a value
@@ -252,6 +259,12 @@ $1/$2: $$($2_OBJS) $$($2_ALLLIBS)
 	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
+else ifeq "$$($2_BINTYPE)" "staticlib"
+# Archive rule to produce the final target (specialication for static libraries)
+$1/$2: $$($2_OBJS)
+	$$(_V)echo "Archiving static library $$@"
+	$$(_v)$$($2_AR) rcs $$@ $$^
+
 else #dynamiclib & executable
 
 # Assume that the user will provide their own linker rule here
@@ -395,6 +408,7 @@ SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
 CC := gcc
 CXX := g++
 LD :=
+AR := ar
 BINTYPE :=
 LIBS :=
 USE_LIBPWNABLEHARNESS :=
@@ -484,6 +498,7 @@ $1+SRCS := $$(addprefix $1/,$$(SRCS))
 $1+CC := $$(CC)
 $1+CXX := $$(CXX)
 $1+LD := $$(LD)
+$1+AR := $$(AR)
 $1+BINTYPE := $$(BINTYPE)
 $1+LIBS := $$(LIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
