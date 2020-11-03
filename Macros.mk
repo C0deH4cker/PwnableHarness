@@ -227,18 +227,21 @@ $2_CFLAGS := $$($2_CFLAGS) -DNDEBUG=1
 $2_CXXFLAGS := $$($2_CXXFLAGS) -DNDEBUG=1
 endif #DEBUG
 
+# Ensure directories are created for all object files
+$2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(dir $$($2_OBJS))))
+$$($2_OBJS): $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
 $$($2_OBJS): $1/Build.mk
 $1/$2: $1/Build.mk
 
 # Compiler rule for C sources
-$$(filter %.c.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.c.o: $1/%.c $$(BUILD)/$1/$2_objs/.dir
+$$(filter %.c.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.c.o: $1/%.c
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp $$(BUILD)/$1/$2_objs/.dir
+$$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
