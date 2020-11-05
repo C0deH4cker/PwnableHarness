@@ -33,6 +33,11 @@ ifdef MKDEBUG
 $$(info Generating target rules for $1+$2)
 endif
 
+# Product path
+ifeq "$$(origin $2_PRODUCT)" "undefined"
+$2_PRODUCT := $$(or $$($1+PRODUCT),$$(BUILD)/$1/$2)
+endif
+
 # Ensure that target_BITS has a value, default to 32-bits
 ifeq "$$(origin $2_BITS)" "undefined"
 $2_BITS := $$($1+BITS)
@@ -233,7 +238,7 @@ $$($2_OBJS): $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
 $$($2_OBJS): $1/Build.mk
-$1/$2: $1/Build.mk
+$$($2_PRODUCT): $1/Build.mk
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.c.o: $1/%.c
@@ -250,32 +255,32 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp
 
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$1/$2: $$($2_OBJS) $$($2_ALLLIBS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS)
 	$$(_V)echo "Linking shared library $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$1/$2: $$($2_OBJS) $$($2_ALLLIBS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS)
 	$$(_V)echo "Linking executable $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$1/$2: $$($2_OBJS)
+$$($2_PRODUCT): $$($2_OBJS)
 	$$(_V)echo "Archiving static library $$@"
 	$$(_v)$$($2_AR) rcs $$@ $$^
 
-else #dynamiclib & executable
+else #dynamiclib & executable & staticlib
 
 # Assume that the user will provide their own linker rule here
 ifdef MKDEBUG
 $$(info Not generating a linker rule for $1/$2 because its BINTYPE is "$$($2_BINTYPE)")
 endif #MKDEBUG
 
-endif #dynamiclib & executable
+endif #dynamiclib & executable & staticlib
 
 endef #_generate_target
 generate_target = $(eval $(call _generate_target,$1,$2))
@@ -368,6 +373,7 @@ TARGET :=
 TARGETS :=
 
 # For advanced users that want to define custom build rules for a directory
+PRODUCT :=
 PRODUCTS :=
 
 # Optional list of files to publish
@@ -450,10 +456,13 @@ endif
 $1+TARGETS :=
 endif
 
+# Path where the build target binary will be written
+$1+PRODUCT := $$(PRODUCT)
+
 # List of target files produced by Build.mk
 $1+PRODUCTS := $$(PRODUCTS)
 ifndef $1+PRODUCTS
-$1+PRODUCTS := $$(addprefix $1/,$$($1+TARGETS))
+$1+PRODUCTS := $$(addprefix $$(BUILD)/$1/,$$($1+TARGETS))
 endif
 
 # Publishing
