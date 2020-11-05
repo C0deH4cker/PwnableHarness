@@ -5,14 +5,15 @@ LABEL maintainer="c0deh4cker@gmail.com"
 RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y libc6:i386 && rm -rf /var/lib/apt/lists/*
 
 # Copy PwnableHarness libraries to /usr/local/lib
-COPY .build/libpwnableharness32.so .build/libpwnableharness64.so /usr/local/lib/
+ARG BUILD_DIR
+COPY $BUILD_DIR/libpwnableharness32.so $BUILD_DIR/libpwnableharness64.so /usr/local/lib/
 
 # Copy preload libraries to their respective $LIB paths
-COPY .build/pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
-COPY .build/pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
+COPY $BUILD_DIR/pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
+COPY $BUILD_DIR/pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
 
 # Copy pwnable server program to /usr/local/bin
-COPY .build/pwnableserver /usr/local/bin/
+COPY $BUILD_DIR/pwnableserver /usr/local/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \

@@ -35,7 +35,7 @@ endif
 
 # Product path
 ifeq "$$(origin $2_PRODUCT)" "undefined"
-$2_PRODUCT := $$(or $$($1+PRODUCT),$$(BUILD)/$1/$2)
+$2_PRODUCT := $$(or $$($1+PRODUCT),$$($1+BUILD)/$2)
 endif
 
 # Ensure that target_BITS has a value, default to 32-bits
@@ -76,7 +76,7 @@ endif
 # src from target_SRCS into target_BUILD/src.o
 # Example: generate_target(proj, target) with main.cpp -> build/proj/target_objs/main.cpp.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(patsubst $1/%,$$(BUILD)/$1/$2_objs/%.o,$$($2_SRCS))
+$2_OBJS := $$(patsubst $1/%,$$($1+BUILD)/$2_objs/%.o,$$($2_SRCS))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
@@ -241,12 +241,12 @@ $$($2_OBJS): $1/Build.mk
 $$($2_PRODUCT): $1/Build.mk
 
 # Compiler rule for C sources
-$$(filter %.c.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.c.o: $1/%.c
+$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(filter %.cpp.o,$$($2_OBJS)): $$(BUILD)/$1/$2_objs/%.cpp.o: $1/%.cpp
+$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
@@ -431,8 +431,16 @@ ASLR :=
 STRIP :=
 DEBUG :=
 
-# Define DIR for use by Build.mk files
+# Set DIR+BUILD to the build directory for this project folder
+ifeq "$1" "."
+$1+BUILD := $$(BUILD)
+else
+$1+BUILD := $$(BUILD)/$1
+endif
+
+# Define DIR and BUILD_DIR for use by Build.mk files
 DIR := $1
+BUILD_DIR := $$($1+BUILD)
 
 # First, include the subdirectory's makefile
 ifdef MKDEBUG
@@ -463,8 +471,15 @@ $1+PRODUCT := $$(PRODUCT)
 # List of target files produced by Build.mk
 $1+PRODUCTS := $$(PRODUCTS)
 ifndef $1+PRODUCTS
-$1+PRODUCTS := $$(addprefix $$(BUILD)/$1/,$$($1+TARGETS))
-endif
+ifdef $1+PRODUCT
+ifneq "$$(words $$($1+TARGETS))" "1"
+$$(error $1/Build.mk defined multiple targets but also the PRODUCT variable)
+endif #len(TARGETS) != 1
+$1+PRODUCTS := $$($1+PRODUCT)
+else #DIR+PRODUCT
+$1+PRODUCTS := $$(addprefix $$($1+BUILD)/,$$($1+TARGETS))
+endif #DIR+PRODUCT
+endif #DIR+PRODUCTS
 
 # Publishing
 $1+PUBLISH := $$(PUBLISH)
@@ -552,8 +567,8 @@ $$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/%
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 # Publishing from the build directory
-$$($1+PUBLISH_BUILD_DST): $$(PUB_DIR)/$1/%: $$(BUILD)/$1/%
-	$$(_V)echo "Publishing $$(BUILD)/$1/$$*"
+$$($1+PUBLISH_BUILD_DST): $$(PUB_DIR)/$1/%: $$($1+BUILD)/%
+	$$(_V)echo "Publishing $$($1+BUILD)/$$*"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 .PHONY: publish[$1]
@@ -578,7 +593,7 @@ clean:: clean[$1]
 
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
-	$$(_v)rm -rf $$(patsubst %/.,%,$$(BUILD)/$1) $$($1+PRODUCTS)
+	$$(_v)rm -rf $$($1+BUILD) $$($1+PRODUCTS)
 
 .PHONY: clean[$1]
 
@@ -607,12 +622,6 @@ $1/default.Dockerfile: default.Dockerfile
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
-# If the Dockerfile doesn't have the standard name, add an argument telling
-# docker build which Dockerfile to use
-ifneq "$$($1+DOCKERFILE)" "$1/Dockerfile"
-$1+DOCKER_BUILD_ARGS := -f $$($1+DOCKERFILE) $$($1+DOCKER_BUILD_ARGS)
-endif #Dockerfile
-
 # Docker images depend on the base PwnableHarness Docker image
 ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
 ifndef $1+DOCKER_IMAGE_CUSTOM
@@ -639,7 +648,9 @@ endif
 # Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
+ifneq "$1" "."
 $1+DOCKER_CHALLENGE_PATH := $$($1+PRODUCT)
+endif
 endif
 
 # Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
@@ -689,12 +700,18 @@ ifdef $1+DOCKER_BUILD_ONLY
 $1+DOCKER_RUNNABLE :=
 endif
 
-# Append the CHALLENGE_NAME and CHALLENGE_PATH to the list of docker build arg
+# Always, even for the top-level Dockerfile, pass the BUILD_DIR build arg
+ifndef $1+DOCKER_IMAGE_CUSTOM
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "BUILD_DIR=$$($1+BUILD)"
+endif
+
+# Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
 ifneq "$1" "."
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
-	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
+	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)" \
+	--build-arg "DIR=$1"
 endif
 endif
 
@@ -737,22 +754,22 @@ docker-build: docker-build[$$($1+DOCKER_IMAGE)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
-docker-build[$$($1+DOCKER_IMAGE)]: $$(BUILD)/$1/.docker_build_marker
+docker-build[$$($1+DOCKER_IMAGE)]: $$($1+BUILD)/.docker_build_marker
 
 # Create a marker file to track last docker build time
-$$(BUILD)/$1/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
+$$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $$(dir $$($1+DOCKERFILE)) \
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
 docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE)]
 
 # This rebuilds the docker image no matter what
-docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$(BUILD)/$1/.dir
+docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) $$(dir $$($1+DOCKERFILE)) \
-		&& touch $$(BUILD)/$1/.docker_build_marker
+	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) \
+		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it
 docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
@@ -764,7 +781,7 @@ ifdef $1+DOCKER_RUNNABLE
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
 	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
-	$$(_v)rm -f $$(BUILD)/$1/.docker_build_marker
+	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker
 
 ## Docker run rules
 
