@@ -4,7 +4,6 @@
 *.jar
 *.class
 **/default.Dockerfile
-/pwnableserver
 
 # Debugger files
 *.idb

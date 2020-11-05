@@ -132,7 +132,7 @@ endif
 
 # Add dependency on libpwnableharness[32|64] if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) libpwnableharness$$($2_BITS).so
+$2_ALLLIBS := $$($2_LIBS) $(BUILD)/libpwnableharness$$($2_BITS).so
 else
 $2_ALLLIBS := $$($2_LIBS)
 endif
@@ -396,6 +396,7 @@ DOCKER_IMAGE :=
 DOCKER_IMAGE_CUSTOM :=
 DOCKER_CONTAINER :=
 DOCKER_CHALLENGE_NAME :=
+DOCKER_CHALLENGE_PATH :=
 DOCKER_BUILD_ARGS :=
 DOCKER_BUILD_DEPS :=
 DOCKER_PORTS :=
@@ -488,6 +489,7 @@ $1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
 $1+DOCKER_IMAGE_CUSTOM := $$(DOCKER_IMAGE_CUSTOM)
 $1+DOCKER_CONTAINER := $$(DOCKER_CONTAINER)
 $1+DOCKER_CHALLENGE_NAME := $$(DOCKER_CHALLENGE_NAME)
+$1+DOCKER_CHALLENGE_PATH := $$(DOCKER_CHALLENGE_PATH)
 $1+DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
 $1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
 $1+DOCKER_PORTS := $$(DOCKER_PORTS)
@@ -634,6 +636,12 @@ $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAG
 endif
 endif
 
+# Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
+# built challenge binary
+ifndef $1+DOCKER_CHALLENGE_PATH
+$1+DOCKER_CHALLENGE_PATH := $$($1+PRODUCT)
+endif
+
 # Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
 # or if that's not defined, the challenge name
 ifdef $1+DOCKER_CONTAINER
@@ -681,10 +689,12 @@ ifdef $1+DOCKER_BUILD_ONLY
 $1+DOCKER_RUNNABLE :=
 endif
 
-# Append the CHALLENGE_NAME to the list of docker build arg
+# Append the CHALLENGE_NAME and CHALLENGE_PATH to the list of docker build arg
 ifneq "$1" "."
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
+	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
+	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
 endif
 endif
 

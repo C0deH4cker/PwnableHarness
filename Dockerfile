@@ -5,14 +5,14 @@ LABEL maintainer="c0deh4cker@gmail.com"
 RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y libc6:i386 && rm -rf /var/lib/apt/lists/*
 
 # Copy PwnableHarness libraries to /usr/local/lib
-COPY libpwnableharness32.so libpwnableharness64.so /usr/local/lib/
+COPY .build/libpwnableharness32.so .build/libpwnableharness64.so /usr/local/lib/
 
 # Copy preload libraries to their respective $LIB paths
-COPY pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
-COPY pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
+COPY .build/pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
+COPY .build/pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
 
 # Copy pwnable server program to /usr/local/bin
-COPY pwnableserver /usr/local/bin/
+COPY .build/pwnableserver /usr/local/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \
@@ -37,7 +37,8 @@ ONBUILD RUN useradd -m -s /bin/bash -U $CHALLENGE_NAME
 # Copy the executable to the new user's home directory. It
 # will be owned and only writeable by root.
 ONBUILD WORKDIR /home/$CHALLENGE_NAME
-ONBUILD COPY $CHALLENGE_NAME ./
+ONBUILD ARG CHALLENGE_PATH
+ONBUILD COPY $CHALLENGE_PATH ./$CHALLENGE_NAME
 ONBUILD RUN chmod 0755 $CHALLENGE_NAME
 
 # If given a flag, write it to the given destination file
