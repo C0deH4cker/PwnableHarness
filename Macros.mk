@@ -572,7 +572,7 @@ deploy[$1]: $$($1+DEPLOY_DEPS)
 endif #$1+DEPLOY_COMMAND
 
 # Clean rules
-clean: clean[$1]
+clean:: clean[$1]
 
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"

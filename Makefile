@@ -47,6 +47,9 @@ list:
 # Running "make base" builds only PwnableHarness binaries
 base: all[.]
 
+# Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
+clean::
+
 # Running "make deploy" will build and start Docker containers and publish challenge artifacts
 deploy: docker-start publish
 
