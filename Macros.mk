@@ -700,18 +700,12 @@ ifdef $1+DOCKER_BUILD_ONLY
 $1+DOCKER_RUNNABLE :=
 endif
 
-# Always, even for the top-level Dockerfile, pass the BUILD_DIR build arg
-ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "BUILD_DIR=$$($1+BUILD)"
-endif
-
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
 ifneq "$1" "."
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
-	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)" \
-	--build-arg "DIR=$1"
+	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
 endif
 endif
 
