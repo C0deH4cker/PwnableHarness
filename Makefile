@@ -60,6 +60,9 @@ deploy: docker-start publish
 # Make sure that the .dir files aren't automatically deleted after building
 .SECONDARY:
 
+# Disable magic when a dependency looks like "-l<whatever>"
+.LIBPATTERNS :=
+
 # Global targets that are "phony", aka don't name a file to be created
 .PHONY: all base clean publish deploy
 
