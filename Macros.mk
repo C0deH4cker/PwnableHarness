@@ -540,7 +540,7 @@ $1+LD := $$(LD)
 $1+AR := $$(AR)
 $1+BINTYPE := $$(BINTYPE)
 $1+LIBS := $$(LIBS)
-$1+LIBS := $$(LDLIBS)
+$1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 
 # Directory specific hardening flags
