@@ -264,21 +264,21 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
 
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$(dir $$($2_PRODUCT))/.dir
 	$$(_V)echo "Linking shared library $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$(dir $$($2_PRODUCT))/.dir
 	$$(_V)echo "Linking executable $$@"
 	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$$($2_PRODUCT): $$($2_OBJS)
+$$($2_PRODUCT): $$($2_OBJS) $$(dir $$($2_PRODUCT))/.dir
 	$$(_V)echo "Archiving static library $$@"
 	$$(_v)$$($2_AR) rcs $$@ $$^
 
