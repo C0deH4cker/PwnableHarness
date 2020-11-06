@@ -130,6 +130,15 @@ ifeq "$$(origin $2_USE_LIBPWNABLEHARNESS)" "undefined"
 $2_USE_LIBPWNABLEHARNESS := $$($1+USE_LIBPWNABLEHARNESS)
 endif
 
+# Ensure that target_LDLIBS has a value
+ifeq "$$(origin $2_LDLIBS)" "undefined"
+ifdef $1+LDLIBS
+$2_LDLIBS := $$($1+LDLIBS)
+else #DIR+LDLIBS
+$2_LDLIBS :=
+endif #DIR+LDLIBS
+endif #target_LDLIBS undefined
+
 # Add dependency on libpwnableharness[32|64] if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
 $2_ALLLIBS := $$($2_LIBS) $(BUILD)/libpwnableharness$$($2_BITS).so
@@ -146,7 +155,7 @@ endif #target_ALLLIBS
 # Convert a list of dynamic library names into linker arguments
 $2_LIBPATHS := $$(sort $$(dir $$($2_ALLLIBS)))
 $2_LDPATHARGS := $$(addprefix -L,$$($2_LIBPATHS))
-$2_LDLIBS := $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
+$2_LDLIBS := $$($2_LDLIBS) $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
 
 
 ## Hardening flags
@@ -421,6 +430,7 @@ LD :=
 AR := ar
 BINTYPE :=
 LIBS :=
+LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
 
 # Hardening flags
@@ -530,6 +540,7 @@ $1+LD := $$(LD)
 $1+AR := $$(AR)
 $1+BINTYPE := $$(BINTYPE)
 $1+LIBS := $$(LIBS)
+$1+LIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 
 # Directory specific hardening flags
