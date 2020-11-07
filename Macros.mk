@@ -680,7 +680,7 @@ endif
 ifdef $1+DOCKER_CONTAINER
 $1+DOCKER_RUNNABLE := true
 else
-$1+DOCKER_CONTAINER := $$(or $$($1+DOCKER_IMAGE),$$($1+DOCKER_CHALLENGE_NAME))
+$1+DOCKER_CONTAINER := $$(or $$(notdir $$($1+DOCKER_IMAGE)),$$($1+DOCKER_CHALLENGE_NAME))
 endif
 
 # Use DOCKER_PORTS to produce arguments for binding host ports
