@@ -402,6 +402,7 @@ FLAG_DST := flag.txt
 # These can optionally be defined by Build.mk for Docker management
 DOCKERFILE :=
 DOCKER_IMAGE :=
+DOCKER_IMAGE_TAG :=
 DOCKER_IMAGE_CUSTOM :=
 DOCKER_CONTAINER :=
 DOCKER_CHALLENGE_NAME :=
@@ -511,6 +512,7 @@ $1+FLAG_DST := $$(FLAG_DST)
 # Docker variables
 $1+DOCKERFILE := $$(DOCKERFILE)
 $1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
+$1+DOCKER_IMAGE_TAG := $$(DOCKER_IMAGE_TAG)
 $1+DOCKER_IMAGE_CUSTOM := $$(DOCKER_IMAGE_CUSTOM)
 $1+DOCKER_CONTAINER := $$(DOCKER_CONTAINER)
 $1+DOCKER_CHALLENGE_NAME := $$(DOCKER_CHALLENGE_NAME)
@@ -616,6 +618,15 @@ endif #DOCKER_COMPOSE
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
 ifdef $1+DOCKER_IMAGE
+
+# Define variables for dependencies (like docker-build[var]) and the argument
+ifdef $1+DOCKER_IMAGE_TAG
+$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE).$$($1+DOCKER_IMAGE_TAG)
+$1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE):$$($1+DOCKER_IMAGE_TAG)
+else #DIR+DOCKER_IMAGE_TAG
+$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)
+$1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE)
+endif #DIR+DOCKER_IMAGE_TAG
 
 # Check if there is a Dockerfile in this directory
 ifndef $1+DOCKERFILE
@@ -739,7 +750,7 @@ endif #FLAG_FILE
 ifdef $1+HAS_FLAG
 ifdef $1+FLAG_DST
 ifdef MKDEBUG
-$$(info Placing flag for docker image $$($1+DOCKER_IMAGE) in $$($1+FLAG_DST))
+$$(info Placing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST))
 endif #MKDEBUG
 
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
@@ -755,37 +766,37 @@ $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 ## Docker build rules
 
 # Build a docker image
-docker-build: docker-build[$$($1+DOCKER_IMAGE)]
+docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
-docker-build[$$($1+DOCKER_IMAGE)]: $$($1+BUILD)/.docker_build_marker
+docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
 
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
-	$$(_V)echo "Building docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_V)echo "Building docker image $$($1+DOCKER_TAG_ARG)"
+	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
-docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE)]
+docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 
 # This rebuilds the docker image no matter what
-docker-rebuild[$$($1+DOCKER_IMAGE)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
-	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_IMAGE)"
-	$$(_v)docker build -t $$($1+DOCKER_IMAGE) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
+	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
+	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it
-docker-clean: docker-clean[$$($1+DOCKER_IMAGE)]
+docker-clean: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 
 # Force remove the container and image
-docker-clean[$$($1+DOCKER_IMAGE)]:
-	$$(_V)echo "Cleaning docker image $$($1+DOCKER_IMAGE)"
+docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
+	$$(_V)echo "Cleaning docker image $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
-	$$(_v)docker rmi -f $$($1+DOCKER_IMAGE) >/dev/null 2>&1 || true
+	$$(_v)docker rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
 	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker
 
 ## Docker run rules
@@ -797,12 +808,12 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
-docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE)]
-	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_IMAGE)"
+docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
+	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
-		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_IMAGE) $$($1+DOCKER_ENTRYPOINT_ARGS)
+		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_ENTRYPOINT_ARGS)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
@@ -846,9 +857,9 @@ publish[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 # Copy the libc from Docker only if the challenge builds a Docker image
 ifdef $1+DOCKER_IMAGE
 # If the challenge has a Docker image, copy the libc from there
-$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE)] | $$(PUB_DIR)/$1/.dir
-	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_IMAGE):$$($1+LIBC_PATH)"
-	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_IMAGE) $$($1+LIBC_PATH) > $$@
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE_DEP)] | $$(PUB_DIR)/$1/.dir
+	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LIBC_PATH)"
+	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_IMAGE
 # If the challenge doesn't run in Docker, copy the system's libc
