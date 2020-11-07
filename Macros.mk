@@ -454,15 +454,15 @@ BUILD_DIR := $$($1+BUILD)
 
 # First, include the subdirectory's makefile
 ifdef MKDEBUG
-$$(info Including $1/Build.mk)
+$$(info Including $$($1+BUILD_MK))
 endif
-include $1/Build.mk
+include $$($1+BUILD_MK)
 
 # Look for new definition of TARGET/TARGETS
 ifdef TARGET
 # It's an error to define both TARGET and TARGETS
 ifdef TARGETS
-$$(error $1/Build.mk defined both TARGET ($$(TARGET)) and TARGETS ($$(TARGETS))!)
+$$(error $$($1+BUILD_MK) defined both TARGET ($$(TARGET)) and TARGETS ($$(TARGETS))!)
 endif
 $1+TARGETS := $$(TARGET)
 else ifdef TARGETS
@@ -470,7 +470,7 @@ $1+TARGETS := $$(TARGETS)
 else
 # Neither TARGET nor TARGETS are defined. This Build.mk file may still be useful for deployment
 ifdef MKDEBUG
-$$(warning $1/Build.mk defines no targets.)
+$$(warning $$($1+BUILD_MK) defines no targets.)
 endif
 $1+TARGETS :=
 endif
@@ -483,7 +483,7 @@ $1+PRODUCTS := $$(PRODUCTS)
 ifndef $1+PRODUCTS
 ifdef $1+PRODUCT
 ifneq "$$(words $$($1+TARGETS))" "1"
-$$(error $1/Build.mk defined multiple targets but also the PRODUCT variable)
+$$(error $$($1+BUILD_MK) defined multiple targets but also the PRODUCT variable)
 endif #len(TARGETS) != 1
 $1+PRODUCTS := $$($1+PRODUCT)
 else #DIR+PRODUCT
@@ -644,7 +644,7 @@ endif
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $1/Build.mk
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK)
 
 # Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image
