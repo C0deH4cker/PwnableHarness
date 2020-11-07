@@ -660,7 +660,7 @@ endif
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
 ifneq "$1" "."
-$1+DOCKER_CHALLENGE_PATH := $$($1+PRODUCT)
+$1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
 
