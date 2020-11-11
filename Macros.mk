@@ -674,6 +674,9 @@ ifneq "$1" "."
 $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
+ifdef $1+DOCKER_CHALLENGE_PATH
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKER_CHALLENGE_PATH)
+endif
 
 # Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
 # or if that's not defined, the challenge name
@@ -738,6 +741,7 @@ ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+HAS_FLAG := true
 ifdef $1+FLAG_FILE
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=`cat $$($1+FLAG_FILE)`"
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+FLAG_FILE)
 else #FLAG_FILE
 ifdef $1+FLAG
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=$$($1+FLAG)"
