@@ -24,7 +24,12 @@
 #define ARRAYSIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 /* For reading argv[0] without access to argv. */
+#if defined(__APPLE__)
+#define PROGRAM_NAME() getprogname()
+#elif defined(__linux__)
 extern char *program_invocation_name;
+#define PROGRAM_NAME() program_invocation_name
+#endif
 
 /*! Actually output to standard error after it has been moved. */
 #define PERROR(msg) fprintf(stderr_fp, "%s: %s\n", (msg), strerror(errno))
@@ -410,7 +415,7 @@ static int serve_internal(
 				}
 				
 				/* Exec ourselves to allow PIE to take effect */
-				execl("/proc/self/exe", program_invocation_name, NULL);
+				execl("/proc/self/exe", PROGRAM_NAME(), NULL);
 			}
 			
 			/* Should hopefully never make it this far */
@@ -439,7 +444,8 @@ static void show_usage(server_options* opts) {
 		userpad = 1;
 	}
 	
-	int progpad = 17 - (int)strlen(program_invocation_name);
+	const char* progname = PROGRAM_NAME();
+	int progpad = 17 - (int)strlen(progname);
 	if(progpad <= 0) {
 		progpad = 1;
 	}
@@ -462,11 +468,11 @@ static void show_usage(server_options* opts) {
 			"Path to dynamic library that should be injected into the target process\n"
 		"    -e, --exec <program=%s>%*s"
 			"Program to execute upon receiving a connection\n",
-		program_invocation_name,
+		progname,
 		opts->time_limit_seconds, alarmpad, "",
 		opts->port, portpad, "",
 		opts->user, userpad, "",
-		program_invocation_name, progpad, ""
+		progname, progpad, ""
 	);
 }
 

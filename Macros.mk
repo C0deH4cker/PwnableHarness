@@ -23,6 +23,44 @@
 # and again when the calling macro is eval-ed.
 
 
+# Set defaults
+ifndef DEFAULT_BITS
+DEFAULT_BITS := 64
+endif
+
+ifndef DEFAULT_OFLAGS
+DEFAULT_OFLAGS := -O0
+endif
+
+ifndef DEFAULT_CFLAGS
+DEFAULT_CFLAGS :=
+endif
+
+ifndef DEFAULT_CXXFLAGS
+DEFAULT_CXXFLAGS :=
+endif
+
+ifndef DEFAULT_LDFLAGS
+DEFAULT_LDFLAGS :=
+endif
+
+ifndef DEFAULT_CC
+DEFAULT_CC := gcc
+endif
+
+ifndef DEFAULT_CXX
+DEFAULT_CXX := g++
+endif
+
+ifndef DEFAULT_LD
+DEFAULT_LD :=
+endif
+
+ifndef DEFAULT_AR
+DEFAULT_AR := ar
+endif
+
+
 #####
 # generate_target($1: subdirectory, $2: target)
 #
@@ -145,13 +183,29 @@ endif
 # If additional shared libraries should be linked, allow loading them from the
 # executable's directory and from /usr/local/lib
 ifdef $2_ALLLIBS
+ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN
+else ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,@executable_path
+endif #IS_LINUX/IS_MAC
 endif #target_ALLLIBS
 
+# On macOS, dylibs need an "install name" to allow them to be loaded from the
+# executable's directory
+ifeq "$$($2_BINTYPE)" "dynamiclib"
+ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -install_name @rpath/$2
+endif #IS_MAC
+endif #dynamiclib
+
 # Convert a list of dynamic library names into linker arguments
-$2_LIBPATHS := $$(sort $$(dir $$($2_ALLLIBS)))
-$2_LDPATHARGS := $$(addprefix -L,$$($2_LIBPATHS))
+ifdef IS_LINUX
+$2_LIBPATHS := $$(sort $$(patsubst %/,%,$$(dir $$($2_ALLLIBS))))
+$2_LDFLAGS := $$($2_LDFLAGS) $$(addprefix -L,$$($2_LIBPATHS))
 $2_LDLIBS := $$($2_LDLIBS) $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
+else ifdef IS_MAC
+$2_LDLIBS := $$($2_LDLIBS) $$($2_ALLLIBS)
+endif
 
 
 ## Hardening flags
@@ -189,7 +243,8 @@ endif
 
 ## Apply hardening flags
 
-# RELRO (Read-only relocations)
+# RELRO (Read-only relocations), only works on Linux
+ifdef IS_LINUX
 ifdef $2_RELRO
 ifneq "$$($2_RELRO)" "partial"
 $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,relro,-z,now
@@ -197,6 +252,7 @@ endif #partial
 else #RELRO
 $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,norelro
 endif #RELRO
+endif #IS_LINUX
 
 # Stack canary
 ifndef $2_CANARY
@@ -206,26 +262,42 @@ endif
 
 # NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
 ifndef $2_NX
+ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -z execstack
-endif
+else ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-allow-stack-execute
+endif #OS
+endif #target_NX
 
 # ASLR (Address Space Layout Randomization)
 ifdef $2_ASLR
 $2_CFLAGS := $$($2_CFLAGS) -fPIC
 $2_CXXFLAGS := $$($2_CXXFLAGS) -fPIC
 ifeq "$$($2_BINTYPE)" "executable"
+ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -pie
+else ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-pie
+endif #IS_LINUX/IS_MAC
 endif #executable
 else #ASLR
 ifeq "$$($2_BINTYPE)" "executable"
+ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -no-pie
+else ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-no_pie
+endif #IS_LINUX/IS_MAC
 endif #executable
 endif #ASLR
 
 # Strip symbols
 ifdef $2_STRIP
+ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-s
-endif
+else ifdef IS_MAC
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-S,-x
+endif #IS_LINUX/IS_MAC
+endif #STRIP
 
 # Debug symbols
 ifdef $2_DEBUG
@@ -238,12 +310,12 @@ $2_CXXFLAGS := $$($2_CXXFLAGS) -DNDEBUG=1
 endif #DEBUG
 
 # Ensure directories are created for all object files
-$2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(dir $$($2_OBJS))))
+$2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(patsubst %/,%,$$(dir $$($2_OBJS)))))
 $$($2_OBJS): $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
-$$($2_OBJS): $1/Build.mk
-$$($2_PRODUCT): $1/Build.mk
+$$($2_OBJS): $$($1+BUILD_MK) Macros.mk
+$$($2_PRODUCT): $$($1+BUILD_MK) Macros.mk
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
@@ -258,23 +330,25 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
 # Compilation dependency rules
 -include $$($2_DEPS)
 
+$2_PRODUCT_DIR_RULE := $$(patsubst %/,%,$$(dir $$($2_PRODUCT)))/.dir
+
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$(dir $$($2_PRODUCT))/.dir
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "Linking shared library $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDPATHARGS) $$($2_LDFLAGS) \
+	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$(dir $$($2_PRODUCT))/.dir
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "Linking executable $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDPATHARGS) $$($2_LDFLAGS) \
+	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$(dir $$($2_PRODUCT))/.dir
+$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "Archiving static library $$@"
 	$$(_v)$$($2_AR) rcs $$@ $$^
 
@@ -356,6 +430,33 @@ docker_compose = $(eval $(call _docker_compose,$1,$2))
 
 
 #####
+# add_publish_rule($1: project directory, $2: path containing files to publish, $3: list of files under $2 to publish)
+#
+# Define a rule for copying a file to a project's publish directory
+#####
+define _add_publish_rule
+
+ifdef MKDEBUG
+$$(info add_publish_rule($1,$2,$3))
+endif #MKDEBUG
+
+$1+$2+DST := $$(addprefix $$(PUB_DIR)/$1/,$$(notdir $3))
+
+publish[$1]: $$($1+$2+DST)
+
+# Publishing rule
+$$($1+$2+DST): $$(PUB_DIR)/$1/%: $2/%
+	$$(_V)echo "Publishing $1/$$*"
+	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
+
+endef
+add_publish_rule = $(eval $(call _add_publish_rule,$1,$2,$3))
+#####
+
+
+
+
+#####
 # include_subdir($1: subdirectory)
 #
 # Check for a Build.mk file in the given directory. If one exists, include it and
@@ -384,6 +485,7 @@ PRODUCTS :=
 # Optional list of files to publish
 PUBLISH :=
 PUBLISH_BUILD :=
+PUBLISH_TOP :=
 PUBLISH_LIBC :=
 
 # Deployment
@@ -416,16 +518,16 @@ DOCKER_WRITEABLE :=
 DOCKER_NO_PRELOAD :=
 
 # These can optionally be defined to set directory-specific variables
-BITS := 32
-OFLAGS := -O0
-CFLAGS :=
-CXXFLAGS :=
-LDFLAGS :=
+BITS := $(DEFAULT_BITS)
+OFLAGS := $(DEFAULT_OFLAGS)
+CFLAGS := $(DEFAULT_CFLAGS)
+CXXFLAGS := $(DEFAULT_CXXFLAGS)
+LDFLAGS := $(DEFAULT_LDFLAGS)
 SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
-CC := gcc
-CXX := g++
-LD :=
-AR := ar
+CC := $(DEFAULT_CC)
+CXX := $(DEFAULT_CXX)
+LD := $(DEFAULT_LD)
+AR := $(DEFAULT_AR)
 BINTYPE :=
 LIBS :=
 LDLIBS :=
@@ -492,10 +594,11 @@ endif #DIR+PRODUCTS
 # Publishing
 $1+PUBLISH := $$(PUBLISH)
 $1+PUBLISH_BUILD := $$(PUBLISH_BUILD)
+$1+PUBLISH_TOP := $$(PUBLISH_TOP)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
-$1+PUBLISH_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH))
-$1+PUBLISH_BUILD_DST := $$(addprefix $$(PUB_DIR)/$1/,$$($1+PUBLISH_BUILD))
-$1+PUBLISH_DST_ALL := $$($1+PUBLISH_DST) $$($1+PUBLISH_BUILD_DST)
+$1+PUBLISH_PROJ_FILES := $$(addprefix $1/,$$($1+PUBLISH))
+$1+PUBLISH_BUILD_FILES := $$(addprefix $$($1+BUILD)/,$$($1+PUBLISH_BUILD))
+$1+PUBLISH_ALL_FILES := $$(sort $$($1+PUBLISH_PROJ_FILES) $$($1+PUBLISH_BUILD_FILES) $$(PUBLISH_TOP))
 
 # Deployment
 $1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
@@ -566,25 +669,16 @@ all[$1]: $$($1+PRODUCTS)
 .PHONY: all[$1]
 
 # Publish rules
-ifdef $1+PUBLISH_DST_ALL
-
-publish: publish[$1]
-
-publish[$1]: $$($1+PUBLISH_DST_ALL)
-
-# Publishing from the project directory
-$$($1+PUBLISH_DST): $$(PUB_DIR)/$1/%: $1/%
-	$$(_V)echo "Publishing $1/$$*"
-	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
-
-# Publishing from the build directory
-$$($1+PUBLISH_BUILD_DST): $$(PUB_DIR)/$1/%: $$($1+BUILD)/%
-	$$(_V)echo "Publishing $$($1+BUILD)/$$*"
-	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
+ifdef $1+PUBLISH_ALL_FILES
 
 .PHONY: publish[$1]
+publish: publish[$1]
 
-endif #$1+PUBLISH_DST_ALL
+# Generate all the real publish rules based on the source directory
+$1+PUBLISH_DIRS := $$(sort $$(patsubst %/,%,$$(dir $$($1+PUBLISH_ALL_FILES))))
+$$(foreach d,$$($1+PUBLISH_DIRS),$$(call add_publish_rule,$1,$$d,$$(filter $$d/%,$$($1+PUBLISH_ALL_FILES))))
+
+endif #$1+PUBLISH_ALL_FILES
 
 # Deploy rules
 ifdef $1+DEPLOY_COMMAND
@@ -653,7 +747,7 @@ endif
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK)
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) Macros.mk
 
 # Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image

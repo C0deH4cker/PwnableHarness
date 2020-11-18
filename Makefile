@@ -18,6 +18,21 @@ VERBOSE ?=
 _v = $(if $(VERBOSE),,@)
 _V = $(if $(VERBOSE),@\#,@)
 
+# Basic OS detection (Windows is detected but not supported)
+ifndef OS
+OS := $(shell uname -s)
+endif
+IS_WIN :=
+IS_LINUX :=
+IS_MAC :=
+ifeq "$(OS)" "Windows_NT"
+IS_WIN := 1
+else ifeq "$(OS)" "Linux"
+IS_LINUX := 1
+else ifeq "$(OS)" "Darwin"
+IS_MAC := 1
+endif
+
 # Define useful build macros
 include Macros.mk
 
