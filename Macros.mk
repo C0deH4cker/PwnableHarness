@@ -265,7 +265,7 @@ ifndef $2_NX
 ifdef IS_LINUX
 $2_LDFLAGS := $$($2_LDFLAGS) -z execstack
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-allow-stack-execute
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-allow_stack_execute
 endif #OS
 endif #target_NX
 
