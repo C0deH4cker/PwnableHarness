@@ -21,6 +21,8 @@
 #include <grp.h>
 #include <pwd.h>
 
+#define ARRAYSIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 /* For reading argv[0] without access to argv. */
 extern char *program_invocation_name;
 
@@ -195,6 +197,20 @@ static bool redirect_output(int sock) {
 static void handle_term(int signum) {
 	fprintf(stderr_fp, "Got SIGTERM, exiting...");
 	exit(signum);
+}
+
+static void clean_env(void) {
+	const char* vars[] = {
+		"CHALLENGE_NAME",
+		"PORT",
+		"TIMELIMIT",
+		"PWNABLESERVER_EXTRA_ARGS"
+	};
+	
+	size_t i;
+	for(i = 0; i < ARRAYSIZE(vars); i++) {
+		unsetenv(vars[i]);
+	}
 }
 
 
@@ -377,6 +393,9 @@ static int serve_internal(
 			fclose(stdout_fp);
 			fclose(stderr_fp);
 			
+			/* Clear environment variables that may be present from the Dockerfile */
+			clean_env();
+			
 			/* Exec ourselves or the target program to run the challenge code. */
 			if(exec_prog != NULL) {
 				/* Exec the target program */
@@ -494,4 +513,3 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 	
 	return serve_internal(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler, inject_lib, exec_prog);
 }
-

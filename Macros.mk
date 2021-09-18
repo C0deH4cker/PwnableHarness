@@ -417,6 +417,7 @@ DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
 DOCKER_TIMELIMIT :=
 DOCKER_WRITEABLE :=
+DOCKER_NO_PRELOAD :=
 
 # These can optionally be defined to set directory-specific variables
 BITS := 32
@@ -527,6 +528,7 @@ $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
+$1+DOCKER_NO_PRELOAD := $$(DOCKER_NO_PRELOAD)
 $1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
 
 # Directory specific variables
@@ -699,7 +701,7 @@ endif #DOCKER_PORTS
 # Pass DOCKER_TIMELIMIT through as a build arg
 ifdef $1+DOCKER_TIMELIMIT
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg="TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
 endif #DOCKER_IMAGE_CUSTOM
 endif #DOCKER_TIMELIMIT
 
@@ -731,8 +733,15 @@ ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
 	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
-endif
-endif
+
+ifdef $1+DOCKER_NO_PRELOAD
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PWNABLESERVER_EXTRA_ARGS=\"\""
+else #DOCKER_NO_PRELOAD
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PWNABLESERVER_EXTRA_ARGS=\"--inject '/$$$$LIB/pwnablepreload.so'\""
+endif #DOCKER_NO_PRELOAD
+
+endif #DOCKER_IMAGE_CUSTOM
+endif #Not top-level (building PwnableHarness itself)
 
 # Automatic flag support is only provided for non-custom Docker images
 ifndef $1+DOCKER_IMAGE_CUSTOM

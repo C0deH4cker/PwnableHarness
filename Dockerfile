@@ -60,6 +60,12 @@ ONBUILD EXPOSE $PORT
 ONBUILD ARG TIMELIMIT=0
 ONBUILD ENV TIMELIMIT=$TIMELIMIT
 
+# This allows adding the --inject argument which decides whether to
+# inject a library into the target process. It is empty when the
+# Build.mk variable DOCKER_NO_PRELOAD is set.
+ONBUILD ARG PWNABLESERVER_EXTRA_ARGS
+ONBUILD ENV PWNABLESERVER_EXTRA_ARGS=$PWNABLESERVER_EXTRA_ARGS
+
 # Run the executable without a chroot since this is already running in a
 # Docker container. Also specify the username explicitly in case the
 # default is different. We inject the pwnablepreload.so library into the
@@ -68,5 +74,5 @@ ONBUILD ENV TIMELIMIT=$TIMELIMIT
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \
-	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $CHALLENGE_NAME --inject '/$LIB/pwnablepreload.so' --exec /home/$CHALLENGE_NAME/$CHALLENGE_NAME" \
+	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $CHALLENGE_NAME --exec /home/$CHALLENGE_NAME/$CHALLENGE_NAME $PWNABLESERVER_EXTRA_ARGS" \
 ]
