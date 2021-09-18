@@ -63,7 +63,7 @@ ONBUILD ENV TIMELIMIT=$TIMELIMIT
 # This allows adding the --inject argument which decides whether to
 # inject a library into the target process. It is empty when the
 # Build.mk variable DOCKER_NO_PRELOAD is set.
-ONBUILD ARG PWNABLESERVER_EXTRA_ARGS
+ONBUILD ARG PWNABLESERVER_EXTRA_ARGS=
 ONBUILD ENV PWNABLESERVER_EXTRA_ARGS=$PWNABLESERVER_EXTRA_ARGS
 
 # Run the executable without a chroot since this is already running in a
