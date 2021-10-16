@@ -132,11 +132,7 @@ endif
 
 # Ensure that target_LDLIBS has a value
 ifeq "$$(origin $2_LDLIBS)" "undefined"
-ifdef $1+LDLIBS
 $2_LDLIBS := $$($1+LDLIBS)
-else #DIR+LDLIBS
-$2_LDLIBS :=
-endif #DIR+LDLIBS
 endif #target_LDLIBS undefined
 
 # Add dependency on libpwnableharness[32|64] if requested
