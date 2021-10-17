@@ -1,45 +1,41 @@
-# Build products
-/.build/
-*.so
-*.jar
-*.class
-**/pytest_cache
-**/default.Dockerfile
-!/default.Dockerfile
+# Ignore all top-level items by default
+/*
 
-# Debugger files
-*.idb
-*.id0
-*.id1
-*.nam
-*.til
-*.i64
-peda-session-*.txt
-.gdb_history
-core
+# Do NOT ignore the top-level examples directory
+!/examples/
 
-# Real flags
+# Ignore the contents of each example directory
+/examples/*/*
+
+
+##################
+# Do NOT ignore: #
+##################
+
+# All C/C++ source files and text files
+!*.c
+!*.cpp
+!*.h
+!*.txt
+!*.md
+
+# (...but REALLY ignore real flags)
 real_flag*.txt
 
-# Publish destination directory
-/publish
+# All Makefiles
+!Makefile
+!*.mk
 
-# Custom configuration
-/Config.mk
+# All gitignore files
+!.gitignore
 
-# Solutions
-*.py
-*.pyc
-*.pyo
+# Dockerfiles, including the top-level default.Dockerfile
+!Dockerfile
+!/default.Dockerfile
 
-# Random OS files
-.DS_Store
-thumbs.db
-._*
-*.swp
+# YAML files (including docker-compose.yml)
+!*.yml
+!*.yaml
 
-# All top-level directories in this repo...
-/*/
-
-# ...except for these directories:
-!/examples
+# Any other filetypes that should be allowed should
+# be added here or in another .gitignore file.
