@@ -22,9 +22,10 @@
 # (...but REALLY ignore real flags)
 real_flag*.txt
 
-# All Makefiles
+# All Makefiles except Config.mk
 !Makefile
 !*.mk
+Config.mk
 
 # All gitignore files
 !.gitignore
