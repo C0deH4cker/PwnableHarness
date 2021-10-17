@@ -24,11 +24,31 @@
 #define ARRAYSIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 /* For reading argv[0] without access to argv. */
-#if defined(__APPLE__)
-#define PROGRAM_NAME() getprogname()
-#elif defined(__linux__)
+#if defined(__linux__)
 extern char *program_invocation_name;
 #define PROGRAM_NAME() program_invocation_name
+#define PRELOAD_ENV_VAR "LD_PRELOAD"
+#define PROC_SELF_EXE() "/proc/self/exe"
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#define PROGRAM_NAME() getprogname()
+#define PRELOAD_ENV_VAR "DYLD_INSERT_LIBRARIES"
+static const char* PROC_SELF_EXE(void) {
+	static char* path = NULL;
+	if(!path) {
+		uint32_t path_size = 0;
+		_NSGetExecutablePath(NULL, &path_size);
+		
+		char* path_buf = malloc(path_size);
+		if(_NSGetExecutablePath(path_buf, &path_size) != 0) {
+			free(path_buf);
+		}
+		
+		path = path_buf;
+	}
+	
+	return path;
+}
 #endif
 
 /*! Actually output to standard error after it has been moved. */
@@ -265,7 +285,7 @@ static int serve_internal(
 	
 	/* Set LD_PRELOAD env var so that the library will be injected into exec-ed children */
 	if(inject_lib != NULL) {
-		setenv("LD_PRELOAD", inject_lib, 1);
+		setenv(PRELOAD_ENV_VAR, inject_lib, 1);
 	}
 	
 	/* Look up user struct */
@@ -393,13 +413,13 @@ static int serve_internal(
 				_exit(EXIT_FAILURE);
 			}
 			
+			/* Clear environment variables that may be present from the Dockerfile */
+			clean_env();
+			
 			/* Close real standard file handles */
 			fclose(stdin_fp);
 			fclose(stdout_fp);
 			fclose(stderr_fp);
-			
-			/* Clear environment variables that may be present from the Dockerfile */
-			clean_env();
 			
 			/* Exec ourselves or the target program to run the challenge code. */
 			if(exec_prog != NULL) {
@@ -415,7 +435,7 @@ static int serve_internal(
 				}
 				
 				/* Exec ourselves to allow PIE to take effect */
-				execl("/proc/self/exe", PROGRAM_NAME(), NULL);
+				execl(PROC_SELF_EXE(), PROGRAM_NAME(), NULL);
 			}
 			
 			/* Should hopefully never make it this far */
