@@ -1,9 +1,11 @@
 # Build products
-.build/
+/.build/
 *.so
 *.jar
 *.class
+**/pytest_cache
 **/default.Dockerfile
+!/default.Dockerfile
 
 # Debugger files
 *.idb
@@ -22,9 +24,6 @@ real_flag*.txt
 # Publish destination directory
 /publish
 
-# Private challenges
-/private
-
 # Custom configuration
 /Config.mk
 
@@ -38,3 +37,9 @@ real_flag*.txt
 thumbs.db
 ._*
 *.swp
+
+# All top-level directories in this repo...
+/*/
+
+# ...except for these directories:
+!/examples
