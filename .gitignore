@@ -19,8 +19,9 @@
 !*.txt
 !*.md
 
-# (...but REALLY ignore real flags)
+# (...but REALLY ignore real flags and debug histories)
 real_flag*.txt
+peda-session-*.txt
 
 # All Makefiles except Config.mk
 !Makefile
