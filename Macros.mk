@@ -825,7 +825,7 @@ $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
 
 ifndef $1+DOCKER_NO_PRELOAD
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PWNABLESERVER_EXTRA_ARGS=--inject '/$$$$LIB/pwnablepreload.so'"
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg 'PWNABLESERVER_EXTRA_ARGS=--inject /$$$$LIB/pwnablepreload.so'
 endif #DOCKER_NO_PRELOAD
 
 endif #DOCKER_IMAGE_CUSTOM
