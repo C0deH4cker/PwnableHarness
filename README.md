@@ -66,8 +66,10 @@ PwnableHarness challenges are often developed in their own repos or as directori
 
 ### SunshineCTF
 
-The SunshineCTF competition has used PwnableHarness to build, manage, and deploy all pwnable challenges since 2017. Note that these PwnableHarness challenges all use the old-style that linked directly against libpwnableharness. The pwn challenges in SunshineCTF 2019 use the new style. The 2019 repo also serves as an example of how PwnableHarness can be used to manage challenges that aren't exploitation challenges or even written in C, as the web challenges are managed by PwnableHarness, such as the Docker image building, container running, and even Nginx config management.
+The SunshineCTF competition has used PwnableHarness to build, manage, and deploy all pwnable challenges since 2017. Note that these PwnableHarness challenges all use the old-style that linked directly against libpwnableharness. The pwn challenges in SunshineCTF 2019 and forwards use the new style. The 2019 repo also serves as an example of how PwnableHarness can be used to manage challenges that aren't exploitation challenges or even written in C, as the web challenges are managed by PwnableHarness, such as the Docker image building, container running, and even Nginx config management.
 
-* [SunshineCTF-2017-Public](https://github.com/HackUCF/SunshineCTF-2017-Public)
-* [SunshineCTF-2018-Public](https://github.com/HackUCF/SunshineCTF-2018-Public)
-* [SunshineCTF-2019-Public](https://github.com/HackUCF/SunshineCTF-2019-Public)
+* [SunshineCTF-2017-Public](https://github.com/SunshineCTF/SunshineCTF-2017-Public)
+* [SunshineCTF-2018-Public](https://github.com/SunshineCTF/SunshineCTF-2018-Public)
+* [SunshineCTF-2019-Public](https://github.com/SunshineCTF/SunshineCTF-2019-Public)
+* [SunshineCTF-2020-Public](https://github.com/SunshineCTF/SunshineCTF-2020-Public)
+* [SunshineCTF-2021-Public](https://github.com/SunshineCTF/SunshineCTF-2021-Public)
