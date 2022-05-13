@@ -1,5 +1,5 @@
 //
-//  pwnable_preload.c
+//  stdio_unbuffer.c
 //  PwnableHarness
 //
 //  Created by C0deH4cker on 3/24/19.
@@ -8,7 +8,8 @@
 
 #include <stdio.h>
 
-__attribute__((constructor)) void pwnable_init(void) {
+__attribute__((constructor))
+static void pwnable_unbuffer_init(void) {
 	/* Make sure these standard output streams are not buffered */
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);

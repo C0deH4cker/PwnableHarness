@@ -168,6 +168,11 @@ ifeq "$$(origin $2_USE_LIBPWNABLEHARNESS)" "undefined"
 $2_USE_LIBPWNABLEHARNESS := $$($1+USE_LIBPWNABLEHARNESS)
 endif
 
+# Ensure that target_NO_UNBUFFERED_STDIO has a value
+ifeq "$$(origin $2_NO_UNBUFFERED_STDIO)" "undefined"
+$2_NO_UNBUFFERED_STDIO := $$($1+NO_UNBUFFERED_STDIO)
+endif
+
 # Ensure that target_LDLIBS has a value
 ifeq "$$(origin $2_LDLIBS)" "undefined"
 $2_LDLIBS := $$($1+LDLIBS)
@@ -178,6 +183,16 @@ ifdef $2_USE_LIBPWNABLEHARNESS
 $2_ALLLIBS := $$($2_LIBS) $(BUILD)/libpwnableharness$$($2_BITS).so
 else
 $2_ALLLIBS := $$($2_LIBS)
+endif
+
+# Build and link in the stdio_unbuffer.c source file unless opted out
+ifndef $2_NO_UNBUFFERED_STDIO
+$2_OBJS := $$($2_OBJS) $$($1+BUILD)/$2_objs/stdio_unbuffer.o
+
+# Compiler rule for stdio_unbuffer.o
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: stdio_unbuffer.c
+	$$(_v)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+
 endif
 
 # If additional shared libraries should be linked, allow loading them from the
@@ -515,7 +530,6 @@ DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
 DOCKER_TIMELIMIT :=
 DOCKER_WRITEABLE :=
-DOCKER_NO_PRELOAD :=
 
 # These can optionally be defined to set directory-specific variables
 BITS := $(DEFAULT_BITS)
@@ -532,6 +546,7 @@ BINTYPE :=
 LIBS :=
 LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
+NO_UNBUFFERED_STDIO :=
 
 # Hardening flags
 RELRO :=
@@ -627,7 +642,6 @@ $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
-$1+DOCKER_NO_PRELOAD := $$(DOCKER_NO_PRELOAD)
 $1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
 
 # Directory specific variables
@@ -645,6 +659,7 @@ $1+BINTYPE := $$(BINTYPE)
 $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
+$1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -823,10 +838,6 @@ ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
 	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
-
-ifndef $1+DOCKER_NO_PRELOAD
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg 'PWNABLESERVER_EXTRA_ARGS=--inject /$$$$LIB/pwnablepreload.so'
-endif #DOCKER_NO_PRELOAD
 
 endif #DOCKER_IMAGE_CUSTOM
 endif #Not top-level (building PwnableHarness itself)

@@ -8,10 +8,6 @@ RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y libc6:i
 ARG BUILD_DIR
 COPY $BUILD_DIR/libpwnableharness32.so $BUILD_DIR/libpwnableharness64.so /usr/local/lib/
 
-# Copy preload libraries to their respective $LIB paths
-COPY $BUILD_DIR/pwnablepreload32.so /lib/i386-linux-gnu/pwnablepreload.so
-COPY $BUILD_DIR/pwnablepreload64.so /lib/x86_64-linux-gnu/pwnablepreload.so
-
 # Copy pwnable server program to /usr/local/bin
 COPY $BUILD_DIR/pwnableserver /usr/local/bin/
 
@@ -19,8 +15,6 @@ COPY $BUILD_DIR/pwnableserver /usr/local/bin/
 RUN chmod 0755 \
 	/usr/local/lib/libpwnableharness32.so \
 	/usr/local/lib/libpwnableharness64.so \
-	/lib/i386-linux-gnu/pwnablepreload.so \
-	/lib/x86_64-linux-gnu/pwnablepreload.so \
 	/usr/local/bin/pwnableserver
 
 # Just run bash shell when no command is given. This isn't intended
@@ -61,16 +55,13 @@ ONBUILD ARG TIMELIMIT=0
 ONBUILD ENV TIMELIMIT=$TIMELIMIT
 
 # This allows adding the --inject argument which decides whether to
-# inject a library into the target process. It is empty when the
-# Build.mk variable DOCKER_NO_PRELOAD is set.
+# inject a library into the target process.
 ONBUILD ARG PWNABLESERVER_EXTRA_ARGS=
 ONBUILD ENV PWNABLESERVER_EXTRA_ARGS=$PWNABLESERVER_EXTRA_ARGS
 
 # Run the executable without a chroot since this is already running in a
 # Docker container. Also specify the username explicitly in case the
-# default is different. We inject the pwnablepreload.so library into the
-# spawned challenge process to set the buffering mode of stdout & stderr
-# to unbuffered.
+# default is different.
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \

@@ -14,9 +14,17 @@ PUB_DIR := publish
 MKDEBUG ?=
 
 # Print all commands executed when VERBOSE is defined, but don't echo explanations
+define HASH
+#
+endef
 VERBOSE ?=
-_v = $(if $(VERBOSE),,@)
-_V = $(if $(VERBOSE),@\#,@)
+ifdef VERBOSE
+_v :=
+_V := @$(HASH)
+else
+_v := @
+_V := @
+endif
 
 # Basic OS detection (Windows is detected but not supported)
 ifndef OS
