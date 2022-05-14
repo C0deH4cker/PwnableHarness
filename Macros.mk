@@ -508,9 +508,9 @@ DEPLOY_COMMAND :=
 DEPLOY_DEPS :=
 
 # Optional CTF flag management
-FLAG :=
 FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
+SET_FLAG_PERMISSIONS :=
 
 # These can optionally be defined by Build.mk for Docker management
 DOCKERFILE :=
@@ -620,9 +620,9 @@ $1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
 $1+DEPLOY_DEPS := $$(DEPLOY_DEPS)
 
 # CTF flag management
-$1+FLAG := $$(FLAG)
 $1+FLAG_FILE := $$(FLAG_FILE)
 $1+FLAG_DST := $$(FLAG_DST)
+$1+SET_FLAG_PERMISSIONS := $$(SET_FLAG_PERMISSIONS)
 
 # Docker variables
 $1+DOCKERFILE := $$(DOCKERFILE)
@@ -846,28 +846,18 @@ endif #Not top-level (building PwnableHarness itself)
 ifndef $1+DOCKER_IMAGE_CUSTOM
 
 # Adding the flag to the docker image
-$1+HAS_FLAG := true
-ifdef $1+FLAG_FILE
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=`cat $$($1+FLAG_FILE)`"
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+FLAG_FILE)
-else #FLAG_FILE
-ifdef $1+FLAG
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG=$$($1+FLAG)"
-else #FLAG
 $1+HAS_FLAG :=
-endif #FLAG
-endif #FLAG_FILE
-
-# Adding flag destination if the project includes a flag
-ifdef $1+HAS_FLAG
+ifdef $1+FLAG_FILE
 ifdef $1+FLAG_DST
 ifdef MKDEBUG
-$$(info Placing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST))
+$$(info Preparing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST))
 endif #MKDEBUG
 
+$1+HAS_FLAG := 1
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$(abspath $$($1+FLAG_FILE)):/home/$$($1+DOCKER_CHALLENGE_NAME)/$$($1+FLAG_DST):ro
 endif #FLAG_DST
-endif #HAS_FLAG
+endif #FLAG_FILE
 
 endif #DOCKER_IMAGE_CUSTOM
 
@@ -923,6 +913,9 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+ifdef $1+SET_FLAG_PERMISSIONS
+	$$(_v)sudo chown root:1337 $$($1+FLAG_FILE) && sudo chmod 0640 $$($1+FLAG_FILE)
+endif
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
 		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_ENTRYPOINT_ARGS)

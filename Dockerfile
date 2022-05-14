@@ -27,23 +27,23 @@ ONBUILD ARG CHALLENGE_NAME
 ONBUILD ENV CHALLENGE_NAME=$CHALLENGE_NAME
 
 # Create the user this challenge runs as
-ONBUILD RUN useradd -m -s /bin/bash -U $CHALLENGE_NAME
+ONBUILD RUN groupadd -g 1337 $CHALLENGE_NAME \
+	&& useradd -m -s /bin/bash -u 1337 -g 1337 $CHALLENGE_NAME
+ONBUILD WORKDIR /home/$CHALLENGE_NAME
+
+# Add a fake flag file. When the challenge is run on the real server,
+# the real flag file will be bind-mounted over top of the fake one.
+ONBUILD ARG FLAG_DST=flag.txt
+ONBUILD RUN \
+	echo 'fakeflag{now_try_on_the_real_challenge_server}' > "$FLAG_DST" && \
+	chown "root:$CHALLENGE_NAME" "$FLAG_DST" && \
+	chmod 0640 "$FLAG_DST"
 
 # Copy the executable to the new user's home directory. It
 # will be owned and only writeable by root.
-ONBUILD WORKDIR /home/$CHALLENGE_NAME
 ONBUILD ARG CHALLENGE_PATH
 ONBUILD COPY $CHALLENGE_PATH ./$CHALLENGE_NAME
 ONBUILD RUN chmod 0755 $CHALLENGE_NAME
-
-# If given a flag, write it to the given destination file
-ONBUILD ARG FLAG=
-ONBUILD ARG FLAG_DST=flag.txt
-ONBUILD RUN if [ -n "$FLAG" -a -n "$FLAG_DST" ]; then \
-		echo "$FLAG" > "$FLAG_DST" && \
-		chown "root:$CHALLENGE_NAME" "$FLAG_DST" && \
-		chmod 0640 "$FLAG_DST"; \
-	fi
 
 # Which port is exposed by this docker container
 ONBUILD ARG PORT
