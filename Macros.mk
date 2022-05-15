@@ -525,11 +525,12 @@ DOCKER_BUILD_DEPS :=
 DOCKER_PORTS :=
 DOCKER_PORT_ARGS :=
 DOCKER_RUN_ARGS :=
-DOCKER_ENTRYPOINT_ARGS :=
+DOCKER_PWNABLESERVER_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
 DOCKER_TIMELIMIT :=
 DOCKER_WRITEABLE :=
+DOCKER_PASSWORD :=
 
 # These can optionally be defined to set directory-specific variables
 BITS := $(DEFAULT_BITS)
@@ -637,11 +638,12 @@ $1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
 $1+DOCKER_PORTS := $$(DOCKER_PORTS)
 $1+DOCKER_PORT_ARGS := $$(DOCKER_PORT_ARGS)
 $1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
-$1+DOCKER_ENTRYPOINT_ARGS := $$(DOCKER_ENTRYPOINT_ARGS)
+$1+DOCKER_PWNABLESERVER_ARGS := $$(DOCKER_PWNABLESERVER_ARGS)
 $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
+$1+DOCKER_PASSWORD := $$(DOCKER_PASSWORD)
 $1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
 
 # Directory specific variables
@@ -819,12 +821,21 @@ endif
 ifndef $1+DOCKER_WRITEABLE
 ifeq "$$(filter --read-only,$$($1+DOCKER_RUN_ARGS))" ""
 $1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --read-only
-endif
-endif
+endif #--read-only
+endif #DOCKER_WRITEABLE
 
-# Check if DOCKER_ENTRYPOINT_ARGS was defined
-ifdef $1+DOCKER_ENTRYPOINT_ARGS
-$1+DOCKER_RUNNABLE := true
+# If there's a password, supply it as an argument to pwnableserver
+ifdef $1+DOCKER_PASSWORD
+ifndef $1+DOCKER_IMAGE_CUSTOM
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
+	--build-arg "CHALLENGE_PASSWORD=$$($1+DOCKER_PASSWORD)"
+endif #DOCKER_IMAGE_CUSTOM
+endif #DOCKER_PASSWORD
+
+# Check if DOCKER_PWNABLESERVER_ARGS was defined
+ifdef $1+DOCKER_PWNABLESERVER_ARGS
+$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
+	--build-arg "PWNABLESERVER_EXTRA_ARGS=$$($1+DOCKER_PWNABLESERVER_ARGS)"
 endif
 
 # Apply DOCKER_BUILD_ONLY to cancel out DOCKER_RUNNABLE
@@ -924,7 +935,7 @@ docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$(
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
-		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_ENTRYPOINT_ARGS)
+		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 

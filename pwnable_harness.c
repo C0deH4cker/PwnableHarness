@@ -64,6 +64,9 @@ static const char* kEnvMarker = "PWNABLE_CONNECTION";
 /*! Need to avoid setenv(), which does a hidden malloc */
 static bool skipListen = true;
 
+/*! Password that must be entered by the user after connecting. */
+static const char* password = NULL;
+
 
 /*! Changes directory to the user's home directory, chroots there, and then
  * changes to the user's home directory relative to the chroot.
@@ -227,6 +230,7 @@ static void handle_term(int signum) {
 static void clean_env(void) {
 	const char* vars[] = {
 		"CHALLENGE_NAME",
+		"CHALLENGE_PASSWORD",
 		"PORT",
 		"TIMELIMIT",
 		"PWNABLESERVER_EXTRA_ARGS"
@@ -398,8 +402,10 @@ static int serve_internal(
 			
 			/* Log timestamp and source IP for received connections */
 			uint32_t ip = ntohl(cli_addr.sin_addr.s_addr);
-			fprintf(stderr_fp, "[%s] Received connection from %u.%u.%u.%u.\n",
-			        timestamp, ip>>24, (ip>>16)&255, (ip>>8)&255, ip&255);
+			fprintf(
+				stderr_fp, "%u: [%s] Received connection from %u.%u.%u.%u.\n",
+				getpid(), timestamp, ip>>24, (ip>>16)&255, (ip>>8)&255, ip&255
+			);
 			
 			/* Redirect stdio to the socket */
 			if(!redirect_output(conn)) {
@@ -415,6 +421,33 @@ static int serve_internal(
 			
 			/* Clear environment variables that may be present from the Dockerfile */
 			clean_env();
+			
+			/* Ask user for password if one is expected */
+			if(password != NULL) {
+				printf("Password: ");
+				fflush(stdout);
+				
+				char pw[100];
+				if(!fgets(pw, sizeof(pw), stdin)) {
+					printf("Must enter a password.\n");
+					fprintf(stderr_fp, "%u: No password provided.\n", getpid());
+					_exit(EXIT_FAILURE);
+				}
+				
+				char* newline = strchr(pw, '\n');
+				if(newline) {
+					*newline = '\0';
+				}
+				
+				/* Not a constant-time comparison, but this doesn't need to be ultra secure */
+				if(strcmp(pw, password) != 0) {
+					printf("Incorrect password.\n");
+					fprintf(stderr_fp, "%u: Incorrect password (%s)\n", getpid(), pw);
+					_exit(EXIT_FAILURE);
+				}
+				
+				fprintf(stderr_fp, "%u: Correct password.\n", getpid());
+			}
 			
 			/* Close real standard file handles */
 			fclose(stdin_fp);
@@ -487,7 +520,9 @@ static void show_usage(server_options* opts) {
 		"    -i, --inject <dynamic-library>        "
 			"Path to dynamic library that should be injected into the target process\n"
 		"    -e, --exec <program=%s>%*s"
-			"Program to execute upon receiving a connection\n",
+			"Program to execute upon receiving a connection\n"
+		"    -k, --password <password>             "
+			"Require that clients enter the provided password after connecting\n",
 		progname,
 		opts->time_limit_seconds, alarmpad, "",
 		opts->port, portpad, "",
@@ -529,6 +564,12 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		}
 		else if(strcmp(argv[i], "--exec") == 0 || strcmp(argv[i], "-e") == 0) {
 			exec_prog = argv[++i];
+		}
+		else if(strcmp(argv[i], "--password") == 0 || strcmp(argv[i], "-k") == 0) {
+			password = argv[++i];
+			if(strcmp(password, "_") == 0) {
+				password = NULL;
+			}
 		}
 		else {
 			printf("Error: Unknown argument '%s'\n", argv[i]);
