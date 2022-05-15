@@ -861,6 +861,15 @@ endif #FLAG_FILE
 
 endif #DOCKER_IMAGE_CUSTOM
 
+# When setting the flag permissions, we need to tell Docker to ignore the flag
+# during the docker build process, as the flag file will not be readable.
+$1+DOCKER_START_DEPS :=
+ifdef $1+SET_FLAG_PERMISSIONS
+ifdef $1+HAS_FLAG
+$1+DOCKER_START_DEPS := docker-flag[$$($1+DOCKER_CONTAINER)]
+endif #HAS_FLAG
+endif #SET_FLAG_PERMISSIONS
+
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
@@ -910,17 +919,31 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
-docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
+docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-ifdef $1+SET_FLAG_PERMISSIONS
-	$$(_v)sudo chown root:1337 $$($1+FLAG_FILE) && sudo chmod 0640 $$($1+FLAG_FILE)
-endif
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
 		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_ENTRYPOINT_ARGS)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
+
+# Rule for setting flag permissions
+ifdef $1+SET_FLAG_PERMISSIONS
+
+docker-flag[$$($1+DOCKER_CONTAINER)]: $1/.dockerignore
+
+# Need to tell docker to ignore this file, otherwise it'll fail as it
+# doesn't have read access to it.
+$1/.dockerignore: $$($1+FLAG_FILE)
+	$$(_v)sudo chown root:1337 $$($1+FLAG_FILE) \
+		&& sudo chmod 0640 $$($1+FLAG_FILE) \
+		&& echo $$(patsubst $1/%,%,$$($1+FLAG_FILE)) > $$@
+
+.PHONY: docker-flag[$$($1+DOCKER_CONTAINER)]
+
+endif #SET_FLAG_PERMISSIONS
+
 
 # Rule for restarting a docker container
 docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
