@@ -943,6 +943,7 @@ docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$(
 ifdef $1+SET_FLAG_PERMISSIONS
 
 docker-flag[$$($1+DOCKER_CONTAINER)]: $1/.dockerignore
+.PHONY: docker-flag[$$($1+DOCKER_CONTAINER)]
 
 # Need to tell docker to ignore this file, otherwise it'll fail as it
 # doesn't have read access to it.
@@ -951,7 +952,7 @@ $1/.dockerignore: $$($1+FLAG_FILE)
 		&& sudo chmod 0640 $$($1+FLAG_FILE) \
 		&& echo $$(patsubst $1/%,%,$$($1+FLAG_FILE)) > $$@
 
-.PHONY: docker-flag[$$($1+DOCKER_CONTAINER)]
+.PHONY: $1/.dockerignore
 
 endif #SET_FLAG_PERMISSIONS
 
