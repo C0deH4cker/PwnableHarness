@@ -730,7 +730,7 @@ ifdef $1+DOCKER_IMAGE
 
 # Define variables for dependencies (like docker-build[var]) and the argument
 ifdef $1+DOCKER_IMAGE_TAG
-$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE).$$($1+DOCKER_IMAGE_TAG)
+$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)@$$($1+DOCKER_IMAGE_TAG)
 $1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE):$$($1+DOCKER_IMAGE_TAG)
 else #DIR+DOCKER_IMAGE_TAG
 $1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)
@@ -893,6 +893,13 @@ docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
 docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
+
+# Makefile targets for Docker images can be aliased w/o the tag version
+ifdef $1+DOCKER_IMAGE_TAG
+
+docker-build[$$($1+DOCKER_IMAGE)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
+
+endif #DOCKER_IMAGE_TAG
 
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir

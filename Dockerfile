@@ -2,7 +2,10 @@ FROM ubuntu:16.04
 LABEL maintainer="c0deh4cker@gmail.com"
 
 # Add support for running 32-bit executables
-RUN dpkg --add-architecture i386 && apt-get update && apt-get install -y libc6:i386 && rm -rf /var/lib/apt/lists/*
+RUN dpkg --add-architecture i386 \
+	&& apt-get update \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y libc6:i386 \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Copy PwnableHarness libraries to /usr/local/lib
 ARG BUILD_DIR

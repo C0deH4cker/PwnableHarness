@@ -1,14 +1,21 @@
 # Make sure the default target is to "make all"
 all:
 
+# Directory in the build container where the workspace is bind-mounted
+ifdef CONTAINER_BUILD
+WORKSPACE := workspace
+else #CONTAINER_BUILD
+WORKSPACE := .
+endif #CONTAINER_BUILD
+
 # If there is a Config.mk present in the root of this repo or a subdirectory, include it
--include Config.mk $(wildcard */Config.mk)
+-include $(WORKSPACE)/Config.mk $(wildcard $(WORKSPACE)/*/Config.mk)
 
 # Path to the root build directory
-BUILD := .build
+BUILD := $(WORKSPACE)/.build
 
 # Path to the publish directory (this could be a symlink to /var/www/html)
-PUB_DIR := publish
+PUB_DIR := $(WORKSPACE)/publish
 
 # For debugging development of this Makefile
 MKDEBUG ?=
@@ -46,7 +53,7 @@ include Macros.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) .git $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git $(RECURSION_BLACKLIST)
 
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
 ifndef WITH_EXAMPLES

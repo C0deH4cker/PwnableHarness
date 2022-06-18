@@ -1,0 +1,58 @@
+#!/bin/sh
+
+progname=$0
+
+# pwnmake [...]
+main() {
+	workspace=.
+	tag=latest
+	
+	case "$1" in
+		--help)
+			echo "Usage: $progname [-C path/to/workspace] [-t/--tag PwnableHarness build tag] [targets...]" >&2
+			echo "Example: $progname docker-build publish VERBOSE=1" >&2
+			exit 1
+			;;
+		
+		-C)
+			shift
+			workspace=$1
+			shift
+			;;
+		
+		-t)
+			shift
+			tag=$1
+			shift
+			;;
+		
+		--tag)
+			shift
+			tag=$1
+			shift
+			;;
+		
+		*)
+			;;
+	esac
+	
+	# Get version of the Docker server on the host to know which version of the
+	# Docker CLI to install in the builder container.
+	DOCKER_VERSION=$(docker version --format '{{.Server.Version}}')
+	
+	DOCKER_GID=$(grep -e '^docker:' /etc/group | cut -d ':' -f 3)
+	
+	CALLER_UID=$(id -u)
+	CALLER_GID=$(id -g)
+	
+	docker run \
+		--env DOCKER_VERSION="$DOCKER_VERSION" \
+		--env DOCKER_GID="$DOCKER_GID" \
+		--env CALLER_UID="$CALLER_UID" \
+		--env CALLER_GID="$CALLER_GID" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v $(realpath $workspace):/pwn/workspace \
+		-it c0deh4cker/pwnableharness:builder-"$tag" "$@"
+}
+
+main "$@"

@@ -34,10 +34,15 @@ Config.mk
 # Dockerfiles, including the top-level default.Dockerfile
 !Dockerfile
 !/default.Dockerfile
+!/builder.Dockerfile
 
 # YAML files (including docker-compose.yml)
 !*.yml
 !*.yaml
+
+# Scripts (including builder-entrypoint.sh)
+!*.sh
+!/bin
 
 # Any other filetypes that should be allowed should
 # be added here or in another .gitignore file.
