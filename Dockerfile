@@ -32,7 +32,7 @@ ONBUILD ENV CHALLENGE_NAME=$CHALLENGE_NAME
 # Create the user this challenge runs as
 ONBUILD RUN groupadd -g 1337 $CHALLENGE_NAME \
 	&& useradd -m -s /bin/bash -u 1337 -g 1337 $CHALLENGE_NAME
-ONBUILD WORKDIR /home/$CHALLENGE_NAME
+ONBUILD WORKDIR /ctf
 
 # If present, will ask for the password before execing the target.
 ONBUILD ARG CHALLENGE_PASSWORD=_
@@ -49,8 +49,8 @@ ONBUILD RUN \
 # Copy the executable to the new user's home directory. It
 # will be owned and only writeable by root.
 ONBUILD ARG CHALLENGE_PATH
-ONBUILD COPY $CHALLENGE_PATH ./$CHALLENGE_NAME
-ONBUILD RUN chmod 0755 $CHALLENGE_NAME
+ONBUILD COPY $CHALLENGE_PATH /home/$CHALLENGE_NAME/$CHALLENGE_NAME
+ONBUILD RUN chmod 0755 /home/$CHALLENGE_NAME/$CHALLENGE_NAME
 
 # Which port is exposed by this docker container
 ONBUILD ARG PORT

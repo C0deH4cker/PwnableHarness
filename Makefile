@@ -1,6 +1,10 @@
 # Make sure the default target is to "make all"
 all:
 
+# Current Docker image name and tag
+PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
+PWNABLEHARNESS_VERSION := 2.0b1
+
 # Directory in the build container where the workspace is bind-mounted
 ifdef CONTAINER_BUILD
 WORKSPACE := workspace

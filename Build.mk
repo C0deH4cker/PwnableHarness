@@ -3,8 +3,6 @@
 
 PWNABLE_DIR := $(DIR)
 PWNABLE_BUILD := $(BUILD_DIR)
-PWNABLE_REPO := c0deh4cker/pwnableharness
-PWNABLE_VERSION := 2.0b1
 LIB32 := libpwnableharness32.so
 LIB64 := libpwnableharness64.so
 PWNABLE_SERVER := pwnableserver
@@ -34,8 +32,8 @@ $(PWNABLE_SERVER)_SRCS := pwnable_server.c
 $(PWNABLE_SERVER)_DEBUG := 1
 $(PWNABLE_SERVER)_USE_LIBPWNABLEHARNESS := 1
 
-DOCKER_IMAGE := $(PWNABLE_REPO)
-DOCKER_IMAGE_TAG := $(PWNABLE_VERSION)
+DOCKER_IMAGE := $(PWNABLEHARNESS_REPO)
+DOCKER_IMAGE_TAG := $(PWNABLEHARNESS_VERSION)
 DOCKER_BUILD_ARGS := --build-arg "BUILD_DIR=$(BUILD_DIR)"
 
 ifdef CONFIG_PUBLISH_LIBPWNABLEHARNESS
@@ -66,26 +64,32 @@ PWNABLE_BUILDER_FILES := \
 PWNABLE_BUILDER_DEPS := $(addprefix $(PWNABLE_DIR)/,$(PWNABLE_BUILDER_FILES))
 
 # "But who builds the builders?"
-docker-build-builder: $(PWNABLE_BUILD)/.docker_build_builder_marker
+docker-builder-build: $(PWNABLE_BUILD)/.docker_builder_build_marker
 
 # This rule only needs to be re-run when one of PWNABLE_BUILDER_FILES is modified
-$(PWNABLE_BUILD)/.docker_build_builder_marker: $(PWNABLE_BUILDER_DEPS)
+$(PWNABLE_BUILD)/.docker_builder_build_marker: $(PWNABLE_BUILDER_DEPS)
 	$(_V)echo "Building PwnableHarness builder image"
-	$(_v)docker build -f $(PWNABLE_DIR)/builder.Dockerfile -t $(PWNABLE_REPO):builder-$(PWNABLE_VERSION) . \
+	$(_v)docker build -f $(PWNABLE_DIR)/builder.Dockerfile -t $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) . \
 		&& touch $@
 
-docker-push-version: docker-build-builder
-	$(_V)echo "Pushing tag 'builder-$(PWNABLE_VERSION)' to $(PWNABLE_REPO)"
-	$(_v)docker push $(PWNABLE_REPO):builder-$(PWNABLE_VERSION)
+docker-builder-push: docker-builder-build
+	$(_V)echo "Pushing tag 'builder-$(PWNABLEHARNESS_VERSION)' to $(PWNABLEHARNESS_REPO)"
+	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION)
 
-docker-tag-latest: docker-build-builder
-	$(_V)echo "Tagging Docker builder image with tag '$(PWNABLE_VERSION)' as 'builder-latest'"
-	$(_v)docker tag $(PWNABLE_REPO):builder-$(PWNABLE_VERSION) $(PWNABLE_REPO):builder-latest
+docker-builder-tag-latest: docker-builder-build
+	$(_V)echo "Tagging Docker image with tag 'builder-$(PWNABLEHARNESS_VERSION)' as 'builder-latest'"
+	$(_v)docker tag $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) $(PWNABLEHARNESS_REPO):builder-latest
 
-docker-push-latest: docker-push-version docker-tag-latest
-	$(_V)echo "Pushing tag 'builder-latest' to $(PWNABLE_REPO)"
-	$(_v)docker push $(PWNABLE_REPO):builder-latest
+docker-builder-push-latest: docker-builder-push docker-builder-tag-latest
+	$(_V)echo "Pushing tag 'builder-latest' to $(PWNABLEHARNESS_REPO)"
+	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-latest
 
-.PHONY: docker-build-builder docker-push-version docker-tag-latest docker-push-latest
+docker-builder-clean:
+	$(_v)rm -f $(PWNABLE_BUILD)/.docker_builder_build_marker
+	$(_v)docker rmi -f $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) $(PWNABLEHARNESS_REPO):builder-latest
+
+docker-clean: docker-builder-clean
+
+.PHONY: docker-builder-build docker-builder-push docker-builder-tag-latest docker-builder-push-latest docker-builder-clean
 
 endif #CONTAINER_BUILD

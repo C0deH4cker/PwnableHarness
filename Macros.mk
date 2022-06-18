@@ -510,7 +510,6 @@ DEPLOY_DEPS :=
 # Optional CTF flag management
 FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
-SET_FLAG_PERMISSIONS :=
 
 # These can optionally be defined by Build.mk for Docker management
 DOCKERFILE :=
@@ -623,7 +622,6 @@ $1+DEPLOY_DEPS := $$(DEPLOY_DEPS)
 # CTF flag management
 $1+FLAG_FILE := $$(FLAG_FILE)
 $1+FLAG_DST := $$(FLAG_DST)
-$1+SET_FLAG_PERMISSIONS := $$(SET_FLAG_PERMISSIONS)
 
 # Docker variables
 $1+DOCKERFILE := $$(DOCKERFILE)
@@ -747,8 +745,8 @@ $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to copy the default.Dockerfile to the project directory
 $1/default.Dockerfile: default.Dockerfile
-	$$(_V)echo 'Copying $$< to $$@'
-	$$(_v)cp $$< $$@
+	$$(_V)echo 'Generating default Dockerfile for $1'
+	$$(_v)echo 'FROM c0deh4cker/pwnableharness:$$(PWNABLEHARNESS_VERSION)' > $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -856,7 +854,21 @@ endif #Not top-level (building PwnableHarness itself)
 # Automatic flag support is only provided for non-custom Docker images
 ifndef $1+DOCKER_IMAGE_CUSTOM
 
-# Adding the flag to the docker image
+$1+DOCKER_START_DEPS :=
+
+$1+WORKDIR := $$(wildcard $1/workdir)
+$1+MOUNT_WORKDIR :=
+$1+WORKDIR_VOLUME := $$($1+DOCKER_IMAGE)-workdir
+$1+WORKDIR_DEPS :=
+$1+WORKDIR_COPY_CMDS :=
+ifdef $1+WORKDIR
+$1+MOUNT_WORKDIR := 1
+$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
+$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+	&& docker cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
+endif
+
+# Adding the flag file to the docker image
 $1+HAS_FLAG :=
 ifdef $1+FLAG_FILE
 ifdef $1+FLAG_DST
@@ -866,20 +878,21 @@ endif #MKDEBUG
 
 $1+HAS_FLAG := 1
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$(abspath $$($1+FLAG_FILE)):/home/$$($1+DOCKER_CHALLENGE_NAME)/$$($1+FLAG_DST):ro
+$1+MOUNT_WORKDIR := 1
+$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$($1+FLAG_FILE)
+$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+	&& docker cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
+	&& docker run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
+		sh -c 'chown root:1337 /data/$$($1+FLAG_DST) && chmod 0640 /data/$$($1+FLAG_DST)'
 endif #FLAG_DST
 endif #FLAG_FILE
 
-endif #DOCKER_IMAGE_CUSTOM
+ifdef $1+MOUNT_WORKDIR
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$($1+WORKDIR_VOLUME):/ctf:ro
+$1+DOCKER_START_DEPS := $$($1+DOCKER_START_DEPS) $$($1+BUILD)/.docker_workdir_volume_marker
+endif
 
-# When setting the flag permissions, we need to tell Docker to ignore the flag
-# during the docker build process, as the flag file will not be readable.
-$1+DOCKER_START_DEPS :=
-ifdef $1+SET_FLAG_PERMISSIONS
-ifdef $1+HAS_FLAG
-$1+DOCKER_START_DEPS := docker-flag[$$($1+DOCKER_CONTAINER)]
-endif #HAS_FLAG
-endif #SET_FLAG_PERMISSIONS
+endif #DOCKER_IMAGE_CUSTOM
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
@@ -916,17 +929,20 @@ docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DE
 	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
-# Rule for removing a docker image and any containers based on it
+# Rule for removing a docker image and any containers based on it (and volumes)
 docker-clean: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 
-# Force remove the container and image
+# Force remove the container, volume, and image
 docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
-	$$(_V)echo "Cleaning docker image $$($1+DOCKER_TAG_ARG)"
+	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
+ifdef $1+MOUNT_WORKDIR
+	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+endif
 	$$(_v)docker rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
-	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker
+	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
 
 ## Docker run rules
 
@@ -946,22 +962,20 @@ docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$(
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
-# Rule for setting flag permissions
-ifdef $1+SET_FLAG_PERMISSIONS
+# Rule for mounting the workdir
+ifdef $1+MOUNT_WORKDIR
 
-docker-flag[$$($1+DOCKER_CONTAINER)]: $1/.dockerignore
-.PHONY: docker-flag[$$($1+DOCKER_CONTAINER)]
+$$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
+	$$(_V)echo "Preparing workdir volume for $1"
+	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)docker container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
+	$$(_v)docker volume create $$($1+WORKDIR_VOLUME) \
+		&& docker container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
+		$$($1+WORKDIR_COPY_CMDS) \
+		&& docker rm $$($1+WORKDIR_VOLUME)-temp \
+		&& touch $$@
 
-# Need to tell docker to ignore this file, otherwise it'll fail as it
-# doesn't have read access to it.
-$1/.dockerignore: $$($1+FLAG_FILE)
-	$$(_v)sudo chown root:1337 $$($1+FLAG_FILE) \
-		&& sudo chmod 0640 $$($1+FLAG_FILE) \
-		&& echo $$(patsubst $1/%,%,$$($1+FLAG_FILE)) > $$@
-
-.PHONY: $1/.dockerignore
-
-endif #SET_FLAG_PERMISSIONS
+endif #MOUNT_WORKDIR
 
 
 # Rule for restarting a docker container
