@@ -45,12 +45,18 @@ main() {
 	CALLER_UID=$(id -u)
 	CALLER_GID=$(id -g)
 	
+	# Create volume to cache the downloaded Docker CLI
+	docker volume create pwnmake-docker-cli >/dev/null 2>&1 || true
+	
+	# The container is created and then thrown away with each command
 	docker run \
+		--rm \
 		--env DOCKER_VERSION="$DOCKER_VERSION" \
 		--env DOCKER_GID="$DOCKER_GID" \
 		--env CALLER_UID="$CALLER_UID" \
 		--env CALLER_GID="$CALLER_GID" \
 		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v pwnmake-docker-cli:/docker-cli \
 		-v $(realpath $workspace):/pwn/workspace \
 		-it c0deh4cker/pwnableharness:builder-"$tag" "$@"
 }
