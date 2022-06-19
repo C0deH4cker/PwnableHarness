@@ -2,63 +2,229 @@
 
 progname=$0
 
+docker_image_repo=c0deh4cker/pwnableharness
+docker_image_tag_prefix=builder-
+docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
+
+
+# https://stackoverflow.com/a/18443300
+realpath() (
+	OURPWD=$PWD
+	cd "$(dirname "$1")"
+	LINK=$(readlink "$(basename "$1")")
+	while [ "$LINK" ]; do
+		cd "$(dirname "$LINK")"
+		LINK=$(readlink "$(basename "$1")")
+	done
+	REALPATH="$PWD/$(basename "$1")"
+	cd "$OURPWD"
+	echo "$REALPATH"
+)
+
+
+show_help() {
+	cat <<EOF
+Usage: $progname [--reinit] [--shell] [--dir <path>] [--tag <tag>] [--digest <digest>] [--] [targets...]
+Options:
+  --reinit           Force the builder container to be reinitialized
+  --shell            Enter an interactive shell in the builder container (for debugging)
+  --dir <path>       Path to the directory to use as a PwnableHarness workspace (default '.')
+  --tag <tag>        PwnableHarness Docker image tag to use (default 'latest'). Will be prefixed with '${docker_image_tag_prefix}'.
+                     For example, '--tag 2.0' will use '${docker_image_prefix}2.0' as the builder image base.
+  --digest <digest>  PwnableHarness Docker image digest to use. For example, '--digest sha256:abc...123' will
+                     use '${docker_image_prefix}latest@sha256:abc...123' as the builder image base.
+  --                 Stop parsing options and pass all further arguments to 'make'.
+  targets...         Arguments to be passed to 'make'. These can be targets to build or make options like '-j8'.
+Example: $progname -j4 docker-start publish VERBOSE=1
+EOF
+}
+
+docker_image_exists() {
+	docker image inspect "$1" >/dev/null 2>&1
+}
+
+docker_get_remote_digest() {
+	docker buildx imagetools inspect --format '{{printf "%s\n" .Manifest.Digest}}' "$1"
+}
+
+docker_get_local_digest() {
+	docker image inspect --format '{{index .RepoDigests 0}}' "$1" 2>/dev/null | cut -d '@' -f 2
+}
+
 # pwnmake [...]
 main() {
 	workspace=.
 	tag=latest
+	reinit=
+	shell=
+	digest=
 	
-	case "$1" in
-		--help)
-			echo "Usage: $progname [-C path/to/workspace] [-t/--tag PwnableHarness build tag] [targets...]" >&2
-			echo "Example: $progname docker-build publish VERBOSE=1" >&2
-			exit 1
-			;;
-		
-		-C)
-			shift
-			workspace=$1
-			shift
-			;;
-		
-		-t)
-			shift
-			tag=$1
-			shift
-			;;
-		
-		--tag)
-			shift
-			tag=$1
-			shift
-			;;
-		
-		*)
-			;;
-	esac
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+			--help)
+				show_help >&2
+				exit 1
+				;;
+			
+			--reinit)
+				shift
+				reinit=1
+				;;
+			
+			--shell)
+				shift
+				shell=1
+				;;
+			
+			--dir)
+				shift
+				workspace=$1
+				shift
+				;;
+			
+			--tag)
+				shift
+				tag=$1
+				shift
+				;;
+			
+			--digest)
+				shift
+				digest=$1
+				shift
+				;;
+			
+			--)
+				shift
+				break
+				;;
+			
+			*)
+				break
+				;;
+		esac
+	done
+	
+	if [ -n "$digest" ]; then
+		# With a digest, the tag is unnecessary. It can be useful as documentation, though,
+		# as it shows up in 'docker ps'. If a tag was provided, include it.
+		if [ "$tag" != "latest" ]; then
+			docker_image="${docker_image_prefix}${tag}@${digest}"
+		else
+			docker_image="${docker_image_repo}@${digest}"
+		fi
+	else
+		docker_image="${docker_image_prefix}${tag}"
+	fi
 	
 	# Get version of the Docker server on the host to know which version of the
 	# Docker CLI to install in the builder container.
 	DOCKER_VERSION=$(docker version --format '{{.Server.Version}}')
-	
-	DOCKER_GID=$(grep -e '^docker:' /etc/group | cut -d ':' -f 3)
-	
-	CALLER_UID=$(id -u)
-	CALLER_GID=$(id -g)
+	if [ "$?" != 0 ]; then
+		echo "Docker must be installed!" >&2
+		exit 1
+	fi
 	
 	# Create volume to cache the downloaded Docker CLI
 	docker volume create pwnmake-docker-cli >/dev/null 2>&1 || true
 	
+	# Attempt to determine if a docker pull is necessary
+	need_pull=
+	if [ "$tag" = "latest" ]; then
+		# For the "latest" tag, check if the local digest (if present) matches the remote one
+		remote_digest=$(docker_get_remote_digest "$docker_image")
+		local_digest=$(docker_get_local_digest "$docker_image")
+		
+		if [ -z "$local_digest" ]; then
+			echo "Pulling builder image for the first time..."
+			need_pull=1
+		elif [ "$local_digest" != "$remote_digest" ]; then
+			echo "Pulling newer version of the builder image..."
+			need_pull=1
+		fi
+	else
+		# For tags other than "latest", just ensure that the tag is present locally. It's assumed
+		# that only the "latest" tag is movable.
+		if ! docker_image_exists "$docker_image"; then
+			echo "Pulling builder image at tag $tag..."
+			need_pull=1
+		fi
+	fi
+	
+	if [ "$need_pull" = "1" ]; then
+		docker pull "$docker_image"
+	fi
+	
+	# A hash is built from:
+	# * The digest of the pwnableharness builder image (pre-initialization)
+	# * The hashes of all prebuild scripts
+	# This is done so that if the base image or any prebuild scripts change,
+	# the builder image will be reinitialized.
+	builder_digest=$(docker_get_local_digest "$docker_image")
+	prebuild_hash=$(find "$workspace" -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r shasum -a 256 | shasum -a 256 | awk '{print $1}')
+	pwnmake_tag=$(echo "$builder_digest:$prebuild_hash" | shasum -a 256 | head -c 12)
+	pwnmake_repo=c0deh4cker/pwnmake
+	pwnmake_image=$pwnmake_repo:$pwnmake_tag
+	pwnmake_container=pwnmake-$pwnmake_tag
+	
+	# To force reinitialization, delete the pwnmake image
+	if [ "$reinit" = "1" ]; then
+		# Remove any old pwnmake images
+		docker image rm $(docker image ls -q "$pwnmake_repo") >/dev/null 2>&1 || true
+	fi
+	
+	if ! docker_image_exists "$pwnmake_image"; then
+		# Remove any old pwnmake images
+		docker image rm $(docker image ls -q "$pwnmake_repo") >/dev/null 2>&1 || true
+		
+		# Get the current user's UID and GID so that any files created by the builder
+		# container will have proper ownership.
+		CALLER_UID=$(id -u)
+		CALLER_GID=$(id -g)
+		
+		# Find the GID of the docker group so it can be added as a supplementary group
+		# for the container user (so it can run docker commands that affect the host).
+		# On macOS, this will be empty.
+		DOCKER_GID=$(grep -e '^docker:' /etc/group | cut -d ':' -f 3)
+		
+		# Run the builder initialization and prep scripts then save as a new image
+		docker run \
+			--name "$pwnmake_container" \
+			--env BUILDER_INIT=1 \
+			--env DOCKER_VERSION="$DOCKER_VERSION" \
+			--env CALLER_UID="$CALLER_UID" \
+			--env CALLER_GID="$CALLER_GID" \
+			--env DOCKER_GID="$DOCKER_GID" \
+			-v /var/run/docker.sock:/var/run/docker.sock \
+			-v pwnmake-docker-cli:/docker-cli \
+			-v "$(realpath $workspace)":/pwn/workspace \
+			-it "$docker_image" \
+		&& docker commit "$pwnmake_container" "$pwnmake_image" >/dev/null \
+		&& docker rm "$pwnmake_container" >/dev/null
+	fi
+	
 	# The container is created and then thrown away with each command
-	docker run \
-		--rm \
-		--env DOCKER_VERSION="$DOCKER_VERSION" \
-		--env DOCKER_GID="$DOCKER_GID" \
-		--env CALLER_UID="$CALLER_UID" \
-		--env CALLER_GID="$CALLER_GID" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v pwnmake-docker-cli:/docker-cli \
-		-v $(realpath $workspace):/pwn/workspace \
-		-it c0deh4cker/pwnableharness:builder-"$tag" "$@"
+	if [ "$shell" = "1" ]; then
+		echo "Entering shell in builder container. To attempt the build normally, run '/pwn/builder-entrypoint.sh [args for make...]'"
+		docker run \
+			--rm \
+			--env BUILDER_INIT=0 \
+			--env DOCKER_VERSION="$DOCKER_VERSION" \
+			-v /var/run/docker.sock:/var/run/docker.sock \
+			-v pwnmake-docker-cli:/docker-cli:ro \
+			-v "$(realpath $workspace)":/pwn/workspace \
+			--entrypoint /bin/bash \
+			-it "$pwnmake_image"
+	else
+		docker run \
+			--rm \
+			--env BUILDER_INIT=0 \
+			--env DOCKER_VERSION="$DOCKER_VERSION" \
+			-v /var/run/docker.sock:/var/run/docker.sock \
+			-v pwnmake-docker-cli:/docker-cli:ro \
+			-v "$(realpath $workspace)":/pwn/workspace \
+			-it "$pwnmake_image" "$@"
+	fi
 }
 
 main "$@"
