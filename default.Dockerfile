@@ -1,1 +1,0 @@
-FROM c0deh4cker/pwnableharness

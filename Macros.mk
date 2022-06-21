@@ -735,7 +735,7 @@ ifdef $1+DOCKER_IMAGE
 
 # Define variables for dependencies (like docker-build[var]) and the argument
 ifdef $1+DOCKER_IMAGE_TAG
-$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)@$$($1+DOCKER_IMAGE_TAG)
+$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)+$$($1+DOCKER_IMAGE_TAG)
 $1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE):$$($1+DOCKER_IMAGE_TAG)
 else #DIR+DOCKER_IMAGE_TAG
 $1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)
@@ -750,18 +750,17 @@ $1+DOCKERFILE := $$(wildcard $1/Dockerfile)
 ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
-# Add a rule to copy the default.Dockerfile to the project directory
-$1/default.Dockerfile: default.Dockerfile
-	$$(_V)echo 'Generating default Dockerfile for $1'
-	$$(_v)echo 'FROM c0deh4cker/pwnableharness:$$(PWNABLEHARNESS_VERSION)' > $$@
+# Add a rule to generate a default.Dockerfile in the project directory
+$1/default.Dockerfile:
+	$$(_v)echo 'FROM $$(PWNABLEHARNESS_REPO):$$(PWNABLEHARNESS_VERSION)' > $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
 # Docker images depend on the base PwnableHarness Docker image
-ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
+ifneq "$$($1+DOCKER_IMAGE)" "$$(PWNABLEHARNESS_REPO)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[c0deh4cker/pwnableharness]
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[$$(PWNABLEHARNESS_REPO)]
 endif
 endif
 
@@ -831,10 +830,8 @@ endif #DOCKER_WRITEABLE
 
 # If there's a password, supply it as an argument to pwnableserver
 ifdef $1+DOCKER_PASSWORD
-ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_PASSWORD=$$($1+DOCKER_PASSWORD)"
-endif #DOCKER_IMAGE_CUSTOM
 endif #DOCKER_PASSWORD
 
 # Check if DOCKER_PWNABLESERVER_ARGS was defined
@@ -863,11 +860,17 @@ ifndef $1+DOCKER_IMAGE_CUSTOM
 
 $1+DOCKER_START_DEPS :=
 
+# The "workdir" is a Docker volume that is mounted over the current working
+# directory for the challenge process (/ctf). It contains the contents of
+# the project's "workdir" folder (if present), and the flag file is copied
+# in (with correct ownership and permissions) as well.
 $1+WORKDIR := $$(wildcard $1/workdir)
 $1+MOUNT_WORKDIR :=
 $1+WORKDIR_VOLUME := $$($1+DOCKER_IMAGE)-workdir
 $1+WORKDIR_DEPS :=
 $1+WORKDIR_COPY_CMDS :=
+
+# Handle copying the workdir folder contents to the Docker volume
 ifdef $1+WORKDIR
 $1+MOUNT_WORKDIR := 1
 $1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
@@ -883,6 +886,7 @@ ifdef MKDEBUG
 $$(info Preparing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST))
 endif #MKDEBUG
 
+# Handle copying the flag file and setting its ownership and permissions in the Docker volume
 $1+HAS_FLAG := 1
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
 $1+MOUNT_WORKDIR := 1

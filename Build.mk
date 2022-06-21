@@ -52,7 +52,6 @@ PWNABLE_BUILDER_FILES := \
 	.dockerignore \
 	Build.mk \
 	builder-entrypoint.sh \
-	default.Dockerfile \
 	Dockerfile \
 	Macros.mk \
 	Makefile \

@@ -34,10 +34,6 @@ ONBUILD RUN groupadd -g 1337 $CHALLENGE_NAME \
 	&& useradd -m -s /bin/bash -u 1337 -g 1337 $CHALLENGE_NAME
 ONBUILD WORKDIR /ctf
 
-# If present, will ask for the password before execing the target.
-ONBUILD ARG CHALLENGE_PASSWORD=_
-ONBUILD ENV CHALLENGE_PASSWORD=$CHALLENGE_PASSWORD
-
 # Add a fake flag file. When the challenge is run on the real server,
 # the real flag file will be bind-mounted over top of the fake one.
 ONBUILD ARG FLAG_DST=flag.txt
@@ -60,6 +56,10 @@ ONBUILD EXPOSE $PORT
 # Is there a time limit specified for this docker container?
 ONBUILD ARG TIMELIMIT=0
 ONBUILD ENV TIMELIMIT=$TIMELIMIT
+
+# If present, will ask for the password before execing the target.
+ONBUILD ARG CHALLENGE_PASSWORD=_
+ONBUILD ENV CHALLENGE_PASSWORD=$CHALLENGE_PASSWORD
 
 # This allows adding the --inject argument which decides whether to
 # inject a library into the target process.

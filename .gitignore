@@ -31,9 +31,8 @@ Config.mk
 # All gitignore files
 !.gitignore
 
-# Dockerfiles, including the top-level default.Dockerfile
+# Dockerfiles, including the top-level builder.Dockerfile
 !Dockerfile
-!/default.Dockerfile
 !/builder.Dockerfile
 
 # YAML files (including docker-compose.yml)

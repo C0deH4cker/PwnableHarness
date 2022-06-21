@@ -19,7 +19,6 @@ WORKDIR /PwnableHarness
 COPY .dockerignore \
 	Build.mk \
 	builder-entrypoint.sh \
-	default.Dockerfile \
 	Dockerfile \
 	Macros.mk \
 	Makefile \
