@@ -5,21 +5,22 @@ all:
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 PWNABLEHARNESS_VERSION := 2.0b1
 
-# Directory in the build container where the workspace is bind-mounted
+# Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
-WORKSPACE := workspace
-else #CONTAINER_BUILD
-WORKSPACE := .
-endif #CONTAINER_BUILD
+ROOT_DIR := /PwnableHarness
+else
+ROOT_DIR := .
+endif
 
-# If there is a Config.mk present in the root of this repo or a subdirectory, include it
--include $(WORKSPACE)/Config.mk $(wildcard $(WORKSPACE)/*/Config.mk)
+# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
 
 # Path to the root build directory
-BUILD := $(WORKSPACE)/.build
+BUILD := .build
+ROOT_BUILD := $(BUILD)/PwnableHarness
 
 # Path to the publish directory (this could be a symlink to /var/www/html)
-PUB_DIR := $(WORKSPACE)/publish
+PUB_DIR := publish
 
 # For debugging development of this Makefile
 MKDEBUG ?=
@@ -53,7 +54,7 @@ IS_MAC := 1
 endif
 
 # Define useful build macros
-include Macros.mk
+include $(ROOT_DIR)/Macros.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
@@ -67,6 +68,12 @@ endif
 # List of PwnableHarness projects discovered
 PROJECT_LIST :=
 
+# Container builds start in a subdirectory of the PwnableHarness root. This call will
+# explicitly include the root Build.mk.
+ifdef CONTAINER_BUILD
+$(call include_subdir,$(ROOT_DIR))
+endif
+
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
 
@@ -79,7 +86,7 @@ list:
 	@$(foreach x,$(sort $(PROJECT_LIST)),echo '$x';)
 
 # Running "make base" builds only PwnableHarness binaries
-base: all[.]
+base: all[$(ROOT_DIR)]
 
 # Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
 clean::

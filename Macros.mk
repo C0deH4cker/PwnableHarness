@@ -180,7 +180,7 @@ endif #target_LDLIBS undefined
 
 # Add dependency on libpwnableharness[32|64] if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) $(BUILD)/libpwnableharness$$($2_BITS).so
+$2_ALLLIBS := $$($2_LIBS) $$(ROOT_BUILD)/libpwnableharness$$($2_BITS).so
 else
 $2_ALLLIBS := $$($2_LIBS)
 endif
@@ -190,7 +190,7 @@ ifndef $2_NO_UNBUFFERED_STDIO
 $2_OBJS := $$($2_OBJS) $$($1+BUILD)/$2_objs/stdio_unbuffer.o
 
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: stdio_unbuffer.c
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $(ROOT_DIR)/stdio_unbuffer.c
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif
@@ -329,8 +329,8 @@ $2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(patsubst %/,%,$$(dir $$($2_OBJ
 $$($2_OBJS): $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
-$$($2_OBJS): $$($1+BUILD_MK) Macros.mk
-$$($2_PRODUCT): $$($1+BUILD_MK) Macros.mk
+$$($2_OBJS): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+$$($2_PRODUCT): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
@@ -455,12 +455,13 @@ ifdef MKDEBUG
 $$(info add_publish_rule($1,$2,$3))
 endif #MKDEBUG
 
-$1+$2+DST := $$(addprefix $$(PUB_DIR)/$1/,$$(notdir $3))
+$1+$2+PUB := $$(PUB_DIR)/$$(patsubst /%,%,$1)
+$1+$2+DST := $$(addprefix $$($1+$2+PUB)/,$$(notdir $3))
 
 publish[$1]: $$($1+$2+DST)
 
 # Publishing rule
-$$($1+$2+DST): $$(PUB_DIR)/$1/%: $2/%
+$$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
 	$$(_V)echo "Publishing $1/$$*"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
@@ -557,9 +558,15 @@ STRIP :=
 DEBUG :=
 
 # Set DIR+BUILD to the build directory for this project folder
-ifeq "$1" "."
+ifeq "$1" "$$(ROOT_DIR)"
+# Either container build or not, this will be the repo root
+$1+BUILD := $$(ROOT_BUILD)
+else ifeq "$1" "."
+# For container builds, this is the workspace directory
 $1+BUILD := $$(BUILD)
 else
+# For container builds: subdirectories of the workspace directory
+# For normal builds: subdirectories of the PwnableHarness repo
 $1+BUILD := $$(BUILD)/$1
 endif
 
@@ -762,7 +769,7 @@ endif
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) Macros.mk
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 # Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image

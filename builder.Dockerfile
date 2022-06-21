@@ -12,7 +12,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Set up PwnableHarness top-level directory and workspace location
-WORKDIR /pwn
+WORKDIR /PwnableHarness
 
 # This should mirror the list of files marked as dependencies in
 # the top-level Build.mk file.
@@ -28,7 +28,8 @@ COPY .dockerignore \
 	pwnable_server.c \
 	stdio_unbuffer.c \
 	./
-VOLUME /pwn/workspace
+VOLUME /PwnableHarness/workspace
+WORKDIR /PwnableHarness/workspace
 
 # Docker socket should be bind-mounted as well
 VOLUME /var/run/docker.sock
@@ -37,4 +38,4 @@ VOLUME /var/run/docker.sock
 ENV CONTAINER_BUILD=1
 
 # Wrapper script may pass arguments to the entrypoint
-ENTRYPOINT [ "/pwn/builder-entrypoint.sh" ]
+ENTRYPOINT [ "/PwnableHarness/builder-entrypoint.sh" ]

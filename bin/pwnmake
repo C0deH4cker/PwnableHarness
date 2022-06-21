@@ -197,7 +197,7 @@ main() {
 			--env DOCKER_GID="$DOCKER_GID" \
 			-v /var/run/docker.sock:/var/run/docker.sock \
 			-v pwnmake-docker-cli:/docker-cli \
-			-v "$(realpath $workspace)":/pwn/workspace \
+			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			-it "$docker_image" \
 		&& docker commit "$pwnmake_container" "$pwnmake_image" >/dev/null \
 		&& docker rm "$pwnmake_container" >/dev/null
@@ -205,14 +205,14 @@ main() {
 	
 	# The container is created and then thrown away with each command
 	if [ "$shell" = "1" ]; then
-		echo "Entering shell in builder container. To attempt the build normally, run '/pwn/builder-entrypoint.sh [args for make...]'"
+		echo "Entering shell in builder container. To attempt the build normally, run '/PwnableHarness/builder-entrypoint.sh [args for make...]'"
 		docker run \
 			--rm \
 			--env BUILDER_INIT=0 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v /var/run/docker.sock:/var/run/docker.sock \
 			-v pwnmake-docker-cli:/docker-cli:ro \
-			-v "$(realpath $workspace)":/pwn/workspace \
+			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			--entrypoint /bin/bash \
 			-it "$pwnmake_image"
 	else
@@ -222,7 +222,7 @@ main() {
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v /var/run/docker.sock:/var/run/docker.sock \
 			-v pwnmake-docker-cli:/docker-cli:ro \
-			-v "$(realpath $workspace)":/pwn/workspace \
+			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			-it "$pwnmake_image" "$@"
 	fi
 }

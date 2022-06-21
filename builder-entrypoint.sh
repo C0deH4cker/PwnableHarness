@@ -25,7 +25,7 @@ if [ "$BUILDER_INIT" = "1" ]; then
 	
 	# Create group and user for the caller (pwnuser:pwngroup)
 	groupadd -o -g "$CALLER_GID" pwngroup
-	useradd -o -d /pwn -u "$CALLER_UID" -g "$CALLER_GID" -s /bin/bash pwnuser
+	useradd -o -d /PwnableHarness/workspace -u "$CALLER_UID" -g "$CALLER_GID" -s /bin/bash pwnuser
 	
 	# Create docker group so pwnuser can use the Docker socket
 	if [ -n "$DOCKER_GID" ]; then
@@ -34,10 +34,7 @@ if [ "$BUILDER_INIT" = "1" ]; then
 	fi
 	
 	# Run builder preparation scripts from the workspace
-	(
-		cd workspace \
-		&& find . -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r -t bash
-	)
+	find . -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r -t bash
 	
 	# Clear APT list cache to reduce image size in case one of the prebuild scripts installed packages
 	rm -rf /var/lib/apt/lists/*
@@ -49,4 +46,4 @@ fi
 export PATH="$docker_bin:$PATH"
 
 # Run PwnableHarness make command as the calling user
-gosu pwnuser make -rR --warn-undefined-variables "$@"
+gosu pwnuser make -rR --warn-undefined-variables -f /PwnableHarness/Makefile "$@"
