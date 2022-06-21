@@ -12,7 +12,8 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Set up PwnableHarness top-level directory and workspace location
-WORKDIR /PwnableHarness
+VOLUME /PwnableHarness/workspace
+WORKDIR /PwnableHarness/workspace
 
 # This should mirror the list of files marked as dependencies in
 # the top-level Build.mk file.
@@ -26,9 +27,7 @@ COPY .dockerignore \
 	pwnable_harness.h \
 	pwnable_server.c \
 	stdio_unbuffer.c \
-	./
-VOLUME /PwnableHarness/workspace
-WORKDIR /PwnableHarness/workspace
+	/PwnableHarness/
 
 # Docker socket should be bind-mounted as well
 VOLUME /var/run/docker.sock
