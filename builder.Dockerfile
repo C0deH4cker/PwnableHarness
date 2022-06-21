@@ -9,6 +9,9 @@ RUN apt-get update \
 		build-essential \
 		clang \
 		gcc-multilib \
+		git \
+		vim \
+		htop \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Set up PwnableHarness top-level directory and workspace location
