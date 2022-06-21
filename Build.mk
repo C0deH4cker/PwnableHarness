@@ -60,7 +60,7 @@ PWNABLE_BUILDER_FILES := \
 	pwnable_server.c \
 	stdio_unbuffer.c
 
-PWNABLE_BUILDER_DEPS := $(addprefix $(PWNABLE_DIR)/,$(PWNABLE_BUILDER_FILES))
+PWNABLE_BUILDER_DEPS := $(addprefix $(PWNABLE_DIR)/,builder.Dockerfile $(PWNABLE_BUILDER_FILES))
 
 # "But who builds the builders?"
 docker-builder-build: $(PWNABLE_BUILD)/.docker_builder_build_marker
