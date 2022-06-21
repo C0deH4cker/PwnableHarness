@@ -1,7 +1,5 @@
 #!/bin/sh
 
-progname=$0
-
 docker_image_repo=c0deh4cker/pwnableharness
 docker_image_tag_prefix=builder-
 docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
@@ -24,18 +22,19 @@ realpath() (
 
 show_help() {
 	cat <<EOF
-Usage: $progname [--reinit] [--shell] [--dir <path>] [--tag <tag>] [--digest <digest>] [--] [targets...]
+Usage: pwnmake [--reinit] [--shell] [--dir <path>] [--tag <tag>] [--digest <digest>] [--] [targets...]
 Options:
   --reinit           Force the builder container to be reinitialized
   --shell            Enter an interactive shell in the builder container (for debugging)
   --dir <path>       Path to the directory to use as a PwnableHarness workspace (default '.')
-  --tag <tag>        PwnableHarness Docker image tag to use (default 'latest'). Will be prefixed with '${docker_image_tag_prefix}'.
-                     For example, '--tag 2.0' will use '${docker_image_prefix}2.0' as the builder image base.
-  --digest <digest>  PwnableHarness Docker image digest to use. For example, '--digest sha256:abc...123' will
-                     use '${docker_image_prefix}latest@sha256:abc...123' as the builder image base.
+  --tag <tag>        PwnableHarness builder image tag to use (default 'latest'). The tag will be
+                     prefixed with '${docker_image_tag_prefix}'. For example, '--tag 2.0' will use
+                     '${docker_image_prefix}2.0' as the builder image base.
+  --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
+                     will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
   --                 Stop parsing options and pass all further arguments to 'make'.
-  targets...         Arguments to be passed to 'make'. These can be targets to build or make options like '-j8'.
-Example: $progname -j4 docker-start publish VERBOSE=1
+  targets...         Arguments to be passed to 'make'. These can be targets to build or options like '-j8'.
+Example: pwnmake -j4 docker-start publish VERBOSE=1
 EOF
 }
 
@@ -205,7 +204,9 @@ main() {
 	
 	# The container is created and then thrown away with each command
 	if [ "$shell" = "1" ]; then
-		echo "Entering shell in builder container. To attempt the build normally, run '/PwnableHarness/builder-entrypoint.sh [args for make...]'"
+		echo "Entering shell in builder container. To attempt the build normally, run:" >&2
+		echo "    /PwnableHarness/builder-entrypoint.sh [args for make...]" >&2
+		echo "" >&2
 		docker run \
 			--rm \
 			--env BUILDER_INIT=0 \
