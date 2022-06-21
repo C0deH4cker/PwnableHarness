@@ -69,7 +69,7 @@ docker-builder-build: $(PWNABLE_BUILD)/.docker_builder_build_marker
 $(PWNABLE_BUILD)/.docker_builder_build_marker: $(PWNABLE_BUILDER_DEPS)
 	$(_V)echo "Building PwnableHarness builder image"
 	$(_v)docker build -f $(PWNABLE_DIR)/builder.Dockerfile -t $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) . \
-		&& touch $@
+		&& mkdir -p $(@D) && touch $@
 
 docker-builder-push: docker-builder-build
 	$(_V)echo "Pushing tag 'builder-$(PWNABLEHARNESS_VERSION)' to $(PWNABLEHARNESS_REPO)"
