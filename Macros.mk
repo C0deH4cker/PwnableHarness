@@ -754,6 +754,9 @@ $1+DOCKERFILE := $1/default.Dockerfile
 $1/default.Dockerfile:
 	$$(_v)echo 'FROM $$(PWNABLEHARNESS_REPO):$$(PWNABLEHARNESS_VERSION)' > $$@
 
+# The default Dockerfile should be regenerated every time
+.PHONY: $1/default.Dockerfile
+
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
