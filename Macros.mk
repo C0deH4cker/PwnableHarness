@@ -437,6 +437,11 @@ docker-clean[$2]:
 	$$(_V)echo "Removing $2 containers with docker-compose"
 	$$(_v)cd $1 && docker-compose rm --stop
 
+$2_DOCKER_COMPOSE_TARGETS := $$(patsubst %,docker-%[$2],build rebuild start restart stop clean)
+TARGET_LIST := $$(TARGET_LIST) $$($2_DOCKER_COMPOSE_TARGETS)
+
+.PHONY: $$($2_DOCKER_COMPOSE_TARGETS)
+
 endef #_docker_compose
 docker_compose = $(eval $(call _docker_compose,$1,$2))
 #####
@@ -688,11 +693,13 @@ all: all[$1]
 
 all[$1]: $$($1+PRODUCTS)
 
+TARGET_LIST := $$(TARGET_LIST) all[$1]
 .PHONY: all[$1]
 
 # Publish rules
 ifdef $1+PUBLISH_ALL_FILES
 
+TARGET_LIST := $$(TARGET_LIST) publish[$1]
 .PHONY: publish[$1]
 publish: publish[$1]
 
@@ -707,6 +714,7 @@ ifdef $1+DEPLOY_COMMAND
 
 deploy: deploy[$1]
 
+TARGET_LIST := $$(TARGET_LIST) deploy[$1]
 deploy[$1]: $$($1+DEPLOY_DEPS)
 	$$(_V)echo "Deploying $1"
 	$$(_v)cd $1 && $$($1+DEPLOY_COMMAND)
@@ -718,6 +726,7 @@ endif #$1+DEPLOY_COMMAND
 # Clean rules
 clean:: clean[$1]
 
+TARGET_LIST := $$(TARGET_LIST) clean[$1]
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
 	$$(_v)rm -rf $$($1+BUILD) $$($1+PRODUCTS)
@@ -919,12 +928,20 @@ docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
+TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE_DEP)]
 docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
 
 # Makefile targets for Docker images can be aliased w/o the tag version
 ifdef $1+DOCKER_IMAGE_TAG
 
+TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE)]
 docker-build[$$($1+DOCKER_IMAGE)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
+
+TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE)]
+docker-rebuild[$$($1+DOCKER_IMAGE)]: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
+
+TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE)]
+docker-clean[$$($1+DOCKER_IMAGE)]: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 
 endif #DOCKER_IMAGE_TAG
 
@@ -938,6 +955,7 @@ $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($
 docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 
 # This rebuilds the docker image no matter what
+TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
@@ -947,6 +965,7 @@ docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DE
 docker-clean: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 
 # Force remove the container, volume, and image
+TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
@@ -967,6 +986,7 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
+TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
@@ -996,6 +1016,7 @@ endif #MOUNT_WORKDIR
 docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
 
 # Restart a docker container
+TARGET_LIST := $$(TARGET_LIST) docker-restart[$$($1+DOCKER_CONTAINER)]
 docker-restart[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
 	$$(_v)docker restart $$($1+DOCKER_CONTAINER)
@@ -1006,6 +1027,7 @@ docker-restart[$$($1+DOCKER_CONTAINER)]:
 docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 
 # Stop the docker container
+TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
 	$$(_v)docker stop $$($1+DOCKER_CONTAINER)
