@@ -2,9 +2,8 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/types.h>
 
-int main() {
+int main(void) {
 	int urandfd = open("/dev/urandom", O_RDONLY);
 	if(urandfd < 0) {
 		perror("/dev/urandom");
