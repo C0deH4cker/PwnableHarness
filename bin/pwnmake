@@ -25,18 +25,18 @@ realpath() (
 
 show_help() {
 	cat <<EOF
-Usage: pwnmake [--reinit] [--shell] [--dir <path>] [--tag <tag>] [--digest <digest>]
-               [--skip-update] [--help] [--version] [--] [targets...]
+Usage: pwnmake [-C/--dir <path>] [--tag <tag>] [--digest <digest>] [--skip-update]
+               [--reinit] [--shell] [--help] [--version] [--] [targets...]
 Options:
-  --reinit           Force the builder container to be reinitialized
-  --shell            Enter an interactive shell in the builder container (for debugging)
-  --dir <path>       Path to the directory to use as a PwnableHarness workspace (default '.')
+  -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default '.')
   --tag <tag>        PwnableHarness builder image tag to use (default 'latest'). The tag will be
                      prefixed with '${docker_image_tag_prefix}'. For example, '--tag 2.0' will use
                      '${docker_image_prefix}2.0' as the builder image base.
   --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
                      will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
   --skip-update      Don't attempt to ensure the builder image is up-to-date.
+  --reinit           Force the builder container to be reinitialized
+  --shell            Enter an interactive shell in the builder container (for debugging)
   --help             Display this help message.
   --version          Display the version of the pwnmake script.
   --                 Stop parsing options and pass all further arguments to 'make'.
@@ -98,7 +98,7 @@ main() {
 				shell=1
 				;;
 			
-			--dir)
+			-C|--dir)
 				shift
 				workspace=$1
 				shift
@@ -162,7 +162,7 @@ main() {
 	
 	# Attempt to determine if a docker pull is necessary
 	need_pull=
-	if [ "$tag" = "latest" ]; then
+	if [ -z "$digest" ] && [ "$tag" = "latest" ]; then
 		# For the "latest" tag, check if the local digest (if present) matches the remote one
 		local_digest=$(docker_get_local_digest "$docker_image")
 		if [ -z "$local_digest" ]; then
@@ -181,7 +181,7 @@ main() {
 		# For tags other than "latest", just ensure that the tag is present locally. It's assumed
 		# that only the "latest" tag is movable.
 		if ! docker_image_exists "$docker_image"; then
-			echo "Pulling builder image at tag $tag..." >&2
+			echo "Pulling builder image ${docker_image}..." >&2
 			need_pull=1
 		fi
 	fi
@@ -247,6 +247,7 @@ main() {
 	# The container is created and then thrown away with each command
 	if [ "$shell" = "1" ]; then
 		echo "Entering shell in builder container. To attempt the build normally, run:" >&2
+		echo "" >&2
 		echo "    /PwnableHarness/builder-entrypoint.sh [args for make...]" >&2
 		echo "" >&2
 		docker run \
