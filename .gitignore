@@ -43,5 +43,8 @@ Config.mk
 !*.sh
 !/bin
 
+# Workdir directories
+!workdir/
+
 # Any other filetypes that should be allowed should
 # be added here or in another .gitignore file.
