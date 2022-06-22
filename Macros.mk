@@ -180,7 +180,7 @@ endif #target_LDLIBS undefined
 
 # Add dependency on libpwnableharness[32|64] if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) $(BUILD)/libpwnableharness$$($2_BITS).so
+$2_ALLLIBS := $$($2_LIBS) $$(ROOT_BUILD)/libpwnableharness$$($2_BITS).so
 else
 $2_ALLLIBS := $$($2_LIBS)
 endif
@@ -190,7 +190,7 @@ ifndef $2_NO_UNBUFFERED_STDIO
 $2_OBJS := $$($2_OBJS) $$($1+BUILD)/$2_objs/stdio_unbuffer.o
 
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: stdio_unbuffer.c
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $(ROOT_DIR)/stdio_unbuffer.c
 	$$(_v)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif
@@ -329,8 +329,8 @@ $2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(patsubst %/,%,$$(dir $$($2_OBJ
 $$($2_OBJS): $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
-$$($2_OBJS): $$($1+BUILD_MK) Macros.mk
-$$($2_PRODUCT): $$($1+BUILD_MK) Macros.mk
+$$($2_OBJS): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+$$($2_PRODUCT): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
@@ -437,6 +437,11 @@ docker-clean[$2]:
 	$$(_V)echo "Removing $2 containers with docker-compose"
 	$$(_v)cd $1 && docker-compose rm --stop
 
+$2_DOCKER_COMPOSE_TARGETS := $$(patsubst %,docker-%[$2],build rebuild start restart stop clean)
+TARGET_LIST := $$(TARGET_LIST) $$($2_DOCKER_COMPOSE_TARGETS)
+
+.PHONY: $$($2_DOCKER_COMPOSE_TARGETS)
+
 endef #_docker_compose
 docker_compose = $(eval $(call _docker_compose,$1,$2))
 #####
@@ -455,12 +460,13 @@ ifdef MKDEBUG
 $$(info add_publish_rule($1,$2,$3))
 endif #MKDEBUG
 
-$1+$2+DST := $$(addprefix $$(PUB_DIR)/$1/,$$(notdir $3))
+$1+$2+PUB := $$(PUB_DIR)/$$(patsubst /%,%,$1)
+$1+$2+DST := $$(addprefix $$($1+$2+PUB)/,$$(notdir $3))
 
 publish[$1]: $$($1+$2+DST)
 
 # Publishing rule
-$$($1+$2+DST): $$(PUB_DIR)/$1/%: $2/%
+$$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
 	$$(_V)echo "Publishing $1/$$*"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
@@ -510,7 +516,6 @@ DEPLOY_DEPS :=
 # Optional CTF flag management
 FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
-SET_FLAG_PERMISSIONS :=
 
 # These can optionally be defined by Build.mk for Docker management
 DOCKERFILE :=
@@ -558,9 +563,15 @@ STRIP :=
 DEBUG :=
 
 # Set DIR+BUILD to the build directory for this project folder
-ifeq "$1" "."
+ifeq "$1" "$$(ROOT_DIR)"
+# Either container build or not, this will be the repo root
+$1+BUILD := $$(ROOT_BUILD)
+else ifeq "$1" "."
+# For container builds, this is the workspace directory
 $1+BUILD := $$(BUILD)
 else
+# For container builds: subdirectories of the workspace directory
+# For normal builds: subdirectories of the PwnableHarness repo
 $1+BUILD := $$(BUILD)/$1
 endif
 
@@ -623,7 +634,6 @@ $1+DEPLOY_DEPS := $$(DEPLOY_DEPS)
 # CTF flag management
 $1+FLAG_FILE := $$(FLAG_FILE)
 $1+FLAG_DST := $$(FLAG_DST)
-$1+SET_FLAG_PERMISSIONS := $$(SET_FLAG_PERMISSIONS)
 
 # Docker variables
 $1+DOCKERFILE := $$(DOCKERFILE)
@@ -683,11 +693,13 @@ all: all[$1]
 
 all[$1]: $$($1+PRODUCTS)
 
+TARGET_LIST := $$(TARGET_LIST) all[$1]
 .PHONY: all[$1]
 
 # Publish rules
 ifdef $1+PUBLISH_ALL_FILES
 
+TARGET_LIST := $$(TARGET_LIST) publish[$1]
 .PHONY: publish[$1]
 publish: publish[$1]
 
@@ -702,6 +714,7 @@ ifdef $1+DEPLOY_COMMAND
 
 deploy: deploy[$1]
 
+TARGET_LIST := $$(TARGET_LIST) deploy[$1]
 deploy[$1]: $$($1+DEPLOY_DEPS)
 	$$(_V)echo "Deploying $1"
 	$$(_v)cd $1 && $$($1+DEPLOY_COMMAND)
@@ -713,6 +726,7 @@ endif #$1+DEPLOY_COMMAND
 # Clean rules
 clean:: clean[$1]
 
+TARGET_LIST := $$(TARGET_LIST) clean[$1]
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
 	$$(_v)rm -rf $$($1+BUILD) $$($1+PRODUCTS)
@@ -730,7 +744,7 @@ ifdef $1+DOCKER_IMAGE
 
 # Define variables for dependencies (like docker-build[var]) and the argument
 ifdef $1+DOCKER_IMAGE_TAG
-$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE).$$($1+DOCKER_IMAGE_TAG)
+$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)+$$($1+DOCKER_IMAGE_TAG)
 $1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE):$$($1+DOCKER_IMAGE_TAG)
 else #DIR+DOCKER_IMAGE_TAG
 $1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)
@@ -745,18 +759,20 @@ $1+DOCKERFILE := $$(wildcard $1/Dockerfile)
 ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
-# Add a rule to copy the default.Dockerfile to the project directory
-$1/default.Dockerfile: default.Dockerfile
-	$$(_V)echo 'Copying $$< to $$@'
-	$$(_v)cp $$< $$@
+# Add a rule to generate a default.Dockerfile in the project directory
+$1/default.Dockerfile:
+	$$(_v)echo 'FROM $$(PWNABLEHARNESS_REPO):$$(PWNABLEHARNESS_VERSION)' > $$@
+
+# The default Dockerfile should be regenerated every time
+.PHONY: $1/default.Dockerfile
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
 # Docker images depend on the base PwnableHarness Docker image
-ifneq "$$($1+DOCKER_IMAGE)" "c0deh4cker/pwnableharness"
+ifneq "$$($1+DOCKER_IMAGE)" "$$(PWNABLEHARNESS_REPO)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[c0deh4cker/pwnableharness]
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[$$(PWNABLEHARNESS_REPO)]
 endif
 endif
 
@@ -764,14 +780,14 @@ endif
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) Macros.mk
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 # Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image
 ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
 endif
 endif
@@ -779,7 +795,7 @@ endif
 # Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
@@ -826,10 +842,8 @@ endif #DOCKER_WRITEABLE
 
 # If there's a password, supply it as an argument to pwnableserver
 ifdef $1+DOCKER_PASSWORD
-ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_PASSWORD=$$($1+DOCKER_PASSWORD)"
-endif #DOCKER_IMAGE_CUSTOM
 endif #DOCKER_PASSWORD
 
 # Check if DOCKER_PWNABLESERVER_ARGS was defined
@@ -844,7 +858,7 @@ $1+DOCKER_RUNNABLE :=
 endif
 
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
@@ -856,7 +870,27 @@ endif #Not top-level (building PwnableHarness itself)
 # Automatic flag support is only provided for non-custom Docker images
 ifndef $1+DOCKER_IMAGE_CUSTOM
 
-# Adding the flag to the docker image
+$1+DOCKER_START_DEPS :=
+
+# The "workdir" is a Docker volume that is mounted over the current working
+# directory for the challenge process (/ctf). It contains the contents of
+# the project's "workdir" folder (if present), and the flag file is copied
+# in (with correct ownership and permissions) as well.
+$1+WORKDIR := $$(wildcard $1/workdir)
+$1+MOUNT_WORKDIR :=
+$1+WORKDIR_VOLUME := $$(subst /,.,$$($1+DOCKER_IMAGE))-workdir
+$1+WORKDIR_DEPS :=
+$1+WORKDIR_COPY_CMDS :=
+
+# Handle copying the workdir folder contents to the Docker volume
+ifdef $1+WORKDIR
+$1+MOUNT_WORKDIR := 1
+$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
+$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+	&& docker cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
+endif
+
+# Adding the flag file to the docker image
 $1+HAS_FLAG :=
 ifdef $1+FLAG_FILE
 ifdef $1+FLAG_DST
@@ -864,22 +898,24 @@ ifdef MKDEBUG
 $$(info Preparing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST))
 endif #MKDEBUG
 
+# Handle copying the flag file and setting its ownership and permissions in the Docker volume
 $1+HAS_FLAG := 1
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$(abspath $$($1+FLAG_FILE)):/home/$$($1+DOCKER_CHALLENGE_NAME)/$$($1+FLAG_DST):ro
+$1+MOUNT_WORKDIR := 1
+$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$($1+FLAG_FILE)
+$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+	&& docker cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
+	&& docker run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
+		sh -c 'chown root:1337 /data/$$($1+FLAG_DST) && chmod 0640 /data/$$($1+FLAG_DST)'
 endif #FLAG_DST
 endif #FLAG_FILE
 
-endif #DOCKER_IMAGE_CUSTOM
+ifdef $1+MOUNT_WORKDIR
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$($1+WORKDIR_VOLUME):/ctf:ro
+$1+DOCKER_START_DEPS := $$($1+DOCKER_START_DEPS) $$($1+BUILD)/.docker_workdir_volume_marker
+endif
 
-# When setting the flag permissions, we need to tell Docker to ignore the flag
-# during the docker build process, as the flag file will not be readable.
-$1+DOCKER_START_DEPS :=
-ifdef $1+SET_FLAG_PERMISSIONS
-ifdef $1+HAS_FLAG
-$1+DOCKER_START_DEPS := docker-flag[$$($1+DOCKER_CONTAINER)]
-endif #HAS_FLAG
-endif #SET_FLAG_PERMISSIONS
+endif #DOCKER_IMAGE_CUSTOM
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
@@ -892,7 +928,22 @@ docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
+TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE_DEP)]
 docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
+
+# Makefile targets for Docker images can be aliased w/o the tag version
+ifdef $1+DOCKER_IMAGE_TAG
+
+TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE)]
+docker-build[$$($1+DOCKER_IMAGE)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
+
+TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE)]
+docker-rebuild[$$($1+DOCKER_IMAGE)]: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
+
+TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE)]
+docker-clean[$$($1+DOCKER_IMAGE)]: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
+
+endif #DOCKER_IMAGE_TAG
 
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
@@ -904,22 +955,27 @@ $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($
 docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 
 # This rebuilds the docker image no matter what
+TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
-# Rule for removing a docker image and any containers based on it
+# Rule for removing a docker image and any containers based on it (and volumes)
 docker-clean: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 
-# Force remove the container and image
+# Force remove the container, volume, and image
+TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
-	$$(_V)echo "Cleaning docker image $$($1+DOCKER_TAG_ARG)"
+	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
+ifdef $1+MOUNT_WORKDIR
+	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+endif
 	$$(_v)docker rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
-	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker
+	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
 
 ## Docker run rules
 
@@ -930,37 +986,36 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # When starting a container, make sure the docker image is built
 # and up to date
+TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
-		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
-		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
+		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
-# Rule for setting flag permissions
-ifdef $1+SET_FLAG_PERMISSIONS
+# Rule for mounting the workdir
+ifdef $1+MOUNT_WORKDIR
 
-docker-flag[$$($1+DOCKER_CONTAINER)]: $1/.dockerignore
-.PHONY: docker-flag[$$($1+DOCKER_CONTAINER)]
+$$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
+	$$(_V)echo "Preparing workdir volume for $1"
+	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)docker container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
+	$$(_v)docker volume create $$($1+WORKDIR_VOLUME) \
+		&& docker container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
+		$$($1+WORKDIR_COPY_CMDS) \
+		&& docker rm $$($1+WORKDIR_VOLUME)-temp \
+		&& touch $$@
 
-# Need to tell docker to ignore this file, otherwise it'll fail as it
-# doesn't have read access to it.
-$1/.dockerignore: $$($1+FLAG_FILE)
-	$$(_v)sudo chown root:1337 $$($1+FLAG_FILE) \
-		&& sudo chmod 0640 $$($1+FLAG_FILE) \
-		&& echo $$(patsubst $1/%,%,$$($1+FLAG_FILE)) > $$@
-
-.PHONY: $1/.dockerignore
-
-endif #SET_FLAG_PERMISSIONS
+endif #MOUNT_WORKDIR
 
 
 # Rule for restarting a docker container
 docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
 
 # Restart a docker container
+TARGET_LIST := $$(TARGET_LIST) docker-restart[$$($1+DOCKER_CONTAINER)]
 docker-restart[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
 	$$(_v)docker restart $$($1+DOCKER_CONTAINER)
@@ -971,6 +1026,7 @@ docker-restart[$$($1+DOCKER_CONTAINER)]:
 docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 
 # Stop the docker container
+TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
 	$$(_v)docker stop $$($1+DOCKER_CONTAINER)

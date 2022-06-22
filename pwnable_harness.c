@@ -427,22 +427,22 @@ static int serve_internal(
 				printf("Password: ");
 				fflush(stdout);
 				
-				char pw[100];
-				if(!fgets(pw, sizeof(pw), stdin)) {
+				char pass[100];
+				if(!fgets(pass, sizeof(pass), stdin)) {
 					printf("Must enter a password.\n");
 					fprintf(stderr_fp, "%u: No password provided.\n", getpid());
 					_exit(EXIT_FAILURE);
 				}
 				
-				char* newline = strchr(pw, '\n');
+				char* newline = strchr(pass, '\n');
 				if(newline) {
 					*newline = '\0';
 				}
 				
 				/* Not a constant-time comparison, but this doesn't need to be ultra secure */
-				if(strcmp(pw, password) != 0) {
+				if(strcmp(pass, password) != 0) {
 					printf("Incorrect password.\n");
-					fprintf(stderr_fp, "%u: Incorrect password (%s)\n", getpid(), pw);
+					fprintf(stderr_fp, "%u: Incorrect password (%s)\n", getpid(), pass);
 					_exit(EXIT_FAILURE);
 				}
 				

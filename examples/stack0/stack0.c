@@ -11,7 +11,6 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include "pwnable_harness.h"
 
 
 /* Filename of the first flag */
@@ -33,7 +32,7 @@ static void giveFlag(void) {
 }
 
 /* Called when an incoming client connection is received. */
-static void handle_connection(int sock) {
+static void handle_connection(void) {
 	bool didPurchase = false;
 	char input[50];
 	
@@ -51,14 +50,7 @@ static void handle_connection(int sock) {
 	}
 }
 
-int main(int argc, char** argv) {
-	/* Defaults: Run on port 32101 for 30 seconds as user "ctf_stack0" inside a chroot */
-	server_options opts = {
-		.user = "ctf_stack0",
-		.chrooted = true,
-		.port = 32101,
-		.time_limit_seconds = 30
-	};
-	
-	return server_main(argc, argv, opts, &handle_connection);
+int main(void) {
+	handle_connection();
+	return 0;
 }

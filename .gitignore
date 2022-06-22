@@ -31,13 +31,20 @@ Config.mk
 # All gitignore files
 !.gitignore
 
-# Dockerfiles, including the top-level default.Dockerfile
+# Dockerfiles, including the top-level builder.Dockerfile
 !Dockerfile
-!/default.Dockerfile
+!/builder.Dockerfile
 
 # YAML files (including docker-compose.yml)
 !*.yml
 !*.yaml
+
+# Scripts (including builder-entrypoint.sh)
+!*.sh
+!/bin
+
+# Workdir directories
+!workdir/
 
 # Any other filetypes that should be allowed should
 # be added here or in another .gitignore file.
