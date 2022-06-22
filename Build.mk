@@ -85,7 +85,7 @@ docker-builder-push-latest: docker-builder-push docker-builder-tag-latest
 
 docker-builder-clean:
 	$(_v)rm -f $(PWNABLE_BUILD)/.docker_builder_build_marker
-	$(_v)docker rmi -f $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) $(PWNABLEHARNESS_REPO):builder-latest
+	$(_v)docker rmi -f $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) $(PWNABLEHARNESS_REPO):builder-latest >/dev/null 2>&1 || true
 
 docker-clean: docker-builder-clean
 
