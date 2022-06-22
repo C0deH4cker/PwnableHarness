@@ -276,7 +276,7 @@ main() {
 			--env BUILDER_INIT=0 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v "$host_docker_sock":/var/run/docker.sock \
-			-v pwnmake-docker-cli:/docker-cli:ro \
+			-v pwnmake-docker-cli:/docker-cli \
 			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			--entrypoint /bin/bash \
 			-it "$pwnmake_image"
@@ -287,7 +287,7 @@ main() {
 			--env BUILDER_INIT=0 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v "$host_docker_sock":/var/run/docker.sock \
-			-v pwnmake-docker-cli:/docker-cli:ro \
+			-v pwnmake-docker-cli:/docker-cli \
 			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			-it "$pwnmake_image" "$@"
 	fi
