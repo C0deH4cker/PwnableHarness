@@ -778,7 +778,7 @@ $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) $$(ROOT_DIR)/Ma
 ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
 endif
 endif
@@ -786,7 +786,7 @@ endif
 # Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
@@ -849,7 +849,7 @@ $1+DOCKER_RUNNABLE :=
 endif
 
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
-ifneq "$1" "."
+ifneq "$1" "$$(ROOT_DIR)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
