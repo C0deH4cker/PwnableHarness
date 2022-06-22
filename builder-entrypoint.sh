@@ -36,7 +36,7 @@ if [ "$BUILDER_INIT" = "1" ]; then
 	fi
 	
 	# Run builder preparation scripts from the workspace
-	find . -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r -t bash
+	DEBIAN_FRONTEND=noninteractive find . -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r -t bash
 	
 	# Clear APT list cache to reduce image size in case one of the prebuild scripts installed packages
 	rm -rf /var/lib/apt/lists/*

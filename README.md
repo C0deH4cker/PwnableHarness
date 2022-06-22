@@ -53,6 +53,23 @@ or `clang` you have installed on your host.
 The `pwnmake` command has some extra options (see `pwnmake --help`). Most of the
 time, none of these will be necessary.
 
+If the build process of a project requires installing some extra packages, tools,
+or libraries, you can create a script named `prebuild.sh` in any directory within
+your workspace. This file will be executed as root as a bash script during the
+initialization step of preparing the pwnmake builder image. As an example, if a
+project works with PNG files, it might want to have this in its `prebuild.sh`:
+
+```bash
+apt-get update && apt-get install -y libpng-dev
+```
+
+The builder image is cached after running all prebuild scripts. It will only need
+to be reinitialized if any of these conditions are met:
+
+* The version of `pwnmake` changes
+* There is a newer version of the PwnableHarness builder image
+* The contents of any `prebuild.sh` scripts in the workspace change
+
 
 ### Quickstart
 
