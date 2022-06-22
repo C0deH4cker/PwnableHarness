@@ -70,7 +70,8 @@ TARGET := stack0
 #
 # BITS:            Either 32 or 64, for deciding the architecture to
 #                    build for (i386/amd64).
-#                  Default: 32
+#                  Default: 64
+BITS := 32
 #
 # CXXFLAGS:        Command line options passed to CXX when compiling
 #                    C++ source files.
@@ -107,10 +108,17 @@ TARGET := stack0
 # PUBLISH is a list of files within this directory to publish when
 # running "make publish". By default, PUBLISH is empty.
 #
-# Note: make publish will copy every file listed to be published
-# to the directory (or symlink) named "publish" in the top level
-# of this repo. This feature is useful for publishing files to a web
-# server to instantly update challenges.
+# PUBLISH_BUILD is a list of files from this project's build directory
+# to publish when running "make publish". By default, PUBLISH_BUILD is
+# empty. Setting this to the value of TARGET will copy the challenge
+# binary to the publish directory.
+#
+# Note: "make publish" will copy every file listed to be published
+# to the directory named "publish" in the top level of the workspace.
+# This feature is useful for publishing files to a web server to
+# instantly update challenges as they are rebuilt. The recommended way
+# of doing that is to put symlinks in /var/www that point back into
+# the publish directory in your workspace.
 PUBLISH_BUILD := $(TARGET)
 PUBLISH := stack0.c
 
