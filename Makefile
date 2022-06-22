@@ -3,6 +3,8 @@ all:
 
 # Current Docker image name and tag
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
+
+# Keep aligned with version in bin/pwnmake script
 PWNABLEHARNESS_VERSION := 2.0b1
 
 # Container builds run from /PwnableHarness/workspace as their CWD
@@ -61,9 +63,11 @@ RECURSION_BLACKLIST ?=
 RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git $(RECURSION_BLACKLIST)
 
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
+ifndef CONTAINER_BUILD
 ifndef WITH_EXAMPLES
 RECURSION_BLACKLIST := examples $(RECURSION_BLACKLIST)
-endif
+endif #WITH_EXAMPLES
+endif #CONTAINER_BUILD
 
 # List of PwnableHarness projects discovered
 PROJECT_LIST :=
@@ -72,7 +76,10 @@ PROJECT_LIST :=
 # explicitly include the root Build.mk.
 ifdef CONTAINER_BUILD
 $(call include_subdir,$(ROOT_DIR))
-endif
+ifdef WITH_EXAMPLES
+$(call recurse_subdir,$(ROOT_DIR)/examples)
+endif #WITH_EXAMPLES
+endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)

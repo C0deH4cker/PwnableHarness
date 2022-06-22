@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Keep aligned with PWNABLEHARNESS_VERSION in Makefile
+version=2.0b1
+
 docker_image_repo=c0deh4cker/pwnableharness
 docker_image_tag_prefix=builder-
 docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
@@ -23,7 +26,7 @@ realpath() (
 show_help() {
 	cat <<EOF
 Usage: pwnmake [--reinit] [--shell] [--dir <path>] [--tag <tag>] [--digest <digest>]
-               [--skip-update] [--] [targets...]
+               [--skip-update] [--help] [--version] [--] [targets...]
 Options:
   --reinit           Force the builder container to be reinitialized
   --shell            Enter an interactive shell in the builder container (for debugging)
@@ -34,6 +37,8 @@ Options:
   --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
                      will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
   --skip-update      Don't attempt to ensure the builder image is up-to-date.
+  --help             Display this help message.
+  --version          Display the version of the pwnmake script.
   --                 Stop parsing options and pass all further arguments to 'make'.
   targets...         Arguments to be passed to 'make'. These can be targets to build or options like '-j8'.
 Example: pwnmake -j4 docker-start publish VERBOSE=1
@@ -116,6 +121,11 @@ main() {
 				skip_update=1
 				;;
 			
+			--version)
+				echo "pwnmake version $version"
+				exit 0
+				;;
+			
 			--)
 				shift
 				break
@@ -185,13 +195,14 @@ main() {
 	fi
 	
 	# A hash is built from:
+	# * Current version of the pwnmake script
 	# * The digest of the pwnableharness builder image (pre-initialization)
 	# * The hashes of all prebuild scripts
-	# This is done so that if the base image or any prebuild scripts change,
-	# the builder image will be reinitialized.
+	# This is done so that if the pwnmake script, base image, or any prebuild scripts
+	# change, the builder image will be reinitialized.
 	builder_digest=$(docker_get_local_digest "$docker_image")
 	prebuild_hash=$(find "$workspace" -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r shasum -a 256 | shasum -a 256 | awk '{print $1}')
-	pwnmake_tag=$(echo "$builder_digest:$prebuild_hash" | shasum -a 256 | head -c 12)
+	pwnmake_tag=$(echo "$version;$builder_digest;$prebuild_hash" | shasum -a 256 | head -c 12)
 	pwnmake_repo=c0deh4cker/pwnmake
 	pwnmake_image=$pwnmake_repo:$pwnmake_tag
 	pwnmake_container=pwnmake-$pwnmake_tag
@@ -219,6 +230,7 @@ main() {
 		# Run the builder initialization and prep scripts then save as a new image
 		docker run \
 			--name "$pwnmake_container" \
+			--env PWNMAKE_VERSION="$version" \
 			--env BUILDER_INIT=1 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			--env CALLER_UID="$CALLER_UID" \
@@ -239,6 +251,7 @@ main() {
 		echo "" >&2
 		docker run \
 			--rm \
+			--env PWNMAKE_VERSION="$version" \
 			--env BUILDER_INIT=0 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v /var/run/docker.sock:/var/run/docker.sock \
@@ -249,6 +262,7 @@ main() {
 	else
 		docker run \
 			--rm \
+			--env PWNMAKE_VERSION="$version" \
 			--env BUILDER_INIT=0 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			-v /var/run/docker.sock:/var/run/docker.sock \

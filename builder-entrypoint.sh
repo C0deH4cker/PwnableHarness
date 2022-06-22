@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# pwnmake also passes PWNMAKE_VERSION. For now, we don't do anything with it.
+
 docker_bin="/docker-cli/$DOCKER_VERSION"
 
 if [ "$BUILDER_INIT" = "1" ]; then

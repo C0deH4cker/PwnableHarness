@@ -111,7 +111,8 @@ TARGET := stack0
 # to the directory (or symlink) named "publish" in the top level
 # of this repo. This feature is useful for publishing files to a web
 # server to instantly update challenges.
-PUBLISH := $(TARGET) stack0.c
+PUBLISH_BUILD := $(TARGET)
+PUBLISH := stack0.c
 
 # PUBLISH_LIBC is the desired filename used when publishing this
 # challenge's libc. When this is defined, the exact libc used will
@@ -127,24 +128,14 @@ PUBLISH := $(TARGET) stack0.c
 # created for this directory.
 DOCKER_IMAGE := c0deh4cker/stack0
 
+# DOCKER_IMAGE_TAG is the tag to use for the Docker image.
+# Default: latest
+DOCKER_IMAGE_TAG := 2.0
+
 # DOCKER_BUILD_ARGS is a list of name=value pairs that will be passed
 # with --build-arg to docker build when "make docker-build" is run.
 # These variables will be usable in a Dockerfile with ARG.
-#
-# Use the real flag files if they exist.
-#
-# Note: This logic is more complicated than needed for most challenges.
-# If you have a single flag file named "flag.txt" in the same directory
-# as your Build.mk, then it will automatically be included in the
-# Docker image in the correct location. If you have multiple flag files,
-# or if you plan to put your challenge on GitHub or similar with a
-# different flag than the real one, then some of this logic may be
-# needed.
-REAL_FLAG1 := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/real_flag1.txt))
-REAL_FLAG2 := $(patsubst $(DIR)/%,%,$(wildcard $(DIR)/real_flag2.txt))
-FLAG1_ARG := $(if $(REAL_FLAG1),FLAG1=$(REAL_FLAG1))
-FLAG2_ARG := $(if $(REAL_FLAG2),FLAG2=$(REAL_FLAG2))
-DOCKER_BUILD_ARGS := $(FLAG1_ARG) $(FLAG2_ARG)
+#DOCKER_BUILD_ARGS :=
 
 # DOCKER_BUILD_DEPS is a list of Makefile dependencies that when changed
 # will require the Docker image to be rebuilt. For example, if a challenge
@@ -203,7 +194,7 @@ DOCKER_TIMELIMIT := 30
 # talk over stdin/stdout directly and doesn't require any code changes.
 # PwnableHarness will even make sure to set stdout/stderr as unbuffered,
 # so you don't need to manually add calls to fflush(stdout) in your code.
-USE_LIBPWNABLEHARNESS := 1
+#USE_LIBPWNABLEHARNESS := 1
 
 # DEPLOY_COMMAND is a string containing a command that should be run during
 # `make deploy` from the project directory.

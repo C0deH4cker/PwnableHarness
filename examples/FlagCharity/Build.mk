@@ -6,4 +6,5 @@ DOCKER_IMAGE := charity
 DOCKER_PORTS := 19891
 
 # On `make publish`, copy the executable and charity.c to `PwnableHarness/publish`
-PUBLISH := $(TARGET) charity.c
+PUBLISH_BUILD := $(TARGET)
+PUBLISH := charity.c
