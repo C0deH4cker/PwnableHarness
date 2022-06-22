@@ -991,8 +991,7 @@ docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$(
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
-		-v /etc/localtime:/etc/localtime:ro $$($1+DOCKER_PORT_ARGS) \
-		$$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
+		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
