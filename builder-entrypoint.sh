@@ -46,4 +46,4 @@ fi
 export PATH="$docker_bin:$PATH"
 
 # Run PwnableHarness make command as the calling user
-gosu pwnuser make -rR --warn-undefined-variables -f /PwnableHarness/Makefile "$@"
+exec gosu pwnuser make -rR --warn-undefined-variables -f /PwnableHarness/Makefile "$@"
