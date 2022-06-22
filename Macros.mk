@@ -878,7 +878,7 @@ $1+DOCKER_START_DEPS :=
 # in (with correct ownership and permissions) as well.
 $1+WORKDIR := $$(wildcard $1/workdir)
 $1+MOUNT_WORKDIR :=
-$1+WORKDIR_VOLUME := $$($1+DOCKER_IMAGE)-workdir
+$1+WORKDIR_VOLUME := $$(subst /,.,$$($1+DOCKER_IMAGE))-workdir
 $1+WORKDIR_DEPS :=
 $1+WORKDIR_COPY_CMDS :=
 
