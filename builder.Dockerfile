@@ -14,6 +14,11 @@ RUN apt-get update \
 		htop \
 	&& rm -rf /var/lib/apt/lists/*
 
+# Make the "sudo" command work as scripts would normally expect
+COPY builder-sudo.sh /usr/sbin/sudo
+RUN chmod 4755 /usr/sbin/gosu \
+	&& chmod +x /usr/sbin/sudo
+
 # Set up PwnableHarness top-level directory and workspace location
 WORKDIR /PwnableHarness/workspace
 

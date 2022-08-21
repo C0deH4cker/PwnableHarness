@@ -49,6 +49,7 @@ ifndef CONTAINER_BUILD
 
 # This should mirror the list of files added in builder.Dockerfile
 PWNABLE_BUILDER_FILES := \
+	builder-sudo.sh \
 	.dockerignore \
 	Build.mk \
 	builder-entrypoint.sh \
