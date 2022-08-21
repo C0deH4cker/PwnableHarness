@@ -527,6 +527,7 @@ DOCKER_CHALLENGE_NAME :=
 DOCKER_CHALLENGE_PATH :=
 DOCKER_BUILD_ARGS :=
 DOCKER_BUILD_DEPS :=
+DOCKER_START_DEPS :=
 DOCKER_PORTS :=
 DOCKER_PORT_ARGS :=
 DOCKER_RUN_ARGS :=
@@ -645,6 +646,7 @@ $1+DOCKER_CHALLENGE_NAME := $$(DOCKER_CHALLENGE_NAME)
 $1+DOCKER_CHALLENGE_PATH := $$(DOCKER_CHALLENGE_PATH)
 $1+DOCKER_BUILD_ARGS := $$(DOCKER_BUILD_ARGS)
 $1+DOCKER_BUILD_DEPS := $$(DOCKER_BUILD_DEPS)
+$1+DOCKER_START_DEPS := $$(DOCKER_START_DEPS)
 $1+DOCKER_PORTS := $$(DOCKER_PORTS)
 $1+DOCKER_PORT_ARGS := $$(DOCKER_PORT_ARGS)
 $1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
@@ -869,8 +871,6 @@ endif #Not top-level (building PwnableHarness itself)
 
 # Automatic flag support is only provided for non-custom Docker images
 ifndef $1+DOCKER_IMAGE_CUSTOM
-
-$1+DOCKER_START_DEPS :=
 
 # The "workdir" is a Docker volume that is mounted over the current working
 # directory for the challenge process (/ctf). It contains the contents of
