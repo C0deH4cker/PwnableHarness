@@ -199,7 +199,7 @@ endif
 # executable's directory and from /usr/local/lib
 ifdef $2_ALLLIBS
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN
+$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
 else ifdef IS_MAC
 $2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,@executable_path
 endif #IS_LINUX/IS_MAC
