@@ -869,9 +869,6 @@ $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 endif #DOCKER_IMAGE_CUSTOM
 endif #Not top-level (building PwnableHarness itself)
 
-# Automatic flag support is only provided for non-custom Docker images
-ifndef $1+DOCKER_IMAGE_CUSTOM
-
 # The "workdir" is a Docker volume that is mounted over the current working
 # directory for the challenge process (/ctf). It contains the contents of
 # the project's "workdir" folder (if present), and the flag file is copied
@@ -914,8 +911,6 @@ ifdef $1+MOUNT_WORKDIR
 $1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$($1+WORKDIR_VOLUME):/ctf:ro
 $1+DOCKER_START_DEPS := $$($1+DOCKER_START_DEPS) $$($1+BUILD)/.docker_workdir_volume_marker
 endif
-
-endif #DOCKER_IMAGE_CUSTOM
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)

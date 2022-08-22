@@ -9,7 +9,13 @@ PWNMAKE_VERSION ?=
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 
 # Keep aligned with version in bin/pwnmake script
+ifndef PWNABLEHARNESS_VERSION
+ifdef WORKING
+PWNABLEHARNESS_VERSION := working
+else #WORKING
 PWNABLEHARNESS_VERSION := 2.0b1
+endif #WORKING
+endif #PWNABLEHARNESS_VERSION
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
