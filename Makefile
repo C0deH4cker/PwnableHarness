@@ -31,7 +31,7 @@ endif
 BUILD := .build
 ROOT_BUILD := $(BUILD)/PwnableHarness
 
-# Path to the publish directory (this could be a symlink to /var/www/html)
+# Path to the publish directory
 PUB_DIR := publish
 
 # For debugging development of this Makefile
