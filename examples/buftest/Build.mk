@@ -1,6 +1,6 @@
 TARGET := buftest
 
-# NO_UNBUFFERED_STDIO := 1
+# NO_UNBUFFERED_STDIO := true
 
 DOCKER_IMAGE := buftest
 DOCKER_PORTS := 12345

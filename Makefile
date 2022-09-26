@@ -1,46 +1,61 @@
 # Make sure the default target is to "make all"
 all:
 
+# For now, always use "linux/amd64" as the Docker platform
+export DOCKER_DEFAULT_PLATFORM ?= linux/amd64
+
 # Environment variables that may be defined by pwnmake
 CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
 
-# Current Docker image name and tag
-PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
-
 # Keep aligned with version in bin/pwnmake script
-ifndef PWNABLEHARNESS_VERSION
-ifdef WORKING
-PWNABLEHARNESS_VERSION := working
-else #WORKING
-PWNABLEHARNESS_VERSION := 2.0b1
-endif #WORKING
-endif #PWNABLEHARNESS_VERSION
+ifdef PWNABLEHARNESS_WIP
+PWNABLEHARNESS_VERSION := wip
+PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness-wip
+else #PWNABLEHARNESS_WIP
+PWNABLEHARNESS_VERSION := v2.0b2
+PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
+endif #PWNABLEHARNESS_WIP
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
+PWNABLEHARNESS_CORE_PROJECT := $(ROOT_DIR)/core
 else
 ROOT_DIR := .
+PWNABLEHARNESS_CORE_PROJECT := core
+PWNABLE_BUILDER_DIR := builder
 endif
+
+# Define useful variables for special Makefile characters
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COLON := :
+COMMA := ,
+DOLLAR := $$
+define HASH
+#
+endef
+define NEWLINE
+
+
+endef
 
 # If there is a Config.mk present in the root of this workspace or a subdirectory, include it
 -include Config.mk $(wildcard */Config.mk)
 
 # Path to the root build directory
 BUILD := .build
-ROOT_BUILD := $(BUILD)/PwnableHarness
+PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
 
 # Path to the publish directory
 PUB_DIR := publish
 
 # For debugging development of this Makefile
 MKDEBUG ?=
+MKTRACE ?=
 
 # Print all commands executed when VERBOSE is defined, but don't echo explanations
-define HASH
-#
-endef
 VERBOSE ?=
 ifdef VERBOSE
 _v :=
@@ -65,12 +80,17 @@ else ifeq "$(OS)" "Darwin"
 IS_MAC := 1
 endif
 
+# Unless overridden in a Config.mk file, don't build 32-bit binaries on macOS.
+ifdef IS_MAC
+CONFIG_IGNORE_32BIT := true
+endif #IS_MAC
+
 # Define useful build macros
 include $(ROOT_DIR)/Macros.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git .docker $(RECURSION_BLACKLIST)
 
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
 ifndef CONTAINER_BUILD
@@ -83,22 +103,40 @@ endif #CONTAINER_BUILD
 PROJECT_LIST :=
 
 # List of PwnableHarness target rules available
-TARGET_LIST := all help list list-targets base clean publish deploy \
+TARGET_LIST := all help list list-targets core clean publish deploy \
 	docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
 
-# Container builds start in a subdirectory of the PwnableHarness root. This call will
-# explicitly include the root Build.mk.
-ifdef CONTAINER_BUILD
-$(call include_subdir,$(ROOT_DIR))
+add_targets = $(eval TARGET_LIST := $$(TARGET_LIST) $1)
+add_target = $(add_targets)
+define _add_phony_target
+
+.PHONY: $1
+
+TARGET_LIST := $$(TARGET_LIST) $1
+
+endef
+add_phony_targets = $(eval $(call _add_phony_target,$1))
+add_phony_target = $(add_phony_targets)
+
+# Make sure to include the core project before user projects
+$(call include_subdir,$(PWNABLEHARNESS_CORE_PROJECT))
+
+# Responsible for building, tagging, and pushing the pwnmake builder images
+ifndef CONTAINER_BUILD
+include $(PWNABLE_BUILDER_DIR)/BuilderImage.mk
 endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
 
 # Used for debugging this Makefile
-# `make stack0:DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
+# `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
 %?:
 	@echo '$* := $($*)'
+
+# Print environment
+env:
+	@export
 
 # List discovered project directories that contain Build.mk files
 list:
@@ -182,7 +220,7 @@ help:
 		'\n         Display a list of all discovered project directories.' \
 		'\n* `list-targets`:' \
 		'\n         Display a list of all provided targets.' \
-		'\n* `base`:' \
+		'\n* `core`:' \
 		'\n         Build only the core PwnableHarness binaries.' \
 		'\n' \
 		'\n### Command-line variables:' \
@@ -228,8 +266,8 @@ help:
 		'\n   parent/ancestor project to collect settings defined by its descendants.' \
 	| sed 's/ $$//'
 
-# Running "make base" builds only PwnableHarness binaries
-base: all[$(ROOT_DIR)]
+# Running "make core" builds only PwnableHarness binaries
+core: all[$(ROOT_DIR)]
 
 # Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
 clean::
@@ -247,8 +285,13 @@ deploy: docker-start publish
 # Disable magic when a dependency looks like "-l<whatever>"
 .LIBPATTERNS :=
 
+# Whenever a recipe returns an error while building a file, make will delete that file (if it changes).
+# This is useful to avoid corrupt build states where a file is considered up to date by its modification
+# time, even though it holds incomplete/incorrect contents due to the error.
+.DELETE_ON_ERROR:
+
 # Global targets that are "phony", aka don't name a file to be created
-.PHONY: all base clean publish deploy list list-targets help
+.PHONY: all core clean publish deploy env list list-targets help
 
 # Phony Docker targets
 .PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean

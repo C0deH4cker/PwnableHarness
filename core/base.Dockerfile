@@ -1,23 +1,28 @@
-FROM ubuntu:16.04
+ARG BASE_IMAGE
+FROM $BASE_IMAGE
 LABEL maintainer="c0deh4cker@gmail.com"
 
+ARG CONFIG_IGNORE_32BIT=
+ENV CONFIG_IGNORE_32BIT=$CONFIG_IGNORE_32BIT
+
 # Add support for running 32-bit executables
-RUN dpkg --add-architecture i386 \
-	&& apt-get update \
-	&& DEBIAN_FRONTEND=noninteractive apt-get install -y libc6:i386 \
-	&& rm -rf /var/lib/apt/lists/*
+RUN if [ -z "$CONFIG_IGNORE_32BIT" ]; then \
+	dpkg --add-architecture i386 \
+		&& apt-get update \
+		&& DEBIAN_FRONTEND=noninteractive apt-get install -y libc6:i386 \
+		&& rm -rf /var/lib/apt/lists/* \
+; fi
 
 # Copy PwnableHarness libraries to /usr/local/lib
 ARG BUILD_DIR
-COPY $BUILD_DIR/libpwnableharness32.so $BUILD_DIR/libpwnableharness64.so /usr/local/lib/
+COPY $BUILD_DIR/libpwnableharness*.so /usr/local/lib/
 
 # Copy pwnable server program to /usr/local/bin
 COPY $BUILD_DIR/pwnableserver /usr/local/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \
-	/usr/local/lib/libpwnableharness32.so \
-	/usr/local/lib/libpwnableharness64.so \
+	/usr/local/lib/libpwnableharness*.so \
 	/usr/local/bin/pwnableserver
 
 # Just run bash shell when no command is given. This isn't intended
@@ -67,8 +72,7 @@ ONBUILD ARG PWNABLESERVER_EXTRA_ARGS=
 ONBUILD ENV PWNABLESERVER_EXTRA_ARGS=$PWNABLESERVER_EXTRA_ARGS
 
 # Run the executable without a chroot since this is already running in a
-# Docker container. Also specify the username explicitly in case the
-# default is different.
+# Docker container
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \

@@ -1,11 +1,14 @@
 #!/bin/sh
 
 # Keep aligned with PWNABLEHARNESS_VERSION in Makefile
-version=2.0b1
+version=${PWNMAKE_VERSION:-2.0b2}
 
 docker_image_repo=c0deh4cker/pwnableharness
 docker_image_tag_prefix=builder-
 docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
+
+# There's no arm64 version available, so only try pulling the amd64 version
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
 
 # https://stackoverflow.com/a/18443300
@@ -75,7 +78,7 @@ docker_get_local_digest() {
 # pwnmake [...]
 main() {
 	workspace=.
-	tag=latest
+	tag=${PWNMAKE_TAG:-latest}
 	reinit=
 	shell=
 	digest=
@@ -151,7 +154,7 @@ main() {
 	
 	# Get version of the Docker server on the host to know which version of the
 	# Docker CLI to install in the builder container.
-	DOCKER_VERSION=$(docker version --format '{{.Server.Version}}')
+	DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' | cut -d- -f1)
 	if [ "$?" != 0 ]; then
 		echo "Docker must be installed!" >&2
 		exit 1
@@ -213,6 +216,7 @@ main() {
 		docker image rm $(docker image ls -q "$pwnmake_repo") >/dev/null 2>&1 || true
 	fi
 	
+	env_arg_sock_chmod=
 	host_os=$(uname -s)
 	if [ "$host_os" = "Darwin" ]; then
 		# https://github.com/docker/for-mac/issues/4755
