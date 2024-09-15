@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Keep aligned with PWNABLEHARNESS_VERSION in Makefile
-version=${PWNMAKE_VERSION:-2.0b2}
+version=${PWNMAKE_VERSION:-2.1}
 
 docker_image_repo=c0deh4cker/pwnableharness
 docker_image_tag_prefix=builder-
