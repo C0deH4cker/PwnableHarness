@@ -1,6 +1,11 @@
-ARG BASE_IMAGE
+# Keep this aligned with PWNABLE_BUILDER_DEFAULT_BASE in BuilderImage.mk!
+ARG BASE_IMAGE=ubuntu:18.04
 FROM $BASE_IMAGE
 LABEL maintainer="c0deh4cker@gmail.com"
+
+ARG BUILDARCH
+ARG TARGETARCH
+RUN echo "Building on ${BUILDARCH} for ${TARGETARCH}"
 
 # BuilderImage.mk will set this depending on if the base image has 32-bit support
 ARG CONFIG_IGNORE_32BIT=
@@ -18,7 +23,7 @@ RUN apt-get update \
 		git \
 		vim \
 		htop \
-		$(test -z "$CONFIG_IGNORE_32BIT" && echo "gcc-multilib") \
+		$(test -z "$CONFIG_IGNORE_32BIT" && [ "$TARGETARCH" != "arm64" ] && echo "gcc-multilib") \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& python3 -m pip install launchpadlib
 
