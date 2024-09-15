@@ -2,7 +2,7 @@
 all:
 
 # For now, always use "linux/amd64" as the Docker platform
-export DOCKER_DEFAULT_PLATFORM ?= linux/amd64
+export DOCKER_DEFAULT_PLATFORM := linux/amd64
 
 # Environment variables that may be defined by pwnmake
 CONTAINER_BUILD ?=
