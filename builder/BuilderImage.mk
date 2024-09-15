@@ -67,6 +67,8 @@ $(PWNABLE_BUILD)/.docker_builder_build_marker.%: $(PWNABLE_BUILDER_DEPS)
 			--build-arg BASE_IMAGE=ubuntu:$* \
 			$(if $(UBUNTU_32BIT_SUPPORT[$*]),,--build-arg CONFIG_IGNORE_32BIT=1) \
 			--build-arg DIR=$(PWNABLE_BUILDER_DIR) \
+			--build-arg GIT_HASH=$$(git rev-parse HEAD) \
+			--build-arg VERSION=$(PWNABLEHARNESS_VERSION) \
 			-t $(PWNABLEHARNESS_REPO):builder-$*-$(PWNABLEHARNESS_VERSION) . \
 		&& mkdir -p $(@D) && touch $@
 

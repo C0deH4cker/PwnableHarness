@@ -62,5 +62,10 @@ ENV CONTAINER_BUILD=1
 
 ENV DOCKER_ARCH=$TARGETARCH
 
+ARG GIT_HASH=missing
+ARG VERSION=missing
+RUN echo ${GIT_HASH} > /PwnableHarness/.githash \
+	&& echo ${VERSION} > /PwnableHarness/.version
+
 # Wrapper script may pass arguments to the entrypoint
 ENTRYPOINT [ "/PwnableHarness/builder-entrypoint.sh" ]
