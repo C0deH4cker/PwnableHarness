@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+set -euo pipefail
 
 # Keep aligned with PWNABLEHARNESS_VERSION in Makefile
 version=${PWNMAKE_VERSION:-2.1}
@@ -24,29 +25,6 @@ realpath() (
 	cd "$OURPWD"
 	echo "$REALPATH"
 )
-
-
-show_help() {
-	cat <<EOF
-Usage: pwnmake [-C/--dir <path>] [--tag <tag>] [--digest <digest>] [--skip-update]
-               [--reinit] [--shell] [--help] [--version] [--] [targets...]
-Options:
-  -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default '.')
-  --tag <tag>        PwnableHarness builder image tag to use (default 'latest'). The tag will be
-                     prefixed with '${docker_image_tag_prefix}'. For example, '--tag 2.0' will use
-                     '${docker_image_prefix}2.0' as the builder image base.
-  --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
-                     will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
-  --skip-update      Don't attempt to ensure the builder image is up-to-date.
-  --reinit           Force the builder container to be reinitialized
-  --shell            Enter an interactive shell in the builder container (for debugging)
-  --help             Display this help message.
-  --version          Display the version of the pwnmake script.
-  --                 Stop parsing options and pass all further arguments to 'make'.
-  targets...         Arguments to be passed to 'make'. These can be targets to build or options like '-j8'.
-Example: pwnmake -j4 docker-start publish VERBOSE=1
-EOF
-}
 
 docker_image_exists() {
 	docker image inspect "$1" >/dev/null 2>&1
@@ -74,6 +52,30 @@ docker_get_remote_digest() (
 docker_get_local_digest() {
 	docker image inspect --format '{{index .RepoDigests 0}}' "$1" 2>/dev/null | cut -d '@' -f 2
 }
+
+
+show_help() {
+	cat <<EOF
+Usage: pwnmake [-C/--dir <path>] [--tag <tag>] [--digest <digest>] [--skip-update]
+               [--reinit] [--shell] [--help] [--version] [--] [targets...]
+Options:
+  -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default '.')
+  --tag <tag>        PwnableHarness builder image tag to use (default 'latest'). The tag will be
+                     prefixed with '${docker_image_tag_prefix}'. For example, '--tag 2.0' will use
+                     '${docker_image_prefix}2.0' as the builder image base.
+  --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
+                     will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
+  --skip-update      Don't attempt to ensure the builder image is up-to-date.
+  --reinit           Force the builder container to be reinitialized
+  --shell            Enter an interactive shell in the builder container (for debugging)
+  --help             Display this help message.
+  --version          Display the version of the pwnmake script.
+  --                 Stop parsing options and pass all further arguments to 'make'.
+  targets...         Arguments to be passed to 'make'. These can be targets to build or options like '-j8'.
+Example: pwnmake -j4 docker-start publish VERBOSE=1
+EOF
+}
+
 
 # pwnmake [...]
 main() {
@@ -167,8 +169,7 @@ main() {
 	need_pull=
 	if [ -z "$digest" ] && [ "$tag" = "latest" ]; then
 		# For the "latest" tag, check if the local digest (if present) matches the remote one
-		local_digest=$(docker_get_local_digest "$docker_image")
-		if [ -z "$local_digest" ]; then
+		if ! local_digest=$(docker_get_local_digest "$docker_image"); then
 			echo "Pulling builder image for the first time..." >&2
 			need_pull=1
 		elif [ "$skip_update" != "1" ]; then
@@ -199,13 +200,13 @@ main() {
 	
 	# A hash is built from:
 	# * Current version of the pwnmake script
-	# * The digest of the pwnableharness builder image (pre-initialization)
+	# * The pwnableharness builder image ID (pre-initialization)
 	# * The hashes of all prebuild scripts
 	# This is done so that if the pwnmake script, base image, or any prebuild scripts
 	# change, the builder image will be reinitialized.
-	builder_digest=$(docker_get_local_digest "$docker_image")
+	image_id=$(docker image inspect --format '{{.Id}}' "$docker_image")
 	prebuild_hash=$(find "$workspace" -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r shasum -a 256 | shasum -a 256 | awk '{print $1}')
-	pwnmake_tag=$(echo "$version;$builder_digest;$prebuild_hash" | shasum -a 256 | head -c 12)
+	pwnmake_tag=$(echo "$version;$image_id;$prebuild_hash" | shasum -a 256 | head -c 12)
 	pwnmake_repo=c0deh4cker/pwnmake
 	pwnmake_image=$pwnmake_repo:$pwnmake_tag
 	pwnmake_container=pwnmake-$pwnmake_tag
