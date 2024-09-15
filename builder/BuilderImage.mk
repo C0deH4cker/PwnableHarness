@@ -61,7 +61,7 @@ $(patsubst %,docker-builder-build[%],$(UBUNTU_VERSIONS)): docker-builder-build[%
 # This rule only needs to be re-run when one of PWNABLE_BUILDER_FILES is modified
 $(PWNABLE_BUILD)/.docker_builder_build_marker.%: $(PWNABLE_BUILDER_DEPS)
 	$(_V)echo "Building PwnableHarness builder image for ubuntu:$*"
-	$(_v)docker build \
+	$(_v)$(DOCKER) build \
 			-f $(PWNABLE_BUILDER_DIR)/builder.Dockerfile \
 			--build-arg BASE_IMAGE=ubuntu:$* \
 			$(if $(UBUNTU_32BIT_SUPPORT[$*]),,--build-arg CONFIG_IGNORE_32BIT=1) \
@@ -138,7 +138,7 @@ define docker_builder_tag_version_aliased_template
 .PHONY: docker-builder-tag-version[$1]
 docker-builder-tag-version[$1]: docker-builder-build[$2]
 	$$(_V)echo "Tagging Docker image with tag 'builder-$2-$$(PWNABLEHARNESS_VERSION)' as 'builder-$1-$$(PWNABLEHARNESS_VERSION)'"
-	$$(_v)docker tag \
+	$$(_v)$$(DOCKER) tag \
 		$$(PWNABLEHARNESS_REPO):builder-$2-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):builder-$1-$$(PWNABLEHARNESS_VERSION)
 
@@ -148,7 +148,7 @@ $(call generate_ubuntu_aliased_rules,docker_builder_tag_version_aliased_template
 # (tags builder-v<pwnableharness version>)
 docker-builder-tag-default-version: docker-builder-build[$(PWNABLE_BUILDER_DEFAULT_BASE)]
 	$(_V)echo "Tagging Docker image with tag '$(PWNABLE_BUILDER_DEFAULT_TAG)' as 'builder-$(PWNABLEHARNESS_VERSION)'"
-	$(_v)docker tag \
+	$(_v)$(DOCKER) tag \
 		$(PWNABLEHARNESS_REPO):$(PWNABLE_BUILDER_DEFAULT_TAG) \
 		$(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION)
 
@@ -158,7 +158,7 @@ define docker_builder_tag_latest_both_template
 .PHONY: docker-builder-tag-latest[$1]
 docker-builder-tag-latest[$1]: docker-builder-tag-version[$1]
 	$$(_V)echo "Tagging Docker image with tag 'builder-$1-$$(PWNABLEHARNESS_VERSION)' as 'builder-$1'"
-	$$(_v)docker tag \
+	$$(_v)$$(DOCKER) tag \
 		$$(PWNABLEHARNESS_REPO):builder-$1-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):builder-$1
 
@@ -168,7 +168,7 @@ $(call generate_ubuntu_both_rules,docker_builder_tag_latest_both_template)
 # (tags builder-latest)
 docker-builder-tag-default-latest: docker-builder-build
 	$(_V)echo "Tagging Docker image with tag '$(PWNABLE_BUILDER_DEFAULT_TAG)' as 'builder-latest'"
-	$(_v)docker tag \
+	$(_v)$(DOCKER) tag \
 		$(PWNABLEHARNESS_REPO):$(PWNABLE_BUILDER_DEFAULT_TAG) \
 		$(PWNABLEHARNESS_REPO):builder-latest
 
@@ -220,22 +220,22 @@ docker-builder-push-latest: docker-builder-push-latest[$(PWNABLE_BUILDER_DEFAULT
 # (push builder-<ubuntu version or alias>-v<pwnableharness version)
 docker-builder-push-version[%]: docker-builder-tag-version[%]
 	$(_V)echo "Pushing tag 'builder-$*-$(PWNABLEHARNESS_VERSION)' to $(PWNABLEHARNESS_REPO)"
-	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-$*-$(PWNABLEHARNESS_VERSION)
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):builder-$*-$(PWNABLEHARNESS_VERSION)
 
 # (push builder-v<pwnableharness version>)
 docker-builder-push-default-version: docker-builder-tag-default-version
 	$(_V)echo "Pushing tag 'builder-$(PWNABLEHARNESS_VERSION)' to $(PWNABLEHARNESS_REPO)"
-	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION)
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION)
 
 # (push builder-<ubuntu version or alias>)
 docker-builder-push-latest[%]: docker-builder-tag-latest[%]
 	$(_V)echo "Pushing tag 'builder-$*' to $(PWNABLEHARNESS_REPO)"
-	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-$*
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):builder-$*
 
 # (push builder-latest)
 docker-builder-push-default-latest: docker-builder-tag-default-latest
 	$(_V)echo "Pushing tag 'builder-latest' to $(PWNABLEHARNESS_REPO)"
-	$(_v)docker push $(PWNABLEHARNESS_REPO):builder-latest
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):builder-latest
 
 
 #
@@ -276,30 +276,30 @@ docker-builder-clean-latest: docker-builder-clean-latest[$(PWNABLE_BUILDER_DEFAU
 # Remove builder-<ubuntu version>-v<pwnableharness version> tags and the build markers
 $(patsubst %,docker-builder-clean-version[%],$(UBUNTU_VERSIONS)): docker-builder-clean-version[%]:
 	$(_v)rm -f $(PWNABLE_BUILD)/.docker_builder_build_marker.$*
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove builder-<ubuntu-alias>-v<pwnableharness version> tags
 $(patsubst %,docker-builder-clean-version[%],$(UBUNTU_ALIASES)): docker-builder-clean-version[%]:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove builder-v<pwnableharness version> tag
 docker-builder-clean-default-version:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove builder-<ubuntu version or alias> tags
 $(patsubst %,docker-builder-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-builder-clean-latest[%]:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-$* \
 		>/dev/null 2>&1 || true
 
 # Remove builder-latest tag
 docker-builder-clean-default-latest: docker-builder-clean
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-latest \
 		>/dev/null 2>&1 || true

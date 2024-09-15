@@ -40,7 +40,7 @@ $(patsubst %,docker-base-build[%],$(UBUNTU_VERSIONS)): docker-base-build[%]: $(P
 # This rule only needs to be re-run when one of PWNABLE_CORE_FILES is modified
 $(PWNABLE_BUILD)/.docker_base_build_marker.%: $(PWNABLE_CORE_DEPS)
 	$(_V)echo "Building PwnableHarness base image for ubuntu:$*"
-	$(_v)docker build -f $(PWNABLE_DIR)/base.Dockerfile \
+	$(_v)$(DOCKER) build -f $(PWNABLE_DIR)/base.Dockerfile \
 			--build-arg BASE_IMAGE=ubuntu:$* \
 			--build-arg BUILD_DIR=$(PWNABLE_BUILD) \
 			-t $(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) . \
@@ -96,7 +96,7 @@ define docker_base_tag_version_aliased_template
 .PHONY: docker-base-tag-version[$1]
 docker-base-tag-version[$1]: docker-base-build[$2]
 	$$(_V)echo "Tagging Docker image with tag '$2-$$(PWNABLEHARNESS_VERSION)' as '$1-$$(PWNABLEHARNESS_VERSION)'"
-	$$(_v)docker tag \
+	$$(_v)$$(DOCKER) tag \
 		$$(PWNABLEHARNESS_REPO):$2-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):$1-$$(PWNABLEHARNESS_VERSION)
 
@@ -108,7 +108,7 @@ $(call add_target,docker-base-tag-version[<ubuntu-version>])
 $(call add_phony_target,docker-base-tag-default-version)
 docker-base-tag-default-version: docker-base-build[$(PWNABLEHARNESS_DEFAULT_BASE)]
 	$(_V)echo "Tagging Docker image with tag '$(PWNABLEHARNESS_DEFAULT_BASE)' as '$(PWNABLEHARNESS_VERSION)'"
-	$(_v)docker tag \
+	$(_v)$(DOCKER) tag \
 		$(PWNABLEHARNESS_REPO):$(PWNABLEHARNESS_DEFAULT_BASE) \
 		$(PWNABLEHARNESS_REPO):$(PWNABLEHARNESS_VERSION)
 
@@ -118,7 +118,7 @@ define docker_base_tag_latest_versioned_template
 .PHONY: docker-base-tag-latest[$1]
 docker-base-tag-latest[$1]: docker-base-build[$1]
 	$$(_V)echo "Tagging Docker image with tag '$1-$$(PWNABLEHARNESS_VERSION)' as '$1'"
-	$$(_v)docker tag \
+	$$(_v)$$(DOCKER) tag \
 		$$(PWNABLEHARNESS_REPO):$1-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):$1
 
@@ -132,7 +132,7 @@ define docker_base_tag_latest_aliased_template
 .PHONY: docker-base-tag-latest[$1]
 docker-base-tag-latest[$1]: docker-base-tag-alias[$1]
 	$$(_V)echo "Tagging Docker image with tag '$1-$$(PWNABLEHARNESS_VERSION)' as '$1'"
-	$$(_v)docker tag \
+	$$(_v)$$(DOCKER) tag \
 		$$(PWNABLEHARNESS_REPO):$1-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):$1
 
@@ -144,7 +144,7 @@ $(call add_target,docker-base-tag-latest[<ubuntu-version>])
 $(call add_phony_target,docker-base-tag-default-latest)
 docker-base-tag-default-latest:
 	$(_V)echo "Tagging Docker image with tag '$(PWNABLEHARNESS_DEFAULT_BASE)' as 'latest'"
-	$(_v)docker tag \
+	$(_v)$(DOCKER) tag \
 		$(PWNABLEHARNESS_REPO):$(PWNABLEHARNESS_DEFAULT_BASE) \
 		$(PWNABLEHARNESS_REPO):latest
 
@@ -171,34 +171,34 @@ $(call add_phony_target,docker-base-clean)
 $(call add_target,docker-base-clean[<ubuntu-version>])
 $(patsubst %,docker-base-clean[%],$(UBUNTU_VERSIONS)): docker-base-clean[%]:
 	$(_v)rm -f $(PWNABLE_BUILD)/.docker_base_build_marker.$*
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove <ubuntu-alias>-v<pwnableharness version> tags
 $(patsubst %,docker-base-clean[%],$(UBUNTU_ALIASES)): docker-base-clean[%]:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove v<pwnableharness version> tag
 $(call add_phony_target,docker-base-clean-version)
 docker-base-clean-version:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove latest tag
 $(call add_phony_target,docker-base-clean-latest)
 docker-base-clean-latest: docker-base-clean
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):latest \
 		>/dev/null 2>&1 || true
 
 # Remove <ubuntu version or alias> tags
 $(call add_target,docker-base-clean-latest[<ubuntu-version>])
 $(patsubst %,docker-base-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-base-clean-latest[%]:
-	$(_v)docker rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$* \
 		>/dev/null 2>&1 || true
 

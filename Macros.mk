@@ -957,7 +957,7 @@ ifdef $1+WORKDIR
 $1+MOUNT_WORKDIR := true
 $1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
 $1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
-	&& docker cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
+	&& $$(DOCKER) cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
 endif
 
 # Adding the flag file to the docker image
@@ -974,8 +974,8 @@ $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLA
 $1+MOUNT_WORKDIR := true
 $1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$($1+FLAG_FILE)
 $1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
-	&& docker cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
-	&& docker run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
+	&& $$(DOCKER) cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
+	&& $$(DOCKER) run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
 		sh -c 'chown root:1337 /data/$$($1+FLAG_DST) && chmod 0640 /data/$$($1+FLAG_DST)'
 endif #FLAG_DST
 endif #FLAG_FILE
@@ -1024,7 +1024,7 @@ endif #DOCKER_IMAGE_TAG
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
@@ -1034,7 +1034,7 @@ docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it (and volumes)
@@ -1045,12 +1045,12 @@ TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
-	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
 ifdef $1+MOUNT_WORKDIR
-	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
 endif
-	$$(_v)docker rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
 	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
 
 ## Docker run rules
@@ -1069,8 +1069,8 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
@@ -1084,12 +1084,12 @@ endif #MKTRACE
 
 $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 	$$(_V)echo "Preparing workdir volume for $1"
-	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
-	$$(_v)docker container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
-	$$(_v)docker volume create $$($1+WORKDIR_VOLUME) \
-		&& docker container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) volume create $$($1+WORKDIR_VOLUME) \
+		&& $$(DOCKER) container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
 		$$($1+WORKDIR_COPY_CMDS) \
-		&& docker rm $$($1+WORKDIR_VOLUME)-temp \
+		&& $$(DOCKER) rm $$($1+WORKDIR_VOLUME)-temp \
 		&& touch $$@
 
 endif #MOUNT_WORKDIR
@@ -1102,7 +1102,7 @@ docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-restart[$$($1+DOCKER_CONTAINER)]
 docker-restart[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)docker restart $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) restart $$($1+DOCKER_CONTAINER)
 
 .PHONY: docker-restart[$$($1+DOCKER_CONTAINER)]
 
@@ -1113,7 +1113,7 @@ docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)docker stop $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER)
 
 .PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
 
@@ -1143,7 +1143,7 @@ ifdef $1+DOCKER_IMAGE
 # If the challenge has a Docker image, copy the libc from there
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE_DEP)] | $$(PUB_DIR)/$1/.dir
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LIBC_PATH)"
-	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_IMAGE
 # If the challenge doesn't run in Docker, copy the system's libc

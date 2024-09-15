@@ -51,9 +51,12 @@ PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
 # Path to the publish directory
 PUB_DIR := publish
 
-# For debugging development of this Makefile
+# For debugging purposes
 MKDEBUG ?=
 MKTRACE ?=
+DOCKER_DEBUG ?=
+
+DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
 
 # Print all commands executed when VERBOSE is defined, but don't echo explanations
 VERBOSE ?=
