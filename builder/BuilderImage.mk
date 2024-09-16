@@ -302,7 +302,7 @@ $(patsubst %,docker-builder-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)
 		>/dev/null 2>&1 || true
 
 # Remove builder-latest tag
-docker-builder-clean-default-latest: docker-builder-clean
+docker-builder-clean-default-latest:
 	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):builder-latest \
 		>/dev/null 2>&1 || true

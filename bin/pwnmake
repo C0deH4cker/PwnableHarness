@@ -271,10 +271,16 @@ main() {
 	
 	# The container is created and then thrown away with each command
 	if [ "$shell" = "1" ]; then
-		echo "Entering shell in builder container. To attempt the build normally, run:" >&2
-		echo "" >&2
-		echo "    /PwnableHarness/builder-entrypoint.sh [args for make...]" >&2
-		echo "" >&2
+		if [ "$#" -gt 0 ]; then
+			ARGS=(-c "$*")
+		else
+			ARGS=()
+			echo "Entering shell in builder container. To attempt the build normally, run:" >&2
+			echo "" >&2
+			echo "    /PwnableHarness/builder-entrypoint.sh [args for make...]" >&2
+			echo "" >&2
+		fi
+		
 		docker run \
 			--rm \
 			--env PWNMAKE_VERSION="$version" \
@@ -284,7 +290,8 @@ main() {
 			-v pwnmake-docker-cli:/docker-cli \
 			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			--entrypoint /bin/bash \
-			-it "$pwnmake_image"
+			-it "$pwnmake_image" ${ARGS[@]+"${ARGS[@]}"}
+		# ARGS trick from https://stackoverflow.com/a/7577209
 	else
 		docker run \
 			--rm \
