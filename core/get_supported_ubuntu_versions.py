@@ -7,25 +7,30 @@ from launchpadlib.launchpad import Launchpad
 
 # launchpadlib loves to write a cache directory to the user's HOME directory.
 # Tell to write in /tmp instead.
-cache = tempfile.mkdtemp()
-atexit.register(shutil.rmtree, cache)
-os.environ["HOME"] = cache
+cachedir = tempfile.mkdtemp()
+atexit.register(shutil.rmtree, cachedir)
+os.environ["HOME"] = cachedir
 
 pairs = []
 try:
-	lp = Launchpad.login_anonymously('series-support-check', timeout=1)
-	for series in lp.projects['ubuntu'].series:
-		if series.supported:
-			pairs.append((series.version, series.name))
+	lp = Launchpad.login_anonymously(
+		consumer_name="series-support-check",
+		service_root="production",
+		launchpadlib_dir=cachedir,
+		timeout=5,
+		version="devel")
+	series = lp.distributions["ubuntu"].series
+	for s in series:
+		if s.supported:
+			pairs.append((s.version, s.name))
 except:
 	pairs = [
-		("23.04", "lunar"),
-		("22.10", "kinetic"),
-		("22.04", "jammy"),
-		("20.04", "focal"),
-		("18.04", "bionic"),
-		("16.04", "xenial"),
-		("14.04", "trusty")
+		('24.04', 'noble'),
+		('22.04', 'jammy'),
+		('20.04', 'focal'),
+		('18.04', 'bionic'),
+		('16.04', 'xenial'),
+		('14.04', 'trusty')
 	]
 
 pairs.sort()
