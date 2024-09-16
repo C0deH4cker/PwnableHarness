@@ -9,20 +9,17 @@ CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
 
 # Keep aligned with version in bin/pwnmake script
-ifdef PWNABLEHARNESS_WIP
-PWNABLEHARNESS_VERSION := wip
-PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness-wip
-else #PWNABLEHARNESS_WIP
 PWNABLEHARNESS_VERSION := v2.1
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
-endif #PWNABLEHARNESS_WIP
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
+GIT_HASH := $(shell cat '$(ROOT_DIR)/.githash')
 PWNABLEHARNESS_CORE_PROJECT := $(ROOT_DIR)/core
 else
-ROOT_DIR := .
+ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
+GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
 PWNABLEHARNESS_CORE_PROJECT := core
 PWNABLE_BUILDER_DIR := builder
 endif
