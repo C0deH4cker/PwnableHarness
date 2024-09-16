@@ -13,6 +13,7 @@
 PWNABLE_CORE_DEPS := $(addprefix $(PWNABLE_BUILD)/,$(PWNABLE_TARGETS))
 
 # Keep default below 19.10 because that's when 32-bit support was dropped
+# Keep aligned with the first line of base.Dockerfile!
 PWNABLEHARNESS_DEFAULT_BASE := 18.04
 PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
 
