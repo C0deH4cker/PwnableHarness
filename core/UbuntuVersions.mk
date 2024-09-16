@@ -1,6 +1,7 @@
 # Generate cached_ubuntu_versions.mk file the first time only, to avoid
 # delay from the network requests in every pwnmake command.
 ifeq "$(wildcard $(BUILD)/cached_ubuntu_versions.mk)" ""
+ifeq "$(filter clean,$(MAKECMDGOALS))" ""
 $(info Looking up currently supported Ubuntu versions...)
 $(shell \
 	mkdir -p $(BUILD) && \
@@ -8,6 +9,7 @@ $(shell \
 	python3 $(PWNABLEHARNESS_CORE_PROJECT)/get_supported_ubuntu_versions.py > $(BUILD)/cached_ubuntu_versions.mk.tmp && \
 	mv $(BUILD)/cached_ubuntu_versions.mk.tmp $(BUILD)/cached_ubuntu_versions.mk \
 	)
+endif
 endif
 
 UBUNTU_VERSIONS :=
