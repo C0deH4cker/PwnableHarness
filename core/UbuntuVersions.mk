@@ -1,6 +1,9 @@
 # Generate cached_ubuntu_versions.mk file the first time only, to avoid
 # delay from the network requests in every pwnmake command.
 ifeq "$(wildcard $(BUILD)/cached_ubuntu_versions.mk)" ""
+ifndef MAKECMDGOALS
+MAKECMDGOALS :=
+endif
 ifeq "$(filter clean,$(MAKECMDGOALS))" ""
 $(info Looking up currently supported Ubuntu versions...)
 $(shell \

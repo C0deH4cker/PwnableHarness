@@ -205,3 +205,5 @@ $(patsubst %,docker-base-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): 
 
 
 # TODO: docker-base-image[<ubuntu-version>]
+$(call add_target,docker-base-image[<ubuntu-version>])
+$(patsubst %,docker-base-image[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-base-tag[%]
