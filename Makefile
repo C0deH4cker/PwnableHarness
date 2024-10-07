@@ -9,7 +9,7 @@ CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
 
 # Keep aligned with version in bin/pwnmake script
-PWNABLEHARNESS_VERSION := v2.1
+PWNABLEHARNESS_VERSION := v$(file < VERSION)
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 
 # Container builds run from /PwnableHarness/workspace as their CWD
@@ -21,7 +21,7 @@ else
 ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
 GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
 PWNABLEHARNESS_CORE_PROJECT := core
-PWNABLE_BUILDER_DIR := builder
+PWNMAKE_DIR := pwnmake
 endif
 
 # Define useful variables for special Makefile characters
@@ -109,21 +109,27 @@ TARGET_LIST := all help list list-targets core clean publish deploy \
 add_targets = $(eval TARGET_LIST := $$(TARGET_LIST) $1)
 add_target = $(add_targets)
 define _add_phony_target
-
 .PHONY: $1
 
 TARGET_LIST := $$(TARGET_LIST) $1
-
 endef
 add_phony_targets = $(eval $(call _add_phony_target,$1))
 add_phony_target = $(add_phony_targets)
+
+# Provides information about currently supported Ubuntu versions:
+# UBUNTU_VERSIONS: list[string version number]
+# UBUNTU_ALIASES: list[string alias name]
+# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
+# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
+include $(ROOT_DIR)/UbuntuVersions.mk
 
 # Make sure to include the core project before user projects
 $(call include_subdir,$(PWNABLEHARNESS_CORE_PROJECT))
 
 # Responsible for building, tagging, and pushing the pwnmake builder images
 ifndef CONTAINER_BUILD
-include $(PWNABLE_BUILDER_DIR)/BuilderImage.mk
+include $(PWNMAKE_DIR)/PwnmakeImage.mk
+include $(PWNMAKE_DIR)/PwnccImage.mk
 endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets

@@ -1,3 +1,4 @@
+# Keep the default value aligned with DEFAULT_UBUNTU_VERSION in Macros.mk!
 ARG BASE_IMAGE=ubuntu:24.04
 FROM $BASE_IMAGE
 LABEL maintainer="c0deh4cker@gmail.com"
@@ -6,10 +7,11 @@ ARG CONFIG_IGNORE_32BIT=
 ENV CONFIG_IGNORE_32BIT=$CONFIG_IGNORE_32BIT
 
 # Add support for running 32-bit executables
+ENV DEBIAN_FRONTEND=noninteractive
 RUN if [ -z "$CONFIG_IGNORE_32BIT" ]; then \
 	dpkg --add-architecture i386 \
 		&& apt-get update \
-		&& DEBIAN_FRONTEND=noninteractive apt-get install -y libc6:i386 \
+		&& apt-get install -y libc6:i386 \
 		&& rm -rf /var/lib/apt/lists/* \
 ; fi
 

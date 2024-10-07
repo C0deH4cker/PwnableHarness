@@ -1,4 +1,0 @@
-# Don't ignore these files:
-!base.Dockerfile
-!builder.Dockerfile
-!get_supported_ubuntu_versions.py

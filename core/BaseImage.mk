@@ -10,7 +10,7 @@
 #     Default base image (24.04 for now), latest version of PwnableHarness
 
 # Files that are directly copied into the base image (excluding ONBUILD rules)
-PWNABLE_CORE_DEPS := $(addprefix $(PWNABLE_BUILD)/,$(PWNABLE_TARGETS))
+PWNABLE_CORE_DEPS := $(addprefix $(CORE_BUILD)/,$(CORE_TARGETS))
 
 PWNABLEHARNESS_DEFAULT_BASE := $(DEFAULT_UBUNTU_VERSION)
 PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
@@ -21,7 +21,7 @@ PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VE
 #
 # docker-base-build
 #  \- docker-base-build[<ubuntu-version>]
-#    \- PWNABLE_BUILD/.docker_base_build_marker.<ubuntu-version>
+#    \- CORE_BUILD/.docker_base_build_marker.<ubuntu-version>
 #         (tags <ubuntu-version>-v<pwnableharness version)
 #
 # docker-base-build[<ubuntu-alias>]
@@ -34,14 +34,14 @@ $(call add_phony_target,docker-base-build)
 docker-base-build: docker-base-build[$(PWNABLEHARNESS_DEFAULT_BASE)]
 
 # Targets like docker-base-build[<ubuntu-version>] go through the rule below for .docker_base_build_marker.%
-$(patsubst %,docker-base-build[%],$(UBUNTU_VERSIONS)): docker-base-build[%]: $(PWNABLE_BUILD)/.docker_base_build_marker.%
+$(patsubst %,docker-base-build[%],$(UBUNTU_VERSIONS)): docker-base-build[%]: $(CORE_BUILD)/.docker_base_build_marker.%
 
 # This rule only needs to be re-run when one of PWNABLE_CORE_FILES is modified
-$(PWNABLE_BUILD)/.docker_base_build_marker.%: $(PWNABLE_CORE_DEPS)
+$(CORE_BUILD)/.docker_base_build_marker.%: $(PWNABLE_CORE_DEPS)
 	$(_V)echo "Building PwnableHarness base image for ubuntu:$*"
-	$(_v)$(DOCKER) build -f $(PWNABLE_DIR)/base.Dockerfile \
+	$(_v)$(DOCKER) build -f $(CORE_DIR)/base.Dockerfile \
 			--build-arg BASE_IMAGE=ubuntu:$* \
-			--build-arg BUILD_DIR=$(PWNABLE_BUILD) \
+			--build-arg BUILD_DIR=$(CORE_BUILD) \
 			-t $(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) . \
 		&& mkdir -p $(@D) && touch $@
 
@@ -169,7 +169,7 @@ $(call add_phony_target,docker-base-clean)
 # Remove <ubuntu version>-v<pwnableharness version> tags and the build markers
 $(call add_target,docker-base-clean[<ubuntu-version>])
 $(patsubst %,docker-base-clean[%],$(UBUNTU_VERSIONS)): docker-base-clean[%]:
-	$(_v)rm -f $(PWNABLE_BUILD)/.docker_base_build_marker.$*
+	$(_v)rm -f $(CORE_BUILD)/.docker_base_build_marker.$*
 	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true

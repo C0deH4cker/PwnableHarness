@@ -24,6 +24,7 @@ default.Dockerfile
 
 # Docker caches
 .docker/
+.cache/
 
 # Real flags
 real_flag*.txt

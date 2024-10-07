@@ -4,11 +4,11 @@ set -euo pipefail
 # Keep aligned with PWNABLEHARNESS_VERSION in Makefile
 version=${PWNMAKE_VERSION:-2.1}
 
-# This is the lowest version of builder image that is supported by this pwnmake script
+# This is the lowest version of pwnmake image that is supported by this pwnmake script
 PWNABLEHARNESS_VERSION_MIN=2.1
 
 docker_image_repo=c0deh4cker/pwnableharness
-docker_image_tag_prefix=builder-
+docker_image_tag_prefix=pwnmake-
 docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
 
 # There's no arm64 version available, so only try pulling the amd64 version
@@ -111,29 +111,24 @@ docker_get_local_digest() {
 
 show_help() {
 	cat <<EOF
-Usage: pwnmake [-C/--dir <path>] [--env <NAME=VALUE> ...] [--ubuntu-version <version>]
-               [--pwnableharness-version <version>] [--tag <tag>] [--digest <digest>]
-               [--skip-update] [--reinit] [--shell] [--help] [--version]
+Usage: pwnmake [-C/--dir <path>] [--env <NAME=VALUE> ...] [--pwnableharness-version <version>]
+               [--tag <tag>] [--digest <digest>] [--skip-update] [--reinit] [--shell] [--help] [--version]
                [--] [targets...]
 Options:
   -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default '.')
-  --env <NAME=VALUE> Set an environment variable within the builder image for this command.
-  --ubuntu-version <version>
-                     Select a PwnableHarness builder image using the provided Ubuntu version as the
-                     builder image base. For example, '--ubuntu-version 20.04' will use
-                     '${docker_image_tag_prefix}20.04-latest' as the builder image base.
+  --env <NAME=VALUE> Set an environment variable within the pwnmake image for this command.
   --pwnableharness-version <version>
-                     Select a specific PwnableHarness version for the builder image base. For example,
+                     Select a specific PwnableHarness version for the pwnmake image base. For example,
                      '--pwnableharness-version 2.1' will use '${docker_image_tag_prefix}-v2.1' as the
-                     builder image base.
-  --tag <tag>        PwnableHarness builder image tag to use (default 'latest'). The tag will be
+                     pwnmake image base.
+  --tag <tag>        PwnableHarness pwnmake image tag to use (default 'latest'). The tag will be
                      prefixed with '${docker_image_tag_prefix}'. For example, '--tag v2.1' will use
-                     '${docker_image_tag_prefix}v2.1' as the builder image base.
-  --digest <digest>  PwnableHarness builder image digest to use. For example, '--digest sha256:abc...123'
-                     will use '${docker_image_repo}@sha256:abc...123' as the builder image base.
-  --skip-update      Don't attempt to ensure the builder image is up-to-date.
-  --reinit           Force the builder container to be reinitialized
-  --shell            Enter an interactive shell in the builder container (for debugging)
+                     '${docker_image_tag_prefix}v2.1' as the pwnmake image base.
+  --digest <digest>  PwnableHarness pwnmake image digest to use. For example, '--digest sha256:abc...123'
+                     will use '${docker_image_repo}@sha256:abc...123' as the pwnmake image base.
+  --skip-update      Don't attempt to ensure the pwnmake image is up-to-date.
+  --reinit           Force the pwnmake container to be reinitialized
+  --shell            Enter an interactive shell in the pwnmake container (for debugging)
   --verbose          Show executed commands verbosely (for debugging)
   --help             Display this help message.
   --version          Display the version of the pwnmake script.
@@ -147,11 +142,10 @@ EOF
 # pwnmake [...]
 main() {
 	local workspace=.
-	local reinit shell skip_update digest tag ubuntu_version verbose
+	local reinit shell skip_update digest tag verbose
 	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
 	local env_args=()
 	
-	test -n "${PWNMAKE_UBUNTU_VERSION:-}" && ubuntu_version="$PWNMAKE_UBUNTU_VERSION"
 	test -n "${PWNMAKE_TAG:-}" && tag="$PWNMAKE_TAG"
 	test -n "${PWNMAKE_DIGEST:-}" && digest="$PWNMAKE_DIGEST"
 	
@@ -186,12 +180,6 @@ main() {
 			--env)
 				shift
 				env_args+=(--env "$2")
-				shift
-				;;
-			
-			--ubuntu-version)
-				shift
-				ubuntu_version="$1"
 				shift
 				;;
 			
@@ -241,7 +229,7 @@ main() {
 	# Check that --pwnableharness-version is a supported version
 	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ]; then
 		if vercmp "$ph_version" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
-			echo "PwnableHarness builder version $ph_version is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
+			echo "PwnableHarness version $ph_version is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
 			exit 1
 		fi
 	fi
@@ -249,7 +237,7 @@ main() {
 	# Check that --tag references a supported tag
 	if [ -n "$tag" ] && [ "$tag" != "latest" ]; then
 		if vercmp "${tag#v}" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
-			echo "PwnableHarness builder image with tag $tag is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
+			echo "pwnmake image with tag $tag is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
 			exit 1
 		fi
 	fi
@@ -259,10 +247,6 @@ main() {
 		tag="$ph_version"
 		if [ "$ph_version" != "latest" ]; then
 			tag="v$ph_version"
-		fi
-		
-		if [ -n "$ubuntu_version" ]; then
-			tag="${ubuntu_version}-${tag}"
 		fi
 	fi
 	
@@ -295,14 +279,14 @@ main() {
 	if [ -z "$digest" ] && [ "$tag" = "latest" ]; then
 		# For the "latest" tag, check if the local digest (if present) matches the remote one
 		if ! local_digest="$(docker_get_local_digest "$docker_image")"; then
-			echo "Pulling builder image for the first time..." >&2
+			echo "Pulling pwnmake image for the first time..." >&2
 			need_pull=1
 		elif [ "$skip_update" != "1" ]; then
 			local remote_digest="$(docker_get_remote_digest "$docker_image")"
 			if [ -z "$remote_digest" ]; then
 				echo "Unable to read remote image digest, skipping update" >&2
 			elif [ "$local_digest" != "$remote_digest" ]; then
-				echo "Pulling newer version of the builder image..." >&2
+				echo "Pulling newer version of the pwnmake image..." >&2
 				need_pull=1
 			fi
 		fi
@@ -310,7 +294,7 @@ main() {
 		# For tags other than "latest", just ensure that the tag is present locally. It's assumed
 		# that only the "latest" tag is movable.
 		if ! docker_image_exists "$docker_image"; then
-			echo "Pulling builder image ${docker_image}..." >&2
+			echo "Pulling pwnmake image ${docker_image}..." >&2
 			need_pull=1
 		fi
 	fi
@@ -325,20 +309,30 @@ main() {
 	
 	# A hash is built from:
 	# * Current version of the pwnmake script
-	# * The pwnableharness builder image ID (pre-initialization)
+	# * The pwnableharness pwnmake image ID (pre-initialization)
 	# * The hashes of all prebuild scripts
 	# This is done so that if the pwnmake script, base image, or any prebuild scripts
-	# change, the builder image will be reinitialized.
+	# change, the pwnmake image will be reinitialized.
 	local image_id=$(docker image inspect --format '{{.Id}}' "$docker_image")
 	local prebuild_hash=$(find "$workspace" -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r shasum -a 256 | shasum -a 256 | awk '{print $1}')
 	local pwnmake_tag=$(echo "$version;$image_id;$prebuild_hash" | shasum -a 256 | head -c 12)
+	
+	# This is intentionally not "c0deh4cker/pwnableharness", which is the real
+	# remote image repo on Docker Hub. Here, "c0deh4cker/pwnmake" is only used
+	# for locally-generated builder images based on a pwnmake image from the
+	# real remote.
 	local pwnmake_repo=c0deh4cker/pwnmake
 	local pwnmake_image=$pwnmake_repo:$pwnmake_tag
 	local pwnmake_container=pwnmake-$pwnmake_tag
 	
 	# To force reinitialization, delete the pwnmake image
 	if [ "$reinit" = "1" ]; then
-		# Remove any old pwnmake images
+		# Remove any old pwnmake images. Note that this may remove pwnmake
+		# images used by other project directories that `pwnmake` has been run
+		# from. This is acceptable, as they will be recreated on-demand. I'd
+		# rather not force users to clean up their old pwnmake images. Rather,
+		# they shouldn't even need to really know about or worry about the
+		# pwnmake images.
 		docker image rm $(docker image ls -q "$pwnmake_repo") >/dev/null 2>&1 || true
 	fi
 	
@@ -383,7 +377,7 @@ main() {
 		if docker run \
 			--name "$pwnmake_container" \
 			--env PWNMAKE_VERSION="$version" \
-			--env BUILDER_INIT=1 \
+			--env PWNMAKE_INIT=1 \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			--env CALLER_UID="$CALLER_UID" \
 			--env CALLER_GID="$CALLER_GID" \
@@ -422,7 +416,7 @@ main() {
 		--rm \
 		--init \
 		--env PWNMAKE_VERSION="$version" \
-		--env BUILDER_INIT=0 \
+		--env PWNMAKE_INIT=0 \
 		--env DOCKER_VERSION="$DOCKER_VERSION" \
 		${env_args[@]+"${env_args[@]}"} \
 		-v "$host_docker_sock":/var/run/docker.sock \

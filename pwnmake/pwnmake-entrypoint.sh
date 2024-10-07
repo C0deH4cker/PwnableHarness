@@ -56,7 +56,7 @@ if [ -n "${PWNMAKE_VERBOSE:-}" ]; then
 fi
 
 # Version 2.1 has breaking changes that require cooperation between the pwnmake
-# script and the builder image.
+# script and the pwnmake image.
 PWNMAKE_VERSION_MIN=2.1
 if vercmp "$PWNMAKE_VERSION" -lt "$PWNMAKE_VERSION_MIN"; then
 	echo "Your pwnmake script is out of date!" >&2
@@ -95,10 +95,10 @@ if [ ! -f "$docker_bin/docker" ]; then
 fi
 export PATH="$docker_bin:$PATH"
 
-if [ "$BUILDER_INIT" = "1" ]; then
+if [ "$PWNMAKE_INIT" = "1" ]; then
 	# Create group and user for the caller (pwnuser:pwngroup)
 	groupadd -o -g "$CALLER_GID" pwngroup
-	useradd -o -d /PwnableHarness/workspace -u "$CALLER_UID" -g "$CALLER_GID" -s /bin/bash pwnuser
+	useradd -o -d /PwnableHarness/workspace -K UID_MIN=0 -u "$CALLER_UID" -g "$CALLER_GID" -s /bin/bash pwnuser
 	
 	# Create docker group so pwnuser can use the Docker socket
 	if [ -n "$DOCKER_GID" ]; then
@@ -106,13 +106,13 @@ if [ "$BUILDER_INIT" = "1" ]; then
 		usermod -aG docker pwnuser
 	fi
 	
-	# Run builder preparation scripts from the workspace
-	find . -name prebuild.sh -print0 | sort -z | DEBIAN_FRONTEND=noninteractive xargs -0 -n1 -r -t bash
+	# Run pwnmake preparation scripts from the workspace
+	find . -name prebuild.sh -print0 | sort -z | xargs -0 -n1 -r -t bash
 	
 	# Clear APT list cache to reduce image size in case one of the prebuild scripts installed packages
 	rm -rf /var/lib/apt/lists/*
 	
-	# Exit because we were instructed to only perform initialization by BUILDER_INIT=1
+	# Exit because we were instructed to only perform initialization
 	exit 0
 fi
 
@@ -132,7 +132,7 @@ fi
 group_write=$(stat --printf '%A' /var/run/docker.sock | tail -c5 | head -c1)
 if [ "$group_write" != "w" ]; then
 	group_name=$(stat --printf '%G' /var/run/docker.sock)
-	echo "WARNING: Changing permissions of /var/run/docker.sock (in the Docker Desktop VM) to be writeable by the $group_name group to workaround https://github.com/docker/for-mac/issues/6823" >&2
+	echo "WARNING: Changing permissions of /var/run/docker.sock (in the Docker Desktop VM) to be writeable by the $group_name group as a workaround for https://github.com/docker/for-mac/issues/6823" >&2
 	chmod g+w /var/run/docker.sock
 fi
 
