@@ -84,10 +84,10 @@ ifndef DEFAULT_DEBUG
 DEFAULT_DEBUG :=
 endif
 
-ifndef DEFAULT_DOCKER_IMAGE_BASE
+ifndef DEFAULT_UBUNTU_VERSION
 # Note: versions 19.10 and above dropped support for running 32-bit programs
 # Keep aligned with the first line of base.Dockerfile!
-DEFAULT_DOCKER_IMAGE_BASE := 18.04
+DEFAULT_UBUNTU_VERSION := 18.04
 endif
 
 ifndef DEFAULT_DOCKER_TIMELIMIT
@@ -403,7 +403,6 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
 
 clean[$1]: clean[$2]
 clean[$2]:
-	$$(_V)echo "Removing compiled objects for $1:$2"
 	$$(_v)rm -rf $$($2_OBJS_DIR)
 
 ifdef MKTRACE
@@ -603,7 +602,7 @@ FLAG_DST := flag.txt
 DOCKERFILE :=
 DOCKER_IMAGE :=
 DOCKER_IMAGE_TAG :=
-DOCKER_IMAGE_BASE := $(DEFAULT_DOCKER_IMAGE_BASE)
+UBUNTU_VERSION := $(DEFAULT_UBUNTU_VERSION)
 DOCKER_IMAGE_CUSTOM :=
 DOCKER_CONTAINER :=
 DOCKER_CHALLENGE_NAME :=
@@ -723,7 +722,6 @@ $1+FLAG_DST := $$(FLAG_DST)
 $1+DOCKERFILE := $$(DOCKERFILE)
 $1+DOCKER_IMAGE := $$(DOCKER_IMAGE)
 $1+DOCKER_IMAGE_TAG := $$(DOCKER_IMAGE_TAG)
-$1+DOCKER_IMAGE_BASE := $$(DOCKER_IMAGE_BASE)
 $1+DOCKER_IMAGE_CUSTOM := $$(DOCKER_IMAGE_CUSTOM)
 $1+DOCKER_CONTAINER := $$(DOCKER_CONTAINER)
 $1+DOCKER_CHALLENGE_NAME := $$(DOCKER_CHALLENGE_NAME)
@@ -758,6 +756,7 @@ $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 $1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
+$1+UBUNTU_VERSION := $$(UBUNTU_VERSION)
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -852,7 +851,7 @@ $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
-	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):$$(DOCKER_IMAGE_BASE)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
+	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
 		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
@@ -861,7 +860,7 @@ endif #DOCKERFILE
 # Docker images depend on the base PwnableHarness Docker image
 ifneq "$$($1+DOCKER_IMAGE)" "$$(PWNABLEHARNESS_REPO)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-base-image[$$(DOCKER_IMAGE_BASE)]
+$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-base-image[$$(UBUNTU_VERSION)]
 endif
 endif
 
