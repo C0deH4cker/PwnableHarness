@@ -30,8 +30,10 @@ RUN apt-get update \
 # Make the "sudo" command work as scripts would normally expect
 ARG DIR
 COPY $DIR/builder-sudo.sh /usr/sbin/sudo
+COPY builder/pwnmake-in-container /usr/bin/pwnmake
 RUN chmod 4755 /usr/sbin/gosu \
-	&& chmod +x /usr/sbin/sudo
+	&& chmod +x /usr/sbin/sudo \
+	&& chmod +x /usr/bin/pwnmake
 
 # Set up PwnableHarness top-level directory and workspace location
 WORKDIR /PwnableHarness/workspace

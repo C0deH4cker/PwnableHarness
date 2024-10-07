@@ -13,11 +13,10 @@
 
 # Files used when building the builder container
 PWNABLE_BUILDER_DEPS := \
-	$(addprefix $(PWNABLE_BUILDER_DIR)/,builder.Dockerfile builder-sudo.sh) \
+	$(addprefix $(PWNABLE_BUILDER_DIR)/,builder.Dockerfile builder-entrypoint.sh builder-sudo.sh pwnmake-in-container) \
 	.dockerignore \
 	Macros.mk \
 	Makefile \
-	$(PWNABLE_BUILDER_DIR)/builder-entrypoint.sh \
 	$(addprefix $(PWNABLE_DIR)/, \
 		base.Dockerfile \
 		BaseImage.mk \

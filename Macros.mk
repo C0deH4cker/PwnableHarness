@@ -85,7 +85,9 @@ DEFAULT_DEBUG :=
 endif
 
 ifndef DEFAULT_DOCKER_IMAGE_BASE
-DEFAULT_DOCKER_IMAGE_BASE := ubuntu:16.04
+# Note: versions 19.10 and above dropped support for running 32-bit programs
+# Keep aligned with the first line of base.Dockerfile!
+DEFAULT_DOCKER_IMAGE_BASE := 18.04
 endif
 
 ifndef DEFAULT_DOCKER_TIMELIMIT
@@ -149,11 +151,16 @@ else
 $2_SRCS := $$(addprefix $1/,$$($2_SRCS))
 endif
 
+# Ensure that target_OBJS_DIR has a value, defaulting to .build/proj/target_objs
+ifeq "$$(origin $2_OBJS_DIR)" "undefined"
+$2_OBJS_DIR := $$($1+BUILD)/$2_objs
+endif
+
 # Ensure that target_OBJS has a value, default to modifying the value of each
 # src from target_SRCS into target_BUILD/src.o
-# Example: generate_target(proj, target) with main.cpp -> build/proj/target_objs/main.cpp.o
+# Example: generate_target(proj, target) with main.cpp -> .build/proj/target_objs/main.cpp.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(patsubst $1/%,$$($1+BUILD)/$2_objs/%.o,$$($2_SRCS))
+$2_OBJS := $$(patsubst $1/%,$$($2_OBJS_DIR)/%.o,$$($2_SRCS))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
@@ -394,6 +401,10 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
 	$$(_V)echo "Compiling $$<"
 	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
+clean[$1]: clean[$2]
+clean[$2]:
+	$$(_V)echo "Removing compiled objects for $1:$2"
+	$$(_v)rm -rf $$($2_OBJS_DIR)
 
 ifdef MKTRACE
 $$(info Including dependency files for $1+$2)
@@ -801,10 +812,15 @@ endif #$1+DEPLOY_COMMAND
 # Clean rules
 clean:: clean[$1]
 
+$1+TO_CLEAN := $$($1+PRODUCTS)
+ifneq "$$($1+BUILD)" ".build"
+$1+TO_CLEAN := $$($1+TO_CLEAN) $$($1+BUILD)
+endif
+
 TARGET_LIST := $$(TARGET_LIST) clean[$1]
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
-	$$(_v)rm -rf $$($1+BUILD) $$($1+PRODUCTS)
+	$$(_v)rm -rf $$($1+TO_CLEAN)
 
 .PHONY: clean[$1]
 
@@ -835,11 +851,9 @@ ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
-$1/default.Dockerfile:
-	$$(_v)echo 'FROM $$(PWNABLEHARNESS_REPO):$$(PWNABLEHARNESS_VERSION)' > $$@
-
-# The default Dockerfile should be regenerated every time
-.PHONY: $1/default.Dockerfile
+$1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):$$(DOCKER_IMAGE_BASE)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
+		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE

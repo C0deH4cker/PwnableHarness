@@ -12,9 +12,7 @@
 # Files that are directly copied into the base image (excluding ONBUILD rules)
 PWNABLE_CORE_DEPS := $(addprefix $(PWNABLE_BUILD)/,$(PWNABLE_TARGETS))
 
-# Keep default below 19.10 because that's when 32-bit support was dropped
-# Keep aligned with the first line of base.Dockerfile!
-PWNABLEHARNESS_DEFAULT_BASE := 18.04
+PWNABLEHARNESS_DEFAULT_BASE := $(DEFAULT_DOCKER_IMAGE_BASE)
 PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
 
 
@@ -204,6 +202,6 @@ $(patsubst %,docker-base-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): 
 		>/dev/null 2>&1 || true
 
 
-# TODO: docker-base-image[<ubuntu-version>]
+# TODO: docker-base-image[<ubuntu-version>] should pull instead of build
 $(call add_target,docker-base-image[<ubuntu-version>])
-$(patsubst %,docker-base-image[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-base-tag[%]
+$(patsubst %,docker-base-image[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-base-image[%]: docker-base-tag-version[%]

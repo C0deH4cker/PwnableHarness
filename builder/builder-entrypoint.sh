@@ -1,6 +1,69 @@
-#!/bin/sh
+#!/bin/bash
+set -euo pipefail
 
-# pwnmake also passes PWNMAKE_VERSION. For now, we don't do anything with it.
+# https://stackoverflow.com/a/4025065
+_vercmp() {
+	if [[ $1 == $2 ]]
+	then
+		return 0
+	fi
+	local IFS=.
+	local i ver1=($1) ver2=($2)
+	# Fill empty fields in ver1 with zeros
+	for ((i=${#ver1[@]}; i<${#ver2[@]}; i++))
+	do
+		ver1[i]=0
+	done
+	for ((i=0; i<${#ver1[@]}; i++))
+	do
+		if ((10#${ver1[i]:=0} > 10#${ver2[i]:=0}))
+		then
+			return 1
+		fi
+		if ((10#${ver1[i]} < 10#${ver2[i]}))
+		then
+			return 2
+		fi
+	done
+	return 0
+}
+
+vercmp() {
+	_vercmp "$1" "$3"
+	case $? in
+	0)
+		case "$2" in
+			"=="|"<="|">="|"-eq"|"-le"|"-ge") return 0;;
+		esac
+		;;
+	1)
+		case "$2" in
+			">"|">="|"-gt"|"-ge") return 0;;
+		esac
+		;;
+	2)
+		case "$2" in
+			"<"|"<="|"-lt"|"-le") return 0;;
+		esac
+		;;
+	esac
+	
+	return 1
+}
+
+if [ -n "${PWNMAKE_VERBOSE:-}" ]; then
+	set -x
+fi
+
+# Version 2.1 has breaking changes that require cooperation between the pwnmake
+# script and the builder image.
+PWNMAKE_VERSION_MIN=2.1
+if vercmp "$PWNMAKE_VERSION" -lt "$PWNMAKE_VERSION_MIN"; then
+	echo "Your pwnmake script is out of date!" >&2
+	echo "Installed version: $PWNMAKE_VERSION" >&2
+	echo "Minimum required version: $PWNMAKE_VERSION_MIN" >&2
+	exit 1
+fi
 
 # Ensure that the Docker CLI with the same version as the Docker daemon on the
 # host is downloaded to the docker-cli mount point.
@@ -74,4 +137,4 @@ if [ "$group_write" != "w" ]; then
 fi
 
 # Run PwnableHarness make command as the calling user
-exec gosu pwnuser make -rR --warn-undefined-variables -f /PwnableHarness/Makefile "$@"
+exec "$@"
