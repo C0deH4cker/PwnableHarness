@@ -15,3 +15,6 @@ RUN apt-get update \
 		clang \
 		$(test -z "$CONFIG_IGNORE_32BIT" && [ "$TARGETARCH" != "arm64" ] && echo "gcc-multilib") \
 	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /PwnableHarness
+COPY stdio_unbuffer.c ./

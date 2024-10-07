@@ -2,10 +2,6 @@
 # delay from the network requests in every pwnmake command.
 ifeq "$(wildcard $(BUILD)/cached_ubuntu_versions.mk)" ""
 
-ifndef MAKECMDGOALS
-MAKECMDGOALS :=
-endif
-
 ifeq "$(filter clean,$(MAKECMDGOALS))" ""
 
 ifdef VERBOSE
@@ -42,7 +38,7 @@ $1: $$(foreach x,$2,$1[$$x])
 .PHONY: $1 $$(foreach x,$2,$1[$$x])
 
 endef #_generate_dependency_list
-generate_dependency_list = $(eval $(call _generate_dependency_list,$1))
+generate_dependency_list = $(eval $(call _generate_dependency_list,$1,$2))
 #####
 
 #####

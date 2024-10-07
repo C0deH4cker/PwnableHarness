@@ -1,16 +1,14 @@
 # Make sure the default target is to "make all"
 all:
 
+MAKECMDGOALS ?=
+
 # For now, always use "linux/amd64" as the Docker platform
 export DOCKER_DEFAULT_PLATFORM := linux/amd64
 
 # Environment variables that may be defined by pwnmake
 CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
-
-# Keep aligned with version in bin/pwnmake script
-PWNABLEHARNESS_VERSION := v$(file < VERSION)
-PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
@@ -23,6 +21,10 @@ GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
 PWNABLEHARNESS_CORE_PROJECT := core
 PWNMAKE_DIR := pwnmake
 endif
+PWNCC_DIR := $(ROOT_DIR)/pwncc
+
+PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
+PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
 # Define useful variables for special Makefile characters
 EMPTY :=
@@ -38,22 +40,10 @@ define NEWLINE
 
 endef
 
-# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
--include Config.mk $(wildcard */Config.mk)
-
-# Path to the root build directory
-BUILD := .build
-PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
-
-# Path to the publish directory
-PUB_DIR := publish
-
 # For debugging purposes
 MKDEBUG ?=
 MKTRACE ?=
 DOCKER_DEBUG ?=
-
-DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
 
 # Print all commands executed when VERBOSE is defined, but don't echo explanations
 VERBOSE ?=
@@ -85,6 +75,25 @@ ifdef IS_MAC
 CONFIG_IGNORE_32BIT := true
 endif #IS_MAC
 
+# Path to the root build directory
+BUILD := .build
+PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
+
+# Provides information about currently supported Ubuntu versions:
+# UBUNTU_VERSIONS: list[string version number]
+# UBUNTU_ALIASES: list[string alias name]
+# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
+# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
+include $(ROOT_DIR)/UbuntuVersions.mk
+
+# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
+
+# Path to the publish directory
+PUB_DIR := publish
+
+DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
+
 # Define useful build macros
 include $(ROOT_DIR)/Macros.mk
 
@@ -92,10 +101,10 @@ include $(ROOT_DIR)/Macros.mk
 RECURSION_BLACKLIST ?=
 RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git .docker $(RECURSION_BLACKLIST)
 
-# Only include examples when invoked like `make WITH_EXAMPLES=1`
 ifndef CONTAINER_BUILD
 ifndef WITH_EXAMPLES
-RECURSION_BLACKLIST := examples $(RECURSION_BLACKLIST)
+# Only include examples when invoked like `make WITH_EXAMPLES=1`
+RECURSION_BLACKLIST := $(RECURSION_BLACKLIST) examples
 endif #WITH_EXAMPLES
 endif #CONTAINER_BUILD
 
@@ -116,20 +125,15 @@ endef
 add_phony_targets = $(eval $(call _add_phony_target,$1))
 add_phony_target = $(add_phony_targets)
 
-# Provides information about currently supported Ubuntu versions:
-# UBUNTU_VERSIONS: list[string version number]
-# UBUNTU_ALIASES: list[string alias name]
-# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
-# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
-include $(ROOT_DIR)/UbuntuVersions.mk
-
+ifdef WITH_CORE
 # Make sure to include the core project before user projects
 $(call include_subdir,$(PWNABLEHARNESS_CORE_PROJECT))
+endif #WITH_CORE
 
 # Responsible for building, tagging, and pushing the pwnmake builder images
 ifndef CONTAINER_BUILD
-include $(PWNMAKE_DIR)/PwnmakeImage.mk
-include $(PWNMAKE_DIR)/PwnccImage.mk
+include $(PWNMAKE_DIR)/pwnmake.mk
+include $(PWNCC_DIR)/pwncc.mk
 endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
@@ -273,7 +277,7 @@ help:
 	| sed 's/ $$//'
 
 # Running "make core" builds only PwnableHarness binaries
-core: all[$(ROOT_DIR)]
+core: all[$(PWNABLEHARNESS_CORE_PROJECT)]
 
 # Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
 clean::

@@ -3,32 +3,20 @@ PWNMAKE_DEPS := \
 	.dockerignore \
 	Macros.mk \
 	Makefile \
-	$(addprefix $(PWNMAKE_DIR)/, \
-		pwnmake.Dockerfile \
-		pwnmake-entrypoint.sh \
-		pwnmake-sudo.sh \
-		pwnmake-in-container \
-	) \
-	$(addprefix $(CORE_DIR)/, \
-		base.Dockerfile \
-		BaseImage.mk \
-		Build.mk \
-		pwnable_harness.c \
-		pwnable_harness.h \
-		pwnable_server.c \
-		stdio_unbuffer.c \
-	)
+	stdio_unbuffer.c \
+	$(wildcard $(PWNABLEHARNESS_CORE_PROJECT)/*) \
+	$(wildcard $(PWNCC_DIR)/*) \
+	$(wildcard $(PWNMAKE_DIR)/*)
 
 $(call add_phony_target,pwnmake-build)
-pwnmake-build: $(BUILD_DIR)/.pwnmake_image_build_marker
+pwnmake-build: $(BUILD)/.pwnmake_image_build_marker
 
-$(BUILD_DIR)/.pwnmake_image_build_marker: $(PWNMAKE_DEPS)
+$(BUILD)/.pwnmake_image_build_marker: $(PWNMAKE_DEPS)
 	$(_V)echo "Building Docker image 'pwnmake-$(PWNABLEHARNESS_VERSION)'"
 	$(_v)$(DOCKER) build \
 			-f $(PWNMAKE_DIR)/pwnmake.Dockerfile \
 			--build-arg DIR=$(PWNMAKE_DIR) \
 			--build-arg GIT_HASH=$$(git rev-parse HEAD) \
-			--build-arg VERSION=$(PWNABLEHARNESS_VERSION) \
 			-t $(PWNABLEHARNESS_REPO):pwnmake-$(PWNABLEHARNESS_VERSION) . \
 		&& mkdir -p $(@D) && touch $@
 

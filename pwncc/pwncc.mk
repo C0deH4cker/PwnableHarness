@@ -23,14 +23,11 @@ PWNCC_DEFAULT_BASE := $(DEFAULT_UBUNTU_VERSION)
 PWNCC_DEFAULT_ALIAS := $(UBUNTU_VERSION_TO_ALIAS[$(PWNCC_DEFAULT_BASE)])
 PWNCC_DEFAULT_TAG := pwncc-$(PWNCC_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
 
-PWNCC_DEPS := $(PWNMAKE_DIR)/pwncc.Dockerfile
-
 #
 # Building
 #
 # pwncc-build[<ubuntu-version>]
-#  \- pwncc-build[<ubuntu-version>]
-#    \- CORE_BUILD/.pwncc_build_marker-<ubuntu version>
+#    \- BUILD/.pwncc_build_marker-<ubuntu version>
 #         (tags pwncc-<ubuntu version>-v<pwnableharness version)
 #
 # pwncc-build[<ubuntu-alias>]
@@ -43,29 +40,32 @@ $(call add_phony_target,pwncc-build)
 pwncc-build: pwncc-build[$(PWNCC_DEFAULT_BASE)]
 
 # Targets like pwncc-build[<ubuntu-version>] go through the rule below for .pwncc_build_marker-%
-$(patsubst %,pwncc-build[%],$(UBUNTU_VERSIONS)): pwncc-build[%]: $(CORE_BUILD)/.pwncc_build_marker-%
+$(patsubst %,pwncc-build[%],$(UBUNTU_VERSIONS)): pwncc-build[%]: $(BUILD)/.pwncc_build_marker-%
 
-# This rule only needs to be re-run when one of PWNCC_FILES is modified
-$(CORE_BUILD)/.pwncc_build_marker-%: $(PWNCC_DEPS)
-	$(_V)echo "Building PwnableHarness builder image for ubuntu:$*"
-	$(_v)$(DOCKER) build \
-			-f $(PWNCC_DIR)/builder.Dockerfile \
-			--build-arg BASE_IMAGE=ubuntu:$* \
-			$(if $(UBUNTU_32BIT_SUPPORT[$*]),,--build-arg CONFIG_IGNORE_32BIT=1) \
-			-t $(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) . \
-		&& mkdir -p $(@D) && touch $@
+define pwncc_build_template
+$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/stdio_unbuffer.c
+	$$(_V)echo "Building pwncc image for ubuntu:$1"
+	$$(_v)$$(DOCKER) build \
+			-f $$< \
+			--build-arg BASE_IMAGE=ubuntu:$1 \
+			$$(if $$(UBUNTU_32BIT_SUPPORT[$1]),,--build-arg CONFIG_IGNORE_32BIT=1) \
+			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION) . \
+		&& mkdir -p $$(@D) && touch $$@
+
+endef #pwncc_build_template
+$(call generate_ubuntu_versioned_rules,pwncc_build_template)
 
 # Define phony targets like pwncc-build[<ubuntu-alias>].
 # These rules actually just depend on pwncc-tag[<ubuntu-alias>],
 # which will build the image for the corresponding Ubuntu version and then
 # tag that image using the named Ubuntu alias.
-define docker_builder_build_template
+define pwncc_build_alias_template
 
 .PHONY: pwncc-build[$1]
 pwncc-build[$1]: pwncc-tag[$1]
 
-endef #docker_builder_build_template
-$(call generate_ubuntu_aliased_rules,docker_builder_build_template)
+endef #pwncc_build_alias_template
+$(call generate_ubuntu_aliased_rules,pwncc_build_alias_template)
 $(call add_target,pwncc-build[<ubuntu-version>])
 
 
@@ -119,7 +119,7 @@ pwncc-tag-latest: pwncc-tag-latest[$(PWNCC_DEFAULT_ALIAS)]
 $(patsubst %,pwncc-tag-version[%],$(UBUNTU_VERSIONS)): pwncc-tag-version[%]: pwncc-build[%]
 
 # (tags pwncc-<ubuntu-alias>-v<pwnableharness version>)
-define docker_builder_tag_version_aliased_template
+define pwncc_tag_version_aliased_template
 
 .PHONY: pwncc-tag-version[$1]
 pwncc-tag-version[$1]: pwncc-build[$2]
@@ -128,8 +128,8 @@ pwncc-tag-version[$1]: pwncc-build[$2]
 		$$(PWNABLEHARNESS_REPO):pwncc-$2-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION)
 
-endef #docker_builder_tag_version_aliased_template
-$(call generate_ubuntu_aliased_rules,docker_builder_tag_version_aliased_template)
+endef #pwncc_tag_version_aliased_template
+$(call generate_ubuntu_aliased_rules,pwncc_tag_version_aliased_template)
 
 # (tags pwncc-v<pwnableharness version>)
 pwncc-tag-default-version: pwncc-build[$(PWNCC_DEFAULT_BASE)]
@@ -139,7 +139,7 @@ pwncc-tag-default-version: pwncc-build[$(PWNCC_DEFAULT_BASE)]
 		$(PWNABLEHARNESS_REPO):pwncc-$(PWNABLEHARNESS_VERSION)
 
 # (tags pwncc-<ubuntu version>)
-define docker_builder_tag_latest_both_template
+define pwncc_tag_latest_both_template
 
 .PHONY: pwncc-tag-latest[$1]
 pwncc-tag-latest[$1]: pwncc-tag-version[$1]
@@ -148,8 +148,8 @@ pwncc-tag-latest[$1]: pwncc-tag-version[$1]
 		$$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION) \
 		$$(PWNABLEHARNESS_REPO):pwncc-$1
 
-endef #docker_builder_tag_latest_both_template
-$(call generate_ubuntu_both_rules,docker_builder_tag_latest_both_template)
+endef #pwncc_tag_latest_both_template
+$(call generate_ubuntu_both_rules,pwncc_tag_latest_both_template)
 
 # (tags pwncc-latest)
 pwncc-tag-default-latest: pwncc-build
@@ -261,7 +261,7 @@ pwncc-clean-latest: pwncc-clean-latest[$(PWNCC_DEFAULT_ALIAS)]
 
 # Remove pwncc-<ubuntu version>-v<pwnableharness version> tags and the build markers
 $(patsubst %,pwncc-clean-version[%],$(UBUNTU_VERSIONS)): pwncc-clean-version[%]:
-	$(_v)rm -f $(CORE_BUILD)/.pwncc_build_marker-$*
+	$(_v)rm -f $(BUILD)/.pwncc_build_marker-$*
 	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) \
 		>/dev/null 2>&1 || true

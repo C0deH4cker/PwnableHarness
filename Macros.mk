@@ -240,8 +240,8 @@ $$(info Adding rule for $1+$2's stdio_unbuffer.o)
 endif #MKTRACE
 
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $(PWNABLEHARNESS_CORE_PROJECT)/stdio_unbuffer.c
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(ROOT_DIR)/stdio_unbuffer.c | $$($1+PWNCC_DEP)
+	$$(_v)$$($1+PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif
 
@@ -392,17 +392,17 @@ $$(info Adding compiler rules for $1+$2)
 endif #MKTRACE
 
 # Compiler rule for C sources
-$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
+$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c | $$($1+PWNCC_DEP)
 	$$(_V)echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($1+PWNCC)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
+$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($1+PWNCC_DEP)
 	$$(_V)echo "Compiling $$<"
-	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($1+PWNCC)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
-clean[$1]: clean[$2]
-clean[$2]:
+clean[$1]: clean[$1+$2]
+clean[$1+$2]:
 	$$(_v)rm -rf $$($2_OBJS_DIR)
 
 ifdef MKTRACE
@@ -421,23 +421,23 @@ endif #MKTRACE
 
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($1+PWNCC_DEP)
 	$$(_V)echo "Linking shared library $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
+	$$(_v)$$($1+PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($1+PWNCC_DEP)
 	$$(_V)echo "Linking executable $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
+	$$(_v)$$($1+PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE) | $$($1+PWNCC_DEP)
 	$$(_V)echo "Archiving static library $$@"
-	$$(_v)$$($2_AR) rcs $$@ $$^
+	$$(_v)$$($1+PWNCC)$$($2_AR) rcs $$@ $$^
 
 else #dynamiclib & executable & staticlib
 
@@ -766,6 +766,43 @@ $1+ASLR := $$(ASLR)
 $1+STRIP := $$(STRIP)
 $1+DEBUG := $$(DEBUG)
 
+# Run compiler commands in a pwncc container?
+$1+PWNCC :=
+$1+PWNCC_DEP :=
+ifdef CONTAINER_BUILD
+$1+PREBUILD_SH := $$(wildcard $1/prebuild.sh)
+ifdef $1+PREBUILD_SH
+# Create a hash from:
+#  - the project path
+#  - prebuild.sh file contents
+$1+PWNCC_MODIFIER := +$$(firstword $$(shell (echo '$1'; cat '$1/prebuild.sh') | shasum -a 256))
+else #exists(DIR/prebuild.sh)
+$1+PWNCC_MODIFIER :=
+endif #exists(DIR/prebuild.sh)
+$1+PWNCC_TAG_BASE := pwncc-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)
+$1+PWNCC_TAG := $$($1+PWNCC_TAG_BASE)$$($1+PWNCC_MODIFIER)
+
+ifdef $1+PREBUILD_SH
+$1+PWNCC_DEP := $$(BUILD)/.$$($1+PWNCC_TAG)
+$$($1+PWNCC_DEP): $$($1+PREBUILD_SH) | $$(PWNCC_DIR)/pwncc.Dockerfile $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
+	$$(_V)echo "Running $$< in pwncc container"
+	$$(_v)$$(DOCKER) build \
+			-f $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile \
+			--build-arg BASE_TAG=$$($1+PWNCC_TAG_BASE) \
+			--build-arg DIR=$1 \
+			-t $$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
+		&& mkdir -p $$(@D) && touch $$@
+
+endif #PREBUILD_SH
+
+$1+PWNCC := $$(DOCKER) run --rm \
+	-v "$$(HOST_WORKSPACE)":/PwnableHarness/workspace \
+	--workdir=$$(ROOT_DIR)/workspace/$1 \
+	$$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
+	$$(SPACE)
+
+endif #CONTAINER_BUILD
+
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1+TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
 $$(foreach target,$$($1+TARGETS),$$(call generate_target,$1,$$(target)))
@@ -856,13 +893,6 @@ $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
-
-# Docker images depend on the base PwnableHarness Docker image
-ifneq "$$($1+DOCKER_IMAGE)" "$$(PWNABLEHARNESS_REPO)"
-ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-base-image[$$(UBUNTU_VERSION)]
-endif
-endif
 
 # Add the Dockerfile as a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)

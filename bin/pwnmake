@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Keep aligned with PWNABLEHARNESS_VERSION in Makefile
+# Keep aligned with /VERSION
 version=${PWNMAKE_VERSION:-2.1}
 
 # This is the lowest version of pwnmake image that is supported by this pwnmake script
@@ -226,6 +226,8 @@ main() {
 		set -x
 	fi
 	
+	local HOST_WORKSPACE=$(realpath "$workspace")
+	
 	# Check that --pwnableharness-version is a supported version
 	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ]; then
 		if vercmp "$ph_version" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
@@ -376,15 +378,16 @@ main() {
 		# Run the builder initialization and prep scripts then save as a new image
 		if docker run \
 			--name "$pwnmake_container" \
+			--env DOCKER_VERSION="$DOCKER_VERSION" \
+			--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 			--env PWNMAKE_VERSION="$version" \
 			--env PWNMAKE_INIT=1 \
-			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			--env CALLER_UID="$CALLER_UID" \
 			--env CALLER_GID="$CALLER_GID" \
 			--env DOCKER_GID="$DOCKER_GID" \
+			-v "$HOST_WORKSPACE":/PwnableHarness/workspace \
 			-v "$host_docker_sock":/var/run/docker.sock \
 			-v pwnmake-docker-cli:/docker-cli \
-			-v "$(realpath $workspace)":/PwnableHarness/workspace \
 			-it "$docker_image"
 		then
 			docker commit "$pwnmake_container" "$pwnmake_image" >/dev/null
@@ -415,13 +418,14 @@ main() {
 	docker run \
 		--rm \
 		--init \
+		--env DOCKER_VERSION="$DOCKER_VERSION" \
+		--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 		--env PWNMAKE_VERSION="$version" \
 		--env PWNMAKE_INIT=0 \
-		--env DOCKER_VERSION="$DOCKER_VERSION" \
 		${env_args[@]+"${env_args[@]}"} \
+		-v "$HOST_WORKSPACE":/PwnableHarness/workspace \
 		-v "$host_docker_sock":/var/run/docker.sock \
 		-v pwnmake-docker-cli:/docker-cli \
-		-v "$(realpath $workspace)":/PwnableHarness/workspace \
 		-it "$pwnmake_image" \
 		${cmd_args[@]+"${cmd_args[@]}"}
 		# cmd_args trick from https://stackoverflow.com/a/7577209
