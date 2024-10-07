@@ -5,11 +5,11 @@
 # * builder-<ubuntu tag>-v<pwnableharness version>
 #     Specific base image and version of PwnableHarness
 # * builder-v<pwnableharness version>
-#     Alias of builder-18.04-v<pwnableharness version>
+#     Alias of builder-24.04-v<pwnableharness version>
 # * builder-<ubuntu tag>
 #     Specific base image, latest version of PwnableHarness
 # * builder-latest
-#     Default base image (18.04 for now), latest version of PwnableHarness
+#     Default base image (24.04 for now), latest version of PwnableHarness
 
 # Files used when building the builder container
 PWNABLE_BUILDER_DEPS := \
@@ -31,9 +31,7 @@ PWNABLE_BUILDER_DEPS := \
 
 # The Ubuntu version used for PwnableHarness images with tags like
 # "builder-v<pwnableharness version>" and "builder-latest".
-# Keeping default below 19.10 for now because that's when 32-bit support was dropped.
-# Keep aligned with the first line of builder.Dockerfile!
-PWNABLE_BUILDER_DEFAULT_BASE := 18.04
+PWNABLE_BUILDER_DEFAULT_BASE := $(DEFAULT_UBUNTU_VERSION)
 PWNABLE_BUILDER_DEFAULT_ALIAS := $(UBUNTU_VERSION_TO_ALIAS[$(PWNABLE_BUILDER_DEFAULT_BASE)])
 PWNABLE_BUILDER_DEFAULT_TAG := builder-$(PWNABLE_BUILDER_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
 

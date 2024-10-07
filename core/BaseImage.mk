@@ -3,11 +3,11 @@
 # * <ubuntu tag>-v<pwnableharness version>
 #     Specific base image and version of PwnableHarness
 # * v<pwnableharness version>
-#     Alias of 18.04-v<pwnableharness version>
+#     Alias of 24.04-v<pwnableharness version>
 # * <ubuntu tag>
 #     Specific base image, latest version of PwnableHarness
 # * latest
-#     Default base image (18.04 for now), latest version of PwnableHarness
+#     Default base image (24.04 for now), latest version of PwnableHarness
 
 # Files that are directly copied into the base image (excluding ONBUILD rules)
 PWNABLE_CORE_DEPS := $(addprefix $(PWNABLE_BUILD)/,$(PWNABLE_TARGETS))

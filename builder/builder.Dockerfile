@@ -1,6 +1,4 @@
-# Keep this aligned with PWNABLE_BUILDER_DEFAULT_BASE in BuilderImage.mk!
-ARG BASE_IMAGE=ubuntu:18.04
-FROM $BASE_IMAGE
+FROM ubuntu:24.04
 LABEL maintainer="c0deh4cker@gmail.com"
 
 ARG BUILDARCH

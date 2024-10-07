@@ -87,7 +87,7 @@ endif
 ifndef DEFAULT_UBUNTU_VERSION
 # Note: versions 19.10 and above dropped support for running 32-bit programs
 # Keep aligned with the first line of base.Dockerfile!
-DEFAULT_UBUNTU_VERSION := 18.04
+DEFAULT_UBUNTU_VERSION := 24.04
 endif
 
 ifndef DEFAULT_DOCKER_TIMELIMIT
