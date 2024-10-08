@@ -1,6 +1,5 @@
 # Make sure the default target is to "make all"
 all:
-
 MAKECMDGOALS ?=
 
 # For now, always use "linux/amd64" as the Docker platform
@@ -15,14 +14,15 @@ ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
 GIT_HASH := $(shell cat '$(ROOT_DIR)/.githash')
 PWNABLEHARNESS_CORE_PROJECT := $(ROOT_DIR)/core
-else
+CONFIG_USE_PWNCC ?= 1
+else #CONTAINER_BUILD
 ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
 GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
 PWNABLEHARNESS_CORE_PROJECT := core
 PWNMAKE_DIR := pwnmake
-endif
-PWNCC_DIR := $(ROOT_DIR)/pwncc
+endif #CONTAINER_BUILD
 
+PWNCC_DIR := $(ROOT_DIR)/pwncc
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
@@ -55,6 +55,37 @@ _v := @
 _V := @
 endif
 
+# Path to the root build directory
+BUILD := .build
+PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
+
+# List of PwnableHarness projects discovered
+PROJECT_LIST :=
+
+# List of PwnableHarness target rules available
+TARGET_LIST := all env help list list-targets core clean publish deploy \
+	docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+
+add_targets = $(eval TARGET_LIST := $$(TARGET_LIST) $1)
+add_target = $(add_targets)
+define _add_phony_target
+.PHONY: $1
+
+TARGET_LIST := $$(TARGET_LIST) $1
+endef
+add_phony_targets = $(eval $(call _add_phony_target,$1))
+add_phony_target = $(add_phony_targets)
+
+# Provides information about currently supported Ubuntu versions:
+# UBUNTU_VERSIONS: list[string version number]
+# UBUNTU_ALIASES: list[string alias name]
+# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
+# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
+include $(ROOT_DIR)/UbuntuVersions.mk
+
+# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
+
 # Basic OS detection (Windows is detected but not supported)
 ifndef OS
 OS := $(shell uname -s)
@@ -75,20 +106,6 @@ ifdef IS_MAC
 CONFIG_IGNORE_32BIT := true
 endif #IS_MAC
 
-# Path to the root build directory
-BUILD := .build
-PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
-
-# Provides information about currently supported Ubuntu versions:
-# UBUNTU_VERSIONS: list[string version number]
-# UBUNTU_ALIASES: list[string alias name]
-# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
-# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
-include $(ROOT_DIR)/UbuntuVersions.mk
-
-# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
--include Config.mk $(wildcard */Config.mk)
-
 # Path to the publish directory
 PUB_DIR := publish
 
@@ -96,6 +113,9 @@ DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
 
 # Define useful build macros
 include $(ROOT_DIR)/Macros.mk
+
+# The pwncc.mk file will use config options to decide what to define
+include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
@@ -108,32 +128,15 @@ RECURSION_BLACKLIST := $(RECURSION_BLACKLIST) examples
 endif #WITH_EXAMPLES
 endif #CONTAINER_BUILD
 
-# List of PwnableHarness projects discovered
-PROJECT_LIST :=
-
-# List of PwnableHarness target rules available
-TARGET_LIST := all help list list-targets core clean publish deploy \
-	docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
-
-add_targets = $(eval TARGET_LIST := $$(TARGET_LIST) $1)
-add_target = $(add_targets)
-define _add_phony_target
-.PHONY: $1
-
-TARGET_LIST := $$(TARGET_LIST) $1
-endef
-add_phony_targets = $(eval $(call _add_phony_target,$1))
-add_phony_target = $(add_phony_targets)
-
-ifdef WITH_CORE
-# Make sure to include the core project before user projects
+# Users of PwnableHarness aren't expected to build the core project and image
+# themselves, but rather pull the pre-built images from Docker Hub.
+ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
 $(call include_subdir,$(PWNABLEHARNESS_CORE_PROJECT))
-endif #WITH_CORE
+endif #C0deH4cker
 
 # Responsible for building, tagging, and pushing the pwnmake builder images
 ifndef CONTAINER_BUILD
 include $(PWNMAKE_DIR)/pwnmake.mk
-include $(PWNCC_DIR)/pwncc.mk
 endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
@@ -230,8 +233,6 @@ help:
 		'\n         Display a list of all discovered project directories.' \
 		'\n* `list-targets`:' \
 		'\n         Display a list of all provided targets.' \
-		'\n* `core`:' \
-		'\n         Build only the core PwnableHarness binaries.' \
 		'\n' \
 		'\n### Command-line variables:' \
 		'\n' \
@@ -276,9 +277,6 @@ help:
 		'\n   parent/ancestor project to collect settings defined by its descendants.' \
 	| sed 's/ $$//'
 
-# Running "make core" builds only PwnableHarness binaries
-core: all[$(PWNABLEHARNESS_CORE_PROJECT)]
-
 # Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
 clean::
 
@@ -301,7 +299,7 @@ deploy: docker-start publish
 .DELETE_ON_ERROR:
 
 # Global targets that are "phony", aka don't name a file to be created
-.PHONY: all core clean publish deploy env list list-targets help
+.PHONY: all clean deploy env help list list-targets publish
 
 # Phony Docker targets
 .PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean

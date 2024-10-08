@@ -9,9 +9,6 @@
 # * latest
 #     Default base image (24.04 for now), latest version of PwnableHarness
 
-# Files that are directly copied into the base image (excluding ONBUILD rules)
-PWNABLE_CORE_DEPS := $(addprefix $(CORE_BUILD)/,$(CORE_TARGETS))
-
 PWNABLEHARNESS_DEFAULT_BASE := $(DEFAULT_UBUNTU_VERSION)
 PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VERSION)
 
@@ -21,7 +18,7 @@ PWNABLEHARNESS_DEFAULT_TAG := $(PWNABLEHARNESS_DEFAULT_BASE)-$(PWNABLEHARNESS_VE
 #
 # docker-base-build
 #  \- docker-base-build[<ubuntu-version>]
-#    \- CORE_BUILD/.docker_base_build_marker.<ubuntu-version>
+#    \- CORE_BUILD/.docker_base_build_marker-<ubuntu-version>
 #         (tags <ubuntu-version>-v<pwnableharness version)
 #
 # docker-base-build[<ubuntu-alias>]
@@ -33,29 +30,34 @@ $(call generate_dependency_list,docker-base-build,$(UBUNTU_VERSIONS) $(UBUNTU_AL
 $(call add_phony_target,docker-base-build)
 docker-base-build: docker-base-build[$(PWNABLEHARNESS_DEFAULT_BASE)]
 
-# Targets like docker-base-build[<ubuntu-version>] go through the rule below for .docker_base_build_marker.%
-$(patsubst %,docker-base-build[%],$(UBUNTU_VERSIONS)): docker-base-build[%]: $(CORE_BUILD)/.docker_base_build_marker.%
+# Targets like docker-base-build[<ubuntu-version>] go through the rule below for .docker_base_build_marker-%
+$(patsubst %,docker-base-build[%],$(UBUNTU_VERSIONS)): docker-base-build[%]: $(CORE_BUILD)/.docker_base_build_marker-%
 
-# This rule only needs to be re-run when one of PWNABLE_CORE_FILES is modified
-$(CORE_BUILD)/.docker_base_build_marker.%: $(PWNABLE_CORE_DEPS)
-	$(_V)echo "Building PwnableHarness base image for ubuntu:$*"
-	$(_v)$(DOCKER) build -f $(CORE_DIR)/base.Dockerfile \
-			--build-arg BASE_IMAGE=ubuntu:$* \
-			--build-arg BUILD_DIR=$(CORE_BUILD) \
-			-t $(PWNABLEHARNESS_REPO):$*-$(PWNABLEHARNESS_VERSION) . \
-		&& mkdir -p $(@D) && touch $@
+define docker_base_build_template
+PWNABLE_CORE_DEPS-$1 := $$(addprefix $$(CORE_BUILD)/,$$(CORE_TARGETS-$1))
+
+$$(CORE_BUILD)/.docker_base_build_marker-$1: $$(PWNABLE_CORE_DEPS-$1)
+	$$(_V)echo "Building PwnableHarness base image for ubuntu:$1"
+	$$(_v)$$(DOCKER) build -f $$(CORE_DIR)/base.Dockerfile \
+			--build-arg BASE_TAG=$1 \
+			--build-arg BUILD_DIR=$$(CORE_BUILD) \
+			-t $$(PWNABLEHARNESS_REPO):$1-$$(PWNABLEHARNESS_VERSION) . \
+		&& mkdir -p $$(@D) && touch $$@
+
+endef
+$(call generate_ubuntu_versioned_rules,docker_base_build_template)
 
 # Define phony targets like docker-base-build[<ubuntu-alias>].
 # These rules actually just depend on docker-base-tag[<ubuntu-alias>],
 # which will build the image for the corresponding Ubuntu version and then
 # tag that image using the named Ubuntu alias.
-define docker_base_build_template
+define docker_base_build_alias_template
 
 .PHONY: docker-base-build[$1]
 docker-base-build[$1]: docker-base-tag[$1]
 
-endef #docker_base_build_template
-$(call generate_ubuntu_aliased_rules,docker_base_build_template)
+endef #docker_base_build_alias_template
+$(call generate_ubuntu_aliased_rules,docker_base_build_alias_template)
 $(call add_target,docker-base-build[<ubuntu-version>])
 
 #
@@ -200,8 +202,3 @@ $(patsubst %,docker-base-clean-latest[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): 
 	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):$* \
 		>/dev/null 2>&1 || true
-
-
-# TODO: docker-base-image[<ubuntu-version>] should pull instead of build
-$(call add_target,docker-base-image[<ubuntu-version>])
-$(patsubst %,docker-base-image[%],$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)): docker-base-image[%]: docker-base-tag-version[%]

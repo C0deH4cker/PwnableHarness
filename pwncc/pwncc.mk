@@ -17,6 +17,10 @@
 # * pwncc-latest
 #     Default base image (24.04 for now), latest version of PwnableHarness
 
+ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
+
+CONFIG_USE_PWNCC := 1
+
 # The Ubuntu version used for PwnableHarness images with tags like
 # "pwncc-v<pwnableharness version>" and "pwncc-latest".
 PWNCC_DEFAULT_BASE := $(DEFAULT_UBUNTU_VERSION)
@@ -62,7 +66,7 @@ $(call generate_ubuntu_versioned_rules,pwncc_build_template)
 define pwncc_build_alias_template
 
 .PHONY: pwncc-build[$1]
-pwncc-build[$1]: pwncc-tag[$1]
+pwncc-build[$1]: pwncc-tag-version[$1]
 
 endef #pwncc_build_alias_template
 $(call generate_ubuntu_aliased_rules,pwncc_build_alias_template)
@@ -289,3 +293,69 @@ pwncc-clean-default-latest:
 	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):pwncc-latest \
 		>/dev/null 2>&1 || true
+
+endif #C0deH4cker
+
+
+ifdef CONFIG_USE_PWNCC
+
+#####
+# pwncc_prepare($1: project dir, $2: ubuntu version, $3: out_pwncc_cmd_prefix, $4: out_pwncc_deps)
+#####
+define _pwncc_prepare
+
+$1+PREBUILD_SH := $$(wildcard $1/prebuild.sh)
+
+ifdef $1+PREBUILD_SH
+# Create a hash from:
+#  - the project path
+#  - prebuild.sh file contents
+$1+PWNCC_MODIFIER := +$$(firstword $$(shell (echo '$1'; cat '$1/prebuild.sh') | shasum -a 256))
+else #exists(DIR/prebuild.sh)
+$1+PWNCC_MODIFIER :=
+endif #exists(DIR/prebuild.sh)
+
+$1+PWNCC_TAG_BASE := pwncc-$2-$$(PWNABLEHARNESS_VERSION)
+$1+PWNCC_TAG := $$($1+PWNCC_TAG_BASE)$$($1+PWNCC_MODIFIER)
+
+$4 :=
+ifdef $1+PREBUILD_SH
+# Return pwncc dependencies
+$4 := $$($1+BUILD)/.$$($1+PWNCC_TAG)
+
+ifndef PWNCC_TAG-$$($1+PWNCC_TAG)
+PWNCC_TAG-$$($1+PWNCC_TAG) := 1
+
+$$($4): $$($1+PREBUILD_SH) | $$(PWNCC_DIR)/pwncc.Dockerfile $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
+	$$(_V)echo "Running $$< in pwncc container"
+	$$(_v)$$(DOCKER) build \
+			-f $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile \
+			--build-arg BASE_TAG=$$($1+PWNCC_TAG_BASE) \
+			--build-arg DIR=$1 \
+			-t $$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
+		&& mkdir -p $$(@D) && touch $$@
+
+endif #rule cache check
+endif #exists(DIR/prebuild.sh)
+
+ifdef CONTAINER_BUILD
+$1+PWNCC_ARGS := \
+	-v "$$(HOST_WORKSPACE)":/PwnableHarness/workspace \
+	--workdir=/PwnableHarness/workspace/$1
+else
+$1+PWNCC_ARGS := \
+	-v "$$(shell realpath '$$(ROOT_DIR)')":/PwnableHarness \
+	--workdir=/PwnableHarness
+endif
+
+# Return pwncc command prefix
+$3 := $$(DOCKER) run --rm \
+	$$($1+PWNCC_ARGS) \
+	$$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
+	$$(SPACE)
+
+endef #pwncc_prepare
+pwncc_prepare = $(eval $(call _pwncc_prepare,$1,$2,$3,$4))
+#####
+
+endif #CONFIG_USE_PWNCC

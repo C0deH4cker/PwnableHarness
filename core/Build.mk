@@ -7,11 +7,6 @@ CORE_BUILD := $(BUILD_DIR)
 CORE_LIB32 := libpwnableharness32.so
 CORE_LIB64 := libpwnableharness64.so
 CORE_SERVER := pwnableserver
-TARGETS := $(CORE_LIB64) $(CORE_SERVER)
-
-ifndef CONFIG_IGNORE_32BIT
-TARGETS := $(TARGETS) $(CORE_LIB32)
-endif #CONFIG_IGNORE_32BIT
 
 CFLAGS := -Wall -Wextra -Werror
 
@@ -20,30 +15,52 @@ RELRO := 1
 CANARY := 1
 NX := 1
 
-$(CORE_LIB32)_BITS := 32
-$(CORE_LIB32)_SRCS := pwnable_harness.c
-$(CORE_LIB32)_DEBUG := true
+CORE_TARGETS :=
+PUBLISH :=
 
-$(CORE_LIB64)_BITS := 64
-$(CORE_LIB64)_SRCS := pwnable_harness.c
-$(CORE_LIB64)_DEBUG := true
+define core_target_def
+$$(call pwncc_prepare,$$(CORE_DIR),$1,CORE_PWNCC-$1,CORE_PWNCC_DEPS-$1)
 
-$(CORE_SERVER)_BITS := 64
-$(CORE_SERVER)_SRCS := pwnable_server.c
-$(CORE_SERVER)_DEBUG := true
-$(CORE_SERVER)_USE_LIBPWNABLEHARNESS := true
+CORE_TARGETS-$1 := $1/$$(CORE_LIB64) $1/$$(CORE_SERVER)
+
+$1/$$(CORE_LIB64)_BITS := 64
+$1/$$(CORE_LIB64)_SRCS := pwnable_harness.c
+$1/$$(CORE_LIB64)_DEBUG := true
+$1/$$(CORE_LIB64)_PWNCC := $$(CORE_PWNCC-$1)
+$1/$$(CORE_LIB64)_PWNCC_DEPS := $$(CORE_PWNCC_DEPS-$1)
+
+$1/$$(CORE_SERVER)_BITS := 64
+$1/$$(CORE_SERVER)_SRCS := pwnable_server.c
+$1/$$(CORE_SERVER)_DEBUG := true
+$1/$$(CORE_SERVER)_USE_LIBPWNABLEHARNESS := true
+$1/$$(CORE_SERVER)_PWNCC := $$(CORE_PWNCC-$1)
+$1/$$(CORE_SERVER)_PWNCC_DEPS := $$(CORE_PWNCC_DEPS-$1)
+
+ifdef UBUNTU_32BIT_SUPPORT[$1]
+CORE_TARGETS-$1 := $$(CORE_TARGETS-$1) $1/$$(CORE_LIB32)
+
+$1/$$(CORE_LIB32)_BITS := 32
+$1/$$(CORE_LIB32)_SRCS := pwnable_harness.c
+$1/$$(CORE_LIB32)_DEBUG := true
+$1/$$(CORE_LIB32)_PWNCC := $$(CORE_PWNCC-$1)
+$1/$$(CORE_LIB32)_PWNCC_DEPS := $$(CORE_PWNCC_DEPS-$1)
+
+endif #32bit
+
+CORE_TARGETS := $$(CORE_TARGETS) $$(CORE_TARGETS-$1)
 
 ifdef CONFIG_PUBLISH_LIBPWNABLEHARNESS
-PUBLISH := $(CORE_LIB64)
+PUBLISH := $$(PUBLISH) $1/$$(CORE_LIB64)
 
 ifndef CONFIG_IGNORE_32BIT
-PUBLISH := $(PUBLISH) $(CORE_LIB32)
+PUBLISH := $$(PUBLISH) $1/$$(CORE_LIB32)
 endif #CONFIG_IGNORE_32BIT
 endif #CONFIG_PUBLISH_LIBPWNABLEHARNESS
 
+endef #core_target_def
+$(call generate_ubuntu_versioned_rules,core_target_def)
 
-# For use by BaseImage.mk
-CORE_TARGETS := $(TARGETS)
+TARGETS := $(CORE_TARGETS)
 
 # Responsible for building, tagging, and pushing the base PwnableHarness images
 include $(CORE_DIR)/BaseImage.mk

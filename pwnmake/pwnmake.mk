@@ -1,9 +1,12 @@
 # Files used when building the pwnmake container
 PWNMAKE_DEPS := \
 	.dockerignore \
+	get_supported_ubuntu_versions.py \
 	Macros.mk \
 	Makefile \
 	stdio_unbuffer.c \
+	UbuntuVersions.mk \
+	VERSION \
 	$(wildcard $(PWNABLEHARNESS_CORE_PROJECT)/*) \
 	$(wildcard $(PWNCC_DIR)/*) \
 	$(wildcard $(PWNMAKE_DIR)/*)

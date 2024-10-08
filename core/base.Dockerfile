@@ -1,6 +1,6 @@
 # Keep the default value aligned with DEFAULT_UBUNTU_VERSION in Macros.mk!
-ARG BASE_IMAGE=ubuntu:24.04
-FROM $BASE_IMAGE
+ARG BASE_TAG=24.04
+FROM ubuntu:$BASE_TAG
 LABEL maintainer="c0deh4cker@gmail.com"
 
 ARG CONFIG_IGNORE_32BIT=
@@ -17,20 +17,16 @@ RUN if [ -z "$CONFIG_IGNORE_32BIT" ]; then \
 
 # Copy PwnableHarness libraries to /usr/local/lib
 ARG BUILD_DIR
-COPY $BUILD_DIR/libpwnableharness*.so /usr/local/lib/
+ARG BASE_TAG
+COPY ${BUILD_DIR}/${BASE_TAG}/libpwnableharness*.so /usr/local/lib/
 
 # Copy pwnable server program to /usr/local/bin
-COPY $BUILD_DIR/pwnableserver /usr/local/bin/
+COPY ${BUILD_DIR}/${BASE_TAG}/pwnableserver /usr/local/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \
 	/usr/local/lib/libpwnableharness*.so \
 	/usr/local/bin/pwnableserver
-
-# Just run bash shell when no command is given. This isn't intended
-# to be a runnable docker image anyway
-CMD /bin/bash
-
 
 # CHALLENGE_NAME is the name of both the user and executable
 ONBUILD ARG CHALLENGE_NAME

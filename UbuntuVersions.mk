@@ -15,7 +15,7 @@ $(shell \
 	$(_VSH) \
 	mkdir -p $(BUILD) && \
 	touch $(BUILD)/.dir && \
-	python3 $(PWNABLEHARNESS_CORE_PROJECT)/get_supported_ubuntu_versions.py > $(BUILD)/cached_ubuntu_versions.mk.tmp && \
+	python3 $(ROOT_DIR)/get_supported_ubuntu_versions.py > $(BUILD)/cached_ubuntu_versions.mk.tmp && \
 	mv $(BUILD)/cached_ubuntu_versions.mk.tmp $(BUILD)/cached_ubuntu_versions.mk \
 	)
 
