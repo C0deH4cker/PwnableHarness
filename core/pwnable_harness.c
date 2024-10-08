@@ -250,7 +250,9 @@ static int serve_internal(
 	unsigned timeout,
 	conn_handler* handler,
 	const char* inject_lib,
-	const char* exec_prog
+	const char* exec_prog,
+	int child_argc,
+	char** child_argv
 ) {
 	if(handler == NULL && exec_prog == NULL) {
 		fprintf(stderr, "Handler function pointer is NULL and no program to exec was provided!\n");
@@ -457,7 +459,14 @@ static int serve_internal(
 			/* Exec ourselves or the target program to run the challenge code. */
 			if(exec_prog != NULL) {
 				/* Exec the target program */
-				execl(exec_prog, exec_prog, NULL);
+				if(child_argc > 0) {
+					/* Replace "--" in argv[0] with the target program */
+					child_argv[0] = (char*)exec_prog;
+					execv(exec_prog, child_argv);
+				}
+				else {
+					execl(exec_prog, exec_prog, NULL);
+				}
 			}
 			else {
 				/* Set connection marker environment variable to the connection socket */
@@ -503,7 +512,7 @@ static void show_usage(server_options* opts) {
 		progpad = 1;
 	}
 	
-	printf("Usage: %s [options]\n"
+	printf("Usage: %s [options] [-- arguments for exec-ed program]\n"
 		"  Options:\n"
 		"    -h, --help                            "
 			"Display this help message\n"
@@ -532,12 +541,15 @@ static void show_usage(server_options* opts) {
 }
 
 int serve(const char* user, bool chrooted, unsigned short port, unsigned timeout, conn_handler* handler) {
-	return serve_internal(user, chrooted, port, timeout, handler, NULL, NULL);
+	return serve_internal(user, chrooted, port, timeout, handler, NULL, NULL, 0, NULL);
 }
 
 int server_main(int argc, char** argv, server_options opts, conn_handler* handler) {
 	const char* inject_lib = NULL;
 	const char* exec_prog = NULL;
+	int child_argc = 0;
+	char** child_argv = NULL;
+	
 	int i;
 	for(i = 1; i < argc; i++) {
 		if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -571,6 +583,12 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 				password = NULL;
 			}
 		}
+		else if(strcmp(argv[i], "--") == 0) {
+			/* Intentionally make argv[0] be this "--" arg, so we can overwrite it later */
+			child_argc = argc - i;
+			child_argv = &argv[i];
+			break;
+		}
 		else {
 			printf("Error: Unknown argument '%s'\n", argv[i]);
 			show_usage(&opts);
@@ -578,5 +596,9 @@ int server_main(int argc, char** argv, server_options opts, conn_handler* handle
 		}
 	}
 	
-	return serve_internal(opts.user, opts.chrooted, opts.port, opts.time_limit_seconds, handler, inject_lib, exec_prog);
+	return serve_internal(
+		opts.user, opts.chrooted, opts.port, opts.time_limit_seconds,
+		handler, inject_lib,
+		exec_prog, child_argc, child_argv
+	);
 }
