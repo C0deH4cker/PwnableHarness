@@ -968,12 +968,16 @@ endif #DOCKER_WRITEABLE
 
 # Add Docker arguments for limiting CPU usage of the container
 ifdef $1+DOCKER_CPULIMIT
+# https://docs.docker.com/engine/containers/resource_constraints/#configure-the-default-cfs-scheduler
 $1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --cpus=$$($1+DOCKER_CPULIMIT)
 endif #DOCKER_CPULIMIT
 
 # Add Docker arguments for limiting memory usage of the container
 ifdef $1+DOCKER_MEMLIMIT
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --memory=$$($1+DOCKER_MEMLIMIT)
+# Need to set both --memory and --memory-swap to properly limit memory usage.
+# Otherwise, the container gets access to N bytes of memory PLUS N bytes of swap, which is stupid.
+# https://docs.docker.com/engine/containers/resource_constraints/#prevent-a-container-from-using-swap
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --memory=$$($1+DOCKER_MEMLIMIT) --memory-swap=$$($1+DOCKER_MEMLIMIT)
 endif #DOCKER_MEMLIMIT
 
 # If there's a password, supply it as an argument to pwnableserver
