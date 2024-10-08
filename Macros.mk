@@ -60,6 +60,44 @@ ifndef DEFAULT_AR
 DEFAULT_AR := ar
 endif
 
+ifndef DEFAULT_RELRO
+DEFAULT_RELRO :=
+endif
+
+ifndef DEFAULT_CANARY
+DEFAULT_CANARY :=
+endif
+
+ifndef DEFAULT_NX
+DEFAULT_NX :=
+endif
+
+ifndef DEFAULT_ASLR
+DEFAULT_ASLR :=
+endif
+
+ifndef DEFAULT_STRIP
+DEFAULT_STRIP :=
+endif
+
+ifndef DEFAULT_DEBUG
+DEFAULT_DEBUG :=
+endif
+
+ifndef DEFAULT_UBUNTU_VERSION
+# Note: versions 19.10 and above dropped support for running 32-bit programs
+# Keep aligned with the first line of base.Dockerfile!
+DEFAULT_UBUNTU_VERSION := 24.04
+endif
+
+ifndef DEFAULT_DOCKER_TIMELIMIT
+DEFAULT_DOCKER_TIMELIMIT :=
+endif
+
+ifndef DEFAULT_DOCKER_PASSWORD
+DEFAULT_DOCKER_PASSWORD :=
+endif
+
 
 #####
 # generate_target($1: subdirectory, $2: target)
@@ -70,6 +108,9 @@ define _generate_target
 ifdef MKDEBUG
 $$(info Generating target rules for $1+$2)
 endif
+ifdef MKTRACE
+$$(info Tracing _generate_target($1,$2)...)
+endif #MKTRACE
 
 # Product path
 ifeq "$$(origin $2_PRODUCT)" "undefined"
@@ -110,11 +151,16 @@ else
 $2_SRCS := $$(addprefix $1/,$$($2_SRCS))
 endif
 
+# Ensure that target_OBJS_DIR has a value, defaulting to .build/proj/target_objs
+ifeq "$$(origin $2_OBJS_DIR)" "undefined"
+$2_OBJS_DIR := $$($1+BUILD)/$2_objs
+endif
+
 # Ensure that target_OBJS has a value, default to modifying the value of each
 # src from target_SRCS into target_BUILD/src.o
-# Example: generate_target(proj, target) with main.cpp -> build/proj/target_objs/main.cpp.o
+# Example: generate_target(proj, target) with main.cpp -> .build/proj/target_objs/main.cpp.o
 ifeq "$$(origin $2_OBJS)" "undefined"
-$2_OBJS := $$(patsubst $1/%,$$($1+BUILD)/$2_objs/%.o,$$($2_SRCS))
+$2_OBJS := $$(patsubst $1/%,$$($2_OBJS_DIR)/%.o,$$($2_SRCS))
 endif
 
 # Ensure that target_DEPS has a value, default to the value of target_OBJS
@@ -142,6 +188,16 @@ endif
 # Ensure that target_AR has a value
 ifeq "$$(origin $2_AR)" "undefined"
 $2_AR := $$($1+AR)
+endif
+
+# Undocumented feature for allowing per-target PWNCC overriding (used by core)
+ifdef CONFIG_USE_PWNCC
+ifeq "$$(origin $2_PWNCC)" "undefined"
+$2_PWNCC := $$($1+PWNCC)
+endif
+ifeq "$$(origin $2_PWNCC_DEPS)" "undefined"
+$2_PWNCC_DEPS := $$($1+PWNCC_DEPS)
+endif
 endif
 
 # Ensure that target_BINTYPE has a value, defaulting to "dynamiclib" if target
@@ -178,9 +234,9 @@ ifeq "$$(origin $2_LDLIBS)" "undefined"
 $2_LDLIBS := $$($1+LDLIBS)
 endif #target_LDLIBS undefined
 
-# Add dependency on libpwnableharness[32|64] if requested
+# Add dependency on libpwnableharness(32|64).so if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) $$(ROOT_BUILD)/libpwnableharness$$($2_BITS).so
+$2_ALLLIBS := $$($2_LIBS) $$(PWNABLEHARNESS_CORE_PROJECT_BUILD)/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so
 else
 $2_ALLLIBS := $$($2_LIBS)
 endif
@@ -189,9 +245,13 @@ endif
 ifndef $2_NO_UNBUFFERED_STDIO
 $2_OBJS := $$($2_OBJS) $$($1+BUILD)/$2_objs/stdio_unbuffer.o
 
+ifdef MKTRACE
+$$(info Adding rule for $1+$2's stdio_unbuffer.o)
+endif #MKTRACE
+
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $(ROOT_DIR)/stdio_unbuffer.c
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(ROOT_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
+	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif
 
@@ -324,6 +384,10 @@ $2_CFLAGS := $$($2_CFLAGS) -DNDEBUG=1
 $2_CXXFLAGS := $$($2_CXXFLAGS) -DNDEBUG=1
 endif #DEBUG
 
+ifdef MKTRACE
+$$(info Adding build deps for $1+$2)
+endif #MKTRACE
+
 # Ensure directories are created for all object files
 $2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(patsubst %/,%,$$(dir $$($2_OBJS)))))
 $$($2_OBJS): $$($2_OBJ_DIR_RULES)
@@ -332,40 +396,58 @@ $$($2_OBJS): $$($2_OBJ_DIR_RULES)
 $$($2_OBJS): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 $$($2_PRODUCT): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
+
+ifdef MKTRACE
+$$(info Adding compiler rules for $1+$2)
+endif #MKTRACE
+
 # Compiler rule for C sources
-$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c
+$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c | $$($2_PWNCC_DEPS)
 	$$(_V)echo "Compiling $$<"
-	$$(_v)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp
+$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($2_PWNCC_DEPS)
 	$$(_V)echo "Compiling $$<"
-	$$(_v)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+
+clean[$1]: clean[$1+$2]
+clean[$1+$2]:
+	$$(_v)rm -rf $$($2_OBJS_DIR)
+
+ifdef MKTRACE
+$$(info Including dependency files for $1+$2)
+endif #MKTRACE
 
 # Compilation dependency rules
 -include $$($2_DEPS)
 
 $2_PRODUCT_DIR_RULE := $$(patsubst %/,%,$$(dir $$($2_PRODUCT)))/.dir
 
+
+ifdef MKTRACE
+$$(info Adding linker rules for $1+$2)
+endif #MKTRACE
+
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
 	$$(_V)echo "Linking shared library $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
+	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
 	$$(_V)echo "Linking executable $$@"
-	$$(_v)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
+	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
 	$$(_V)echo "Archiving static library $$@"
-	$$(_v)$$($2_AR) rcs $$@ $$^
+	$$(_v)$$($2_PWNCC)$$($2_AR) rcs $$@ $$^
 
 else #dynamiclib & executable & staticlib
 
@@ -375,6 +457,11 @@ $$(info Not generating a linker rule for $1/$2 because its BINTYPE is "$$($2_BIN
 endif #MKDEBUG
 
 endif #dynamiclib & executable & staticlib
+
+
+ifdef MKTRACE
+$$(info Done generating target rules for $1+$2)
+endif #MKTRACE
 
 endef #_generate_target
 generate_target = $(eval $(call _generate_target,$1,$2))
@@ -485,6 +572,10 @@ add_publish_rule = $(eval $(call _add_publish_rule,$1,$2,$3))
 #####
 define _include_subdir
 
+# Prevent accidentally including a project file multiple times
+ifndef $1+INCLUDE_GUARD
+$1+INCLUDE_GUARD := 1
+
 # Allow overriding the Build.mk path for a directory
 ifndef $1+BUILD_MK
 $1+BUILD_MK := $$(wildcard $1/Build.mk)
@@ -534,9 +625,9 @@ DOCKER_RUN_ARGS :=
 DOCKER_PWNABLESERVER_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
-DOCKER_TIMELIMIT :=
+DOCKER_TIMELIMIT := $(DEFAULT_DOCKER_TIMELIMIT)
 DOCKER_WRITEABLE :=
-DOCKER_PASSWORD :=
+DOCKER_PASSWORD := $(DEFAULT_DOCKER_PASSWORD)
 
 # These can optionally be defined to set directory-specific variables
 BITS := $(DEFAULT_BITS)
@@ -554,19 +645,20 @@ LIBS :=
 LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
 NO_UNBUFFERED_STDIO :=
+UBUNTU_VERSION := $(DEFAULT_UBUNTU_VERSION)
 
 # Hardening flags
-RELRO :=
-CANARY :=
-NX :=
-ASLR :=
-STRIP :=
-DEBUG :=
+RELRO := $(DEFAULT_RELRO)
+CANARY := $(DEFAULT_CANARY)
+NX := $(DEFAULT_NX)
+ASLR := $(DEFAULT_ASLR)
+STRIP := $(DEFAULT_STRIP)
+DEBUG := $(DEFAULT_DEBUG)
 
 # Set DIR+BUILD to the build directory for this project folder
-ifeq "$1" "$$(ROOT_DIR)"
+ifeq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
 # Either container build or not, this will be the repo root
-$1+BUILD := $$(ROOT_BUILD)
+$1+BUILD := $$(PWNABLEHARNESS_CORE_PROJECT_BUILD)
 else ifeq "$1" "."
 # For container builds, this is the workspace directory
 $1+BUILD := $$(BUILD)
@@ -674,6 +766,7 @@ $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 $1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
+$1+UBUNTU_VERSION := $$(UBUNTU_VERSION)
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -682,6 +775,13 @@ $1+NX := $$(NX)
 $1+ASLR := $$(ASLR)
 $1+STRIP := $$(STRIP)
 $1+DEBUG := $$(DEBUG)
+
+# Run compiler commands in a pwncc container?
+$1+PWNCC :=
+$1+PWNCC_DEPS :=
+ifdef CONFIG_USE_PWNCC
+$$(call pwncc_prepare,$1,$$($1+UBUNTU_VERSION),$1+PWNCC,$1+PWNCC_DEPS)
+endif #CONFIG_USE_PWNCC
 
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1+TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
@@ -728,10 +828,15 @@ endif #$1+DEPLOY_COMMAND
 # Clean rules
 clean:: clean[$1]
 
+$1+TO_CLEAN := $$($1+PRODUCTS)
+ifneq "$$($1+BUILD)" ".build"
+$1+TO_CLEAN := $$($1+TO_CLEAN) $$($1+BUILD)
+endif
+
 TARGET_LIST := $$(TARGET_LIST) clean[$1]
 clean[$1]:
 	$$(_V)echo "Removing build directory and products for $1"
-	$$(_v)rm -rf $$($1+BUILD) $$($1+PRODUCTS)
+	$$(_v)rm -rf $$($1+TO_CLEAN)
 
 .PHONY: clean[$1]
 
@@ -762,21 +867,12 @@ ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
-$1/default.Dockerfile:
-	$$(_v)echo 'FROM $$(PWNABLEHARNESS_REPO):$$(PWNABLEHARNESS_VERSION)' > $$@
-
-# The default Dockerfile should be regenerated every time
-.PHONY: $1/default.Dockerfile
+$1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
+		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
-
-# Docker images depend on the base PwnableHarness Docker image
-ifneq "$$($1+DOCKER_IMAGE)" "$$(PWNABLEHARNESS_REPO)"
-ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) docker-build[$$(PWNABLEHARNESS_REPO)]
-endif
-endif
 
 # Add the Dockerfile as a dependency for the docker-build target
 $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
@@ -789,7 +885,7 @@ $1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) $$(ROOT_DIR)/Ma
 ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
-ifneq "$1" "$$(ROOT_DIR)"
+ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
 $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
 endif
 endif
@@ -797,7 +893,7 @@ endif
 # Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
-ifneq "$1" "$$(ROOT_DIR)"
+ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
 $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
@@ -860,7 +956,7 @@ $1+DOCKER_RUNNABLE :=
 endif
 
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
-ifneq "$1" "$$(ROOT_DIR)"
+ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
@@ -881,10 +977,10 @@ $1+WORKDIR_COPY_CMDS :=
 
 # Handle copying the workdir folder contents to the Docker volume
 ifdef $1+WORKDIR
-$1+MOUNT_WORKDIR := 1
+$1+MOUNT_WORKDIR := true
 $1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
 $1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
-	&& docker cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
+	&& $$(DOCKER) cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
 endif
 
 # Adding the flag file to the docker image
@@ -896,13 +992,13 @@ $$(info Preparing flag for docker image $$($1+DOCKER_TAG_ARG) in $$($1+FLAG_DST)
 endif #MKDEBUG
 
 # Handle copying the flag file and setting its ownership and permissions in the Docker volume
-$1+HAS_FLAG := 1
+$1+HAS_FLAG := true
 $1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
-$1+MOUNT_WORKDIR := 1
+$1+MOUNT_WORKDIR := true
 $1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$($1+FLAG_FILE)
 $1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
-	&& docker cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
-	&& docker run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
+	&& $$(DOCKER) cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
+	&& $$(DOCKER) run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
 		sh -c 'chown root:1337 /data/$$($1+FLAG_DST) && chmod 0640 /data/$$($1+FLAG_DST)'
 endif #FLAG_DST
 endif #FLAG_FILE
@@ -918,6 +1014,10 @@ $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
 ## Docker build rules
 
+ifdef MKTRACE
+$$(info Adding docker-build rules for $1)
+endif #MKTRACE
+
 # Build a docker image
 docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
 
@@ -928,6 +1028,10 @@ docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
 
 # Makefile targets for Docker images can be aliased w/o the tag version
 ifdef $1+DOCKER_IMAGE_TAG
+
+ifdef MKTRACE
+$$(info Adding docker tag rules for $1)
+endif #MKTRACE
 
 TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE)]
 docker-build[$$($1+DOCKER_IMAGE)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
@@ -943,7 +1047,7 @@ endif #DOCKER_IMAGE_TAG
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
@@ -953,7 +1057,7 @@ docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it (and volumes)
@@ -964,17 +1068,21 @@ TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE_DEP)]
 docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
-	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
 ifdef $1+MOUNT_WORKDIR
-	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
 endif
-	$$(_v)docker rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
 	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
 
 ## Docker run rules
 
 ifdef $1+DOCKER_RUNNABLE
+
+ifdef MKTRACE
+$$(info Adding docker runnable rules for $1)
+endif #MKTRACE
 
 # Rule for starting a docker container
 docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
@@ -984,8 +1092,8 @@ docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)docker rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-	$$(_v)docker run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
@@ -993,14 +1101,18 @@ docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$(
 # Rule for mounting the workdir
 ifdef $1+MOUNT_WORKDIR
 
+ifdef MKTRACE
+$$(info Adding docker workdir mounting rule for $1)
+endif #MKTRACE
+
 $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 	$$(_V)echo "Preparing workdir volume for $1"
-	$$(_v)docker volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
-	$$(_v)docker container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
-	$$(_v)docker volume create $$($1+WORKDIR_VOLUME) \
-		&& docker container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) volume create $$($1+WORKDIR_VOLUME) \
+		&& $$(DOCKER) container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
 		$$($1+WORKDIR_COPY_CMDS) \
-		&& docker rm $$($1+WORKDIR_VOLUME)-temp \
+		&& $$(DOCKER) rm $$($1+WORKDIR_VOLUME)-temp \
 		&& touch $$@
 
 endif #MOUNT_WORKDIR
@@ -1013,7 +1125,7 @@ docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-restart[$$($1+DOCKER_CONTAINER)]
 docker-restart[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)docker restart $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) restart $$($1+DOCKER_CONTAINER)
 
 .PHONY: docker-restart[$$($1+DOCKER_CONTAINER)]
 
@@ -1024,7 +1136,7 @@ docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)docker stop $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER)
 
 .PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
 
@@ -1043,6 +1155,10 @@ else
 $1+LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
 endif
 
+ifdef MKTRACE
+$$(info Adding publish libc rules for $1)
+endif #MKTRACE
+
 publish[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 
 # Copy the libc from Docker only if the challenge builds a Docker image
@@ -1050,7 +1166,7 @@ ifdef $1+DOCKER_IMAGE
 # If the challenge has a Docker image, copy the libc from there
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE_DEP)] | $$(PUB_DIR)/$1/.dir
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LIBC_PATH)"
-	$$(_v)mkdir -p $$(@D) && docker run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_IMAGE
 # If the challenge doesn't run in Docker, copy the system's libc
@@ -1060,8 +1176,13 @@ $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 
 endif #DOCKER_IMAGE
 endif #PUBLISH_LIBC
-endif #DIR+BUILD_MK
 
+ifdef MKTRACE
+$$(info Done processing $1's project file $$($1+BUILD_MK))
+endif #MKTRACE
+
+endif #BUILD_MK
+endif #INCLUDE_GUARD
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
 #####
@@ -1103,9 +1224,15 @@ $$(foreach sd,$$($1+SUBDIRS),$$(call recurse_subdir,$$(sd)))
 # If there's an After.mk present, include it after the Build.mk for the project and all
 # descendent projects have been included.
 ifneq "$$(wildcard $1/After.mk)" ""
+
 DIR := $1
-include $1/After.mk
+
+ifdef MKDEBUG
+$$(info Including $1/After.mk)
 endif
+include $1/After.mk
+
+endif #DIR/After.mk
 
 endef #_recurse_subdir
 recurse_subdir = $(eval $(call _recurse_subdir,$1))

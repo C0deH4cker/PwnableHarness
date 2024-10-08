@@ -67,8 +67,6 @@
          Display a list of all discovered project directories.
 * `list-targets`:
          Display a list of all provided targets.
-* `base`:
-         Build only the core PwnableHarness binaries.
 
 ### Command-line variables:
 
