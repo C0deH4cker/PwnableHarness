@@ -128,6 +128,9 @@ Options:
                      will use '${docker_image_repo}@sha256:abc...123' as the pwnmake image base.
   --skip-update      Don't attempt to ensure the pwnmake image is up-to-date.
   --reinit           Force the pwnmake container to be reinitialized
+  --pull             Always attempt to pull the pwnmake image from Docker Hub. This is typically only
+                     useful for versions that are still in development, where tags other than "latest"
+                     may be changing.
   --shell            Enter an interactive shell in the pwnmake container (for debugging)
   --verbose          Show executed commands verbosely (for debugging)
   --help             Display this help message.
@@ -142,7 +145,7 @@ EOF
 # pwnmake [...]
 main() {
 	local workspace=.
-	local reinit shell skip_update digest tag verbose
+	local digest pull reinit shell skip_update tag verbose
 	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
 	local env_args=()
 	
@@ -159,6 +162,11 @@ main() {
 			--reinit)
 				shift
 				reinit=1
+				;;
+			
+			--pull)
+				shift
+				pull=1
 				;;
 			
 			--shell)
@@ -305,7 +313,7 @@ main() {
 	# unexplained long delays when trying to run pwnmake (because an image is being
 	# pulled) or unnecessarily verbose output from docker pull even when the image
 	# is up to date. By doing the above checks, we can make the user experience better.
-	if [ "$need_pull" = "1" ]; then
+	if [ -n "$need_pull" ] || [ -n "$pull" ]; then
 		docker pull "$docker_image" >&2
 	fi
 	
