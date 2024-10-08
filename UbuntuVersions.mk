@@ -34,9 +34,6 @@ define _generate_dependency_list
 # Add dependencies from the base rule name on the parameterized rule
 $1: $$(foreach x,$2,$1[$$x])
 
-# Mark base target and all parameterized targets as phony
-.PHONY: $1 $$(foreach x,$2,$1[$$x])
-
 endef #_generate_dependency_list
 generate_dependency_list = $(eval $(call _generate_dependency_list,$1,$2))
 #####

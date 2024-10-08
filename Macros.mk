@@ -868,7 +868,7 @@ $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
-	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
+	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
 		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
