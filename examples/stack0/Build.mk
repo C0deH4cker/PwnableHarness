@@ -119,14 +119,14 @@ BITS := 32
 # instantly update challenges as they are rebuilt. The recommended way
 # of doing that is to put symlinks in /var/www that point back into
 # the publish directory in your workspace.
-PUBLISH_BUILD := $(TARGET)
 PUBLISH := stack0.c
+PUBLISH_BUILD := $(TARGET)
 
 # PUBLISH_LIBC is the desired filename used when publishing this
 # challenge's libc. When this is defined, the exact libc used will
-# be published to publish/$(PUBLISH_LIBC). This libc will be copied
-# from the docker image if the challenge is configured to run in
-# docker, otherwise the local system's libc will be copied.
+# be published to publish/$(DIR)/$(PUBLISH_LIBC). This libc will be
+# copied from the docker image if the challenge is configured to run
+# in docker, otherwise the local system's libc will be copied.
 #PUBLISH_LIBC := stack0-libc.so
 
 # DOCKER_IMAGE is the name of the docker image to create when
@@ -189,10 +189,10 @@ DOCKER_TIMELIMIT := 30
 
 # DOCKER_WRITEABLE is used to make the Docker container's filesystem
 # writeable. By default, the Docker container's filesystem is read-only.
-#DOCKER_WRITEABLE := 1
+#DOCKER_WRITEABLE := true
 
 # DOCKER_ENTRYPOINT_ARGS is a list of arguments to pass to the docker
-# container's ENTRYPOINT, which is DOCKER_RUNTIME_NAME.
+# container's ENTRYPOINT. This is only useful for custom Dockerfiles.
 #DOCKER_ENTRYPOINT_ARGS :=
 
 # [DEPRECATED] USE_LIBPWNABLEHARNESS is used to tell PwnableHarness that
@@ -202,7 +202,7 @@ DOCKER_TIMELIMIT := 30
 # talk over stdin/stdout directly and doesn't require any code changes.
 # PwnableHarness will even make sure to set stdout/stderr as unbuffered,
 # so you don't need to manually add calls to fflush(stdout) in your code.
-#USE_LIBPWNABLEHARNESS := 1
+#USE_LIBPWNABLEHARNESS := true
 
 # DEPLOY_COMMAND is a string containing a command that should be run during
 # `make deploy` from the project directory.

@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gosu pwnuser make -rR --warn-undefined-variables -f /PwnableHarness/Makefile "$@"
