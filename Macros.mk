@@ -90,6 +90,23 @@ ifndef DEFAULT_UBUNTU_VERSION
 DEFAULT_UBUNTU_VERSION := 24.04
 endif
 
+ifndef DEFAULT_DOCKER_CPULIMIT
+# Default to half of a virtual CPU core
+DEFAULT_DOCKER_CPULIMIT := 0.5
+endif
+
+ifndef DEFAULT_DOCKER_MEMLIMIT
+# Default to 500MB of RAM usage total
+# This can be measured with `docker stats <container>`. As a baseline, I
+# checked a basic challenge. It uses 3.2MB when sitting idle without any
+# connections, then jumps to 5.8MB with an active connection. That's 2.6MB
+# per connection (for a basic challenge). If we overestimate this to 10MB
+# per connection and want to support 50 concurrent connections, this gives
+# us 500MB. Challenges that need more memory can of course override this
+# default by setting `DOCKER_MEMLIMIT`.
+DEFAULT_DOCKER_MEMLIMIT := 500m
+endif
+
 ifndef DEFAULT_DOCKER_TIMELIMIT
 DEFAULT_DOCKER_TIMELIMIT :=
 endif
@@ -626,6 +643,8 @@ DOCKER_RUN_ARGS :=
 DOCKER_PWNABLESERVER_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
+DOCKER_CPULIMIT := $(DEFAULT_DOCKER_CPULIMIT)
+DOCKER_MEMLIMIT := $(DEFAULT_DOCKER_MEMLIMIT)
 DOCKER_TIMELIMIT := $(DEFAULT_DOCKER_TIMELIMIT)
 DOCKER_WRITEABLE :=
 DOCKER_PASSWORD := $(DEFAULT_DOCKER_PASSWORD)
@@ -747,6 +766,8 @@ $1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
 $1+DOCKER_PWNABLESERVER_ARGS := $$(DOCKER_PWNABLESERVER_ARGS)
 $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
+$1+DOCKER_CPULIMIT := $$(DOCKER_CPULIMIT)
+$1+DOCKER_MEMLIMIT := $$(DOCKER_MEMLIMIT)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
 $1+DOCKER_PASSWORD := $$(DOCKER_PASSWORD)
@@ -944,6 +965,16 @@ ifeq "$$(filter --read-only,$$($1+DOCKER_RUN_ARGS))" ""
 $1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --read-only
 endif #--read-only
 endif #DOCKER_WRITEABLE
+
+# Add Docker arguments for limiting CPU usage of the container
+ifdef $1+DOCKER_CPULIMIT
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --cpus=$$($1+DOCKER_CPULIMIT)
+endif #DOCKER_CPULIMIT
+
+# Add Docker arguments for limiting memory usage of the container
+ifdef $1+DOCKER_MEMLIMIT
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --memory=$$($1+DOCKER_MEMLIMIT)
+endif #DOCKER_MEMLIMIT
 
 # If there's a password, supply it as an argument to pwnableserver
 ifdef $1+DOCKER_PASSWORD
