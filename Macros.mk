@@ -139,6 +139,15 @@ ifeq "$$(origin $2_BITS)" "undefined"
 $2_BITS := $$($1+BITS)
 endif
 
+# Check that BITS is compatible with UBUNTU_VERSION
+ifndef $1+THIS_IS_THE_CORE_PROJECT
+ifeq "$$($2_BITS)" "32"
+ifndef UBUNTU_32BIT_SUPPORT[$$($1+UBUNTU_VERSION)]
+$$(error $1/$2: Requesting 32-bit binaries, but Ubuntu $$($1+UBUNTU_VERSION) doesn't have 32-bit support. Must be <= 19.04!)
+endif #UBUNTU_32BIT_SUPPORT
+endif #BITS==32
+endif #THIS_IS_THE_CORE_PROJECT
+
 # Ensure that target_OFLAGS has a value, default to no optimization
 ifeq "$$(origin $2_OFLAGS)" "undefined"
 $2_OFLAGS := $$($1+OFLAGS)
@@ -261,10 +270,24 @@ endif #target_LDLIBS undefined
 
 # Add dependency on libpwnableharness(32|64).so if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) $$(PWNABLEHARNESS_CORE_PROJECT_BUILD)/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so
-else
+$2_ALLLIBS := $$($2_LIBS) $$(BUILD)/core/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so
+
+# When not building PwnableHarness core, just extract the prebuilt libpwnableharness*.so library out of the Docker image
+ifndef $1+THIS_IS_THE_CORE_PROJECT
+ifndef DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($1+UBUNTU_VERSION)
+DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($1+UBUNTU_VERSION) := 1
+$$(BUILD)/core/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so:
+	$$(_V)echo "Pulling $$($1+DOCKER_FULL_BASE) (if necessary)"
+	$$(_v)$$(DOCKER) pull $$($1+DOCKER_PLATFORM) $$($1+DOCKER_FULL_BASE)
+	$$(_V)echo "Copying libpwnableharness$$($2_BITS).so from $$($1+DOCKER_FULL_BASE)"
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_FULL_BASE) /usr/local/lib/libpwnableharness$$($2_BITS).so > $$@
+
+endif #DEFINED_GRAB_LIBPWNABLEHARNESS
+endif #THIS_IS_THE_CORE_PROJECT
+
+else #USE_LIBPWNABLEHARNESS
 $2_ALLLIBS := $$($2_LIBS)
-endif
+endif #USE_LIBPWNABLEHARNESS
 
 # Build and link in the stdio_unbuffer.c source file unless opted out
 ifndef $2_NO_UNBUFFERED_STDIO
@@ -715,10 +738,7 @@ STRIP := $(DEFAULT_STRIP)
 DEBUG := $(DEFAULT_DEBUG)
 
 # Set DIR+BUILD to the build directory for this project folder
-ifeq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
-# Either container build or not, this will be the repo root
-$1+BUILD := $$(PWNABLEHARNESS_CORE_PROJECT_BUILD)
-else ifeq "$1" "."
+ifeq "$1" "."
 # For container builds, this is the workspace directory
 $1+BUILD := $$(BUILD)
 else
@@ -856,7 +876,8 @@ $1+UBUNTU_VERSION := $$(DEFAULT_UBUNTU_VERSION)
 
 endif #UBUNTU_VERSION
 
-
+# Fully qualified base image to use for the challenge image
+$1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -944,9 +965,9 @@ $1+DOCKERFILE := $1/default.Dockerfile
 # This usage is safe since it's just intended for pre-competition testing. The image produced
 # isn't intended to keep that password secret.
 # https://docs.docker.com/build/checks/#skip-checks
-$1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+$1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk $$(ROOT_DIR)/VERSION
 	$$(_v)echo '# check=skip=SecretsUsedInArgOrEnv' > $$@ \
-		&& echo 'FROM $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@
+		&& echo 'FROM $$($1+DOCKER_FULL_BASE)' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -962,7 +983,7 @@ $1+DOCKER_BUILD_DEPS += $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 ifdef $1+DOCKER_CHALLENGE_NAME
 $1+DOCKER_RUNNABLE := true
 else
-ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
+ifndef $1+THIS_IS_THE_CORE_PROJECT
 $1+DOCKER_CHALLENGE_NAME := $$(or $$(firstword $$($1+TARGETS)),$$($1+DOCKER_IMAGE))
 endif
 endif
@@ -970,7 +991,7 @@ endif
 # Ensure that DIR+DOCKER_CHALLENGE_PATH has a value. Default to the path to the
 # built challenge binary
 ifndef $1+DOCKER_CHALLENGE_PATH
-ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
+ifndef $1+THIS_IS_THE_CORE_PROJECT
 $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
@@ -1050,7 +1071,7 @@ $1+DOCKER_RUNNABLE :=
 endif
 
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
-ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
+ifndef $1+THIS_IS_THE_CORE_PROJECT
 ifndef $1+DOCKER_IMAGE_CUSTOM
 $1+DOCKER_BUILD_ARGS += \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
@@ -1135,13 +1156,13 @@ docker-rebuild-one[$1]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/
 docker-clean-one[$1]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
-	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
 ifdef $1+MOUNT_WORKDIR
-	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
 endif
-	-$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1
-	-$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
+	$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
+	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker || true
 
 ## Docker run rules
 
@@ -1155,7 +1176,7 @@ endif #MKTRACE
 # and up to date
 docker-start-one[$1]: docker-build[$1] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
-	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)$$(DOCKER) run $$($1+DOCKER_PLATFORM) -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
@@ -1168,8 +1189,8 @@ endif #MKTRACE
 
 $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 	$$(_V)echo "Preparing workdir volume for $1"
-	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
-	-$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
 	$$(_v)$$(DOCKER) volume create $$($1+WORKDIR_VOLUME) \
 		&& $$(DOCKER) container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
 		$$($1+WORKDIR_COPY_CMDS) \
@@ -1186,7 +1207,7 @@ docker-restart-one[$1]:
 # Stop the docker container
 docker-stop-one[$1]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	-$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 
 endif #DOCKER_RUNNABLE
 
@@ -1212,9 +1233,9 @@ publish-one[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 # Copy the libc from Docker only if the challenge builds a Docker image
 ifdef $1+DOCKER_IMAGE
 # If the challenge has a Docker image, copy the libc from there
-$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build-one[$1] | $$(PUB_DIR)/$1/.dir
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build-one[$1]
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LIBC_PATH)"
-	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
 
 else #DOCKER_IMAGE
 # If the challenge doesn't run in Docker, copy the system's libc

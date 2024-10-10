@@ -17,12 +17,10 @@ PROJECT ?= .
 ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
 GIT_HASH := $(shell cat '$(ROOT_DIR)/.githash')
-PWNABLEHARNESS_CORE_PROJECT := $(ROOT_DIR)/core
 CONFIG_USE_PWNCC ?= 1
 else #CONTAINER_BUILD
 ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
 GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
-PWNABLEHARNESS_CORE_PROJECT := core
 PWNMAKE_DIR := pwnmake
 endif #CONTAINER_BUILD
 
@@ -61,7 +59,9 @@ endif
 
 # Path to the root build directory
 BUILD := .build
-PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
+
+# Path to the publish directory
+PUB_DIR := publish
 
 # List of PwnableHarness projects discovered
 PROJECT_LIST :=
@@ -123,9 +123,6 @@ ifdef IS_MAC
 CONFIG_IGNORE_32BIT := true
 endif #IS_MAC
 
-# Path to the publish directory
-PUB_DIR := publish
-
 DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
 
 # Define useful build macros
@@ -136,7 +133,7 @@ include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git .docker $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := %$(BUILD) $(PUB_DIR) bin %.git %.cache %.docker core $(RECURSION_BLACKLIST)
 
 ifndef CONTAINER_BUILD
 ifndef WITH_EXAMPLES
@@ -148,13 +145,12 @@ endif #CONTAINER_BUILD
 # Users of PwnableHarness aren't expected to build the core project and image
 # themselves, but rather pull the pre-built images from Docker Hub.
 ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
-$(call include_subdir,$(PWNABLEHARNESS_CORE_PROJECT))
-endif #C0deH4cker
-
-# Responsible for building, tagging, and pushing the pwnmake builder images
+$(call include_subdir,core)
 ifndef CONTAINER_BUILD
+# Responsible for building, tagging, and pushing the pwnmake builder images
 include $(PWNMAKE_DIR)/pwnmake.mk
 endif #CONTAINER_BUILD
+endif #C0deH4cker
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)

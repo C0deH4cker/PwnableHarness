@@ -1,6 +1,8 @@
 # This is not intended to be an example Build.mk file to reference.
 # Please instead look at examples/stack0/Build.mk for reference.
 
+$(DIR)+THIS_IS_THE_CORE_PROJECT := 1
+
 CORE_DIR := $(DIR)
 CORE_BUILD := $(BUILD_DIR)
 

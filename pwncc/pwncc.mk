@@ -123,16 +123,16 @@ $(call add_target,pwncc-clean[<ubuntu-version>])
 
 # Remove pwncc-<ubuntu version>-v<pwnableharness version> tags and the build markers
 $(patsubst %,pwncc-clean[%],$(UBUNTU_VERSIONS)): pwncc-clean[%]:
-	-$(_v)rm -f $(BUILD)/.pwncc_build_marker-$*
-	-$(_v)$(DOCKER) rmi -f \
+	$(_v)rm -f $(BUILD)/.pwncc_build_marker-$* || true
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) \
-		>/dev/null 2>&1
+		>/dev/null 2>&1 || true
 
 # Remove pwncc-<ubuntu-alias>-v<pwnableharness version> tags
 $(patsubst %,pwncc-clean[%],$(UBUNTU_ALIASES)): pwncc-clean[%]:
-	-$(_v)$(DOCKER) rmi -f \
+	$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) \
-		>/dev/null 2>&1
+		>/dev/null 2>&1 || true
 
 endif #C0deH4cker
 
