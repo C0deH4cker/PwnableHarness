@@ -700,6 +700,7 @@ PUBLISH :=
 PUBLISH_BUILD :=
 PUBLISH_TOP :=
 PUBLISH_LIBC :=
+PUBLISH_LD :=
 
 # Deployment
 DEPLOY_COMMAND :=
@@ -821,6 +822,7 @@ $1+PUBLISH := $$(PUBLISH)
 $1+PUBLISH_BUILD := $$(PUBLISH_BUILD)
 $1+PUBLISH_TOP := $$(PUBLISH_TOP)
 $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
+$1+PUBLISH_LD := $$(PUBLISH_LD)
 $1+PUBLISH_PROJ_FILES := $$(addprefix $1/,$$($1+PUBLISH))
 $1+PUBLISH_BUILD_FILES := $$(addprefix $$($1+BUILD)/,$$($1+PUBLISH_BUILD))
 $1+PUBLISH_ALL_FILES := $$(sort $$($1+PUBLISH_PROJ_FILES) $$($1+PUBLISH_BUILD_FILES) $$(PUBLISH_TOP))
@@ -1239,15 +1241,17 @@ endif #DOCKER_RUNNABLE
 endif #DOCKER_IMAGE
 
 
-# Publish libc for the challenge
-ifdef $1+PUBLISH_LIBC
-
 # Decide whether to grab the 32-bit or 64-bit libc
 ifeq "$$($1+BITS)" "32"
 $1+LIBC_PATH := /lib/i386-linux-gnu/libc.so.6
+$1+LDSO_PATH := /lib/ld-linux.so.2
 else
 $1+LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
+$1+LDSO_PATH := /lib64/ld-linux-x86-64.so.2
 endif
+
+# Publish libc for the challenge
+ifdef $1+PUBLISH_LIBC
 
 ifdef MKTRACE
 $$(info Adding publish libc rules for $1)
@@ -1270,6 +1274,31 @@ $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): $$($1+LIBC_PATH)
 
 endif #DOCKER_IMAGE
 endif #PUBLISH_LIBC
+
+# Publish ld.so for the challenge
+ifdef $1+PUBLISH_LD
+
+ifdef MKTRACE
+$$(info Adding publish ld.so rules for $1)
+endif #MKTRACE
+
+publish-one[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LD)
+
+# Copy the ld.so from Docker only if the challenge builds a Docker image
+ifdef $1+DOCKER_IMAGE
+# If the challenge has a Docker image, copy the ld.so from there
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LD): docker-build-one[$1]
+	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LD) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LDSO_PATH)"
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LDSO_PATH) > $$@
+
+else #DOCKER_IMAGE
+# If the challenge doesn't run in Docker, copy the system's libc
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LD): $$($1+LDSO_PATH)
+	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LD) from $$<"
+	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
+
+endif #DOCKER_IMAGE
+endif #PUBLISH_LD
 
 ifdef MKTRACE
 $$(info Done processing $1's project file $$($1+BUILD_MK))
