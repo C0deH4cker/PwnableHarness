@@ -119,13 +119,13 @@ $(call add_phony_target,docker-base-clean)
 # Remove base-<ubuntu version>-v<pwnableharness version> tags and the build markers
 $(call add_target,docker-base-clean[<ubuntu-version>])
 $(patsubst %,docker-base-clean[%],$(UBUNTU_VERSIONS)): docker-base-clean[%]:
-	$(_v)rm -f $(CORE_BUILD)/.docker_base_build_marker.$*
-	$(_v)$(DOCKER) rmi -f \
+	-$(_v)rm -f $(CORE_BUILD)/.docker_base_build_marker.$*
+	-$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):base-$*-$(PWNABLEHARNESS_VERSION) \
-		>/dev/null 2>&1 || true
+		>/dev/null 2>&1
 
 # Remove base-<ubuntu-alias>-v<pwnableharness version> tags
 $(patsubst %,docker-base-clean[%],$(UBUNTU_ALIASES)): docker-base-clean[%]:
-	$(_v)$(DOCKER) rmi -f \
+	-$(_v)$(DOCKER) rmi -f \
 		$(PWNABLEHARNESS_REPO):base-$*-$(PWNABLEHARNESS_VERSION) \
-		>/dev/null 2>&1 || true
+		>/dev/null 2>&1

@@ -79,6 +79,24 @@ realpath() (
 	echo "$REALPATH"
 )
 
+# https://stackoverflow.com/a/44310938
+search_file_up() (
+	local start="$(realpath "$PWD")"
+	local target="$1"
+	local old=""
+	
+	until [ -f "$target" ] || [ "$PWD" = "$old" ]; do
+		old="$PWD"
+		cd ..
+	done
+	
+	if [ ! -f "$target" ]; then
+		return 1
+	fi
+	
+	echo "$(realpath "$PWD")"
+)
+
 docker_image_exists() {
 	docker image inspect "$1" >/dev/null 2>&1
 }
@@ -115,7 +133,8 @@ Usage: pwnmake [-C/--dir <path>] [--env <NAME=VALUE> ...] [--pwnableharness-vers
                [--tag <tag>] [--digest <digest>] [--skip-update] [--reinit] [--shell] [--help] [--version]
                [--] [targets...]
 Options:
-  -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default '.')
+  -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default is to search
+                     upwards looking for a directory containing a '.pwnmake' file, or '.').
   --env <NAME=VALUE> Set an environment variable within the pwnmake image for this command.
   --pwnableharness-version <version>
                      Select a specific PwnableHarness version for the pwnmake image base. For example,
@@ -144,8 +163,7 @@ EOF
 
 # pwnmake [...]
 main() {
-	local workspace=.
-	local digest pull reinit shell skip_update tag verbose
+	local digest pull reinit shell skip_update tag verbose workspace
 	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
 	local env_args=()
 	
@@ -215,7 +233,7 @@ main() {
 				;;
 			
 			--version)
-				echo "pwnmake version $version"
+				echo "pwnmake script version $version"
 				exit 0
 				;;
 			
@@ -234,7 +252,18 @@ main() {
 		set -x
 	fi
 	
-	local HOST_WORKSPACE=$(realpath "$workspace")
+	# No workspace dir specified on cmdline, search for it
+	local PROJECT=.
+	if [ -z "$workspace" ]; then
+		local start="$(realpath "$PWD")"
+		if workspace="$(search_file_up .pwnmake)"; then
+			PROJECT="${start#$workspace/}"
+		else
+			workspace=.
+		fi
+	fi
+	
+	local HOST_WORKSPACE="$(realpath "$workspace")"
 	
 	# Check that --pwnableharness-version is a supported version
 	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ]; then
@@ -390,6 +419,7 @@ main() {
 			--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 			--env PWNMAKE_VERSION="$version" \
 			--env PWNMAKE_INIT=1 \
+			--env PROJECT="$PROJECT" \
 			--env CALLER_UID="$CALLER_UID" \
 			--env CALLER_GID="$CALLER_GID" \
 			--env DOCKER_GID="$DOCKER_GID" \
@@ -430,6 +460,7 @@ main() {
 		--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 		--env PWNMAKE_VERSION="$version" \
 		--env PWNMAKE_INIT=0 \
+		--env PROJECT="$PROJECT" \
 		${env_args[@]+"${env_args[@]}"} \
 		-v "$HOST_WORKSPACE":/PwnableHarness/workspace \
 		-v "$host_docker_sock":/var/run/docker.sock \
