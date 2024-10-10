@@ -163,7 +163,7 @@ EOF
 
 # pwnmake [...]
 main() {
-	local digest pull reinit shell skip_update tag verbose workspace
+	local digest= pull= reinit= shell= skip_update= tag= verbose= workspace=
 	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
 	local env_args=()
 	

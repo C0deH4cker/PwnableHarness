@@ -309,7 +309,7 @@ UNBUFFER_DIR := $$(BUILD)/core
 # Copy from pwnmake's ROOT_DIR to the workspace's .build directory. This is done
 # so that the pwncc image is able to access it (as it can't access files in the
 # pwnmake image).
-$$(UNBUFFER_DIR)/stdio_unbuffer.c: $$(ROOT_DIR)/stdio_unbuffer.c
+$$(UNBUFFER_DIR)/stdio_unbuffer.c: $$(ROOT_DIR)/stdio_unbuffer.c | $$(UNBUFFER_DIR)/.dir
 	$$(_v)cp $$< $$@
 
 clean: clean-unbuffer
