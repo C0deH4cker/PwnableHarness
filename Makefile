@@ -1,5 +1,6 @@
-# Make sure the default target is to "make all"
-all:
+# By default, build the current project tree (which might be a subset of the
+# workspace, if `pwnmake` was invoked below the workspace root).
+build:
 MAKECMDGOALS ?=
 
 # For now, always use "linux/amd64" as the Docker platform
@@ -8,6 +9,9 @@ export DOCKER_DEFAULT_PLATFORM := linux/amd64
 # Environment variables that may be defined by pwnmake
 CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
+
+# Which project tree in the workspace should be built?
+PROJECT ?= .
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
@@ -63,18 +67,31 @@ PWNABLEHARNESS_CORE_PROJECT_BUILD := $(BUILD)/PwnableHarness
 PROJECT_LIST :=
 
 # List of PwnableHarness target rules available
-TARGET_LIST := all env help list list-targets core clean publish deploy \
-	docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+TARGET_LIST :=
 
-add_targets = $(eval TARGET_LIST := $$(TARGET_LIST) $1)
+add_targets = $(eval TARGET_LIST += $1)
 add_target = $(add_targets)
 define _add_phony_target
 .PHONY: $1
 
-TARGET_LIST := $$(TARGET_LIST) $1
+TARGET_LIST += $1
 endef
 add_phony_targets = $(eval $(call _add_phony_target,$1))
 add_phony_target = $(add_phony_targets)
+
+# Top-level (non-project) targets
+$(call add_phony_targets,all env help list list-targets)
+
+# Define each of these general targets as aliases of that target for the selected project
+PROJECT_TARGETS := build clean publish deploy docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+define _def_proj_targ
+$$(call add_phony_targets,$1 $1-all)
+$1: $1[$$(PROJECT)]
+$1-all: $1[.]
+
+endef #_def_proj_targ
+def_proj_targ = $(eval $(call _def_proj_targ,$1))
+$(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 
 # Provides information about currently supported Ubuntu versions:
 # UBUNTU_VERSIONS: list[string version number]
@@ -124,7 +141,7 @@ RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git .docker $(RECURSION_BLACKLIS
 ifndef CONTAINER_BUILD
 ifndef WITH_EXAMPLES
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
-RECURSION_BLACKLIST := $(RECURSION_BLACKLIST) examples
+RECURSION_BLACKLIST += examples
 endif #WITH_EXAMPLES
 endif #CONTAINER_BUILD
 
@@ -141,6 +158,10 @@ endif #CONTAINER_BUILD
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
+
+# "make all" is an alias for "make build-all", which explicitly builds the
+# whole workspace tree.
+all: build-all
 
 # Used for debugging this Makefile
 # `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
@@ -173,17 +194,19 @@ help:
 		) \
 		'\n## Command line reference' \
 		'\n' \
-		'\n  Targets with arguments like `docker-build[image]` can also be used without an' \
-		'\n  argument. When no argument is provided, it will run that target for all' \
-		'\n  possible values of that parameter. So `docker-build` will build ALL Docker' \
-		'\n  images in the workspace.' \
+		'\n  Project-specific targets like `docker-build[project]` can also be used without' \
+		'\n  an argument. When no argument is provided, it will run that target for all' \
+		'\n  projects. So `docker-build` will build the Docker images for ALL projects.' \
+		'\n  Note that descendent projects are included automatically. If you only want' \
+		'\n  to run the target in the project but not its descendents, append "-one" to' \
+		'\n  the target name (`docker-build[project]` becomes `docker-build-one[project]`).' \
 		'\n' \
 		'\n### Target descriptions:' \
 		'\n' \
-		'\n* `all[project]`:' \
+		'\n* `build[project]`:' \
 		'\n         Compile and link all defined TARGETS for the given project.' \
 		'\n         This is the default target, so running `pwnmake` without any provided' \
-		'\n         target is the same as running `pwnmake all`.' \
+		'\n         target is the same as running `pwnmake build`.' \
 		'\n* `clean[project]`:' \
 		'\n         Deletes all build products for the given project. Running this target' \
 		'\n         without an argument is effectively the same as `rm -rf .build`. Note' \
@@ -202,33 +225,30 @@ help:
 		'\n         which publishes its target (named `baz`), that will be copied to' \
 		'\n         `publish/foo/bar/baz`. For serving published files over HTTP(S), it is' \
 		'\n         useful to create symlinks from `/var/www/<path>` into the `publish`' \
-		'\n         directory in your workspace. Just ensure that the http server user has' \
-		'\n         read access to the contents.' \
+		'\n         directory in your workspace. Just ensure that the http server has read' \
+		'\n         access to the contents.' \
 		'\n* `deploy[project]`:' \
 		'\n         Without an argument, this is shorthand for `docker-start publish`.' \
 		'\n         Projects can optionally define the `DEPLOY_COMMAND` variable in their' \
 		'\n         `Build.mk` file, which is a command to be run from the project'"'"'s' \
 		'\n         directory when running `deploy` or `deploy[project]`.' \
-		'\n* `docker-build[image]`:' \
-		'\n         Build the named Docker image, ensuring all dependencies are up to date.' \
-		'\n         For example, editing a C file and then running the `docker-build`' \
+		'\n* `docker-build[project]`:' \
+		'\n         Build the project's Docker image, ensuring all dependencies are up to' \
+		'\n         date. For example, editing a C file and then running the `docker-build`' \
 		'\n         target will recompile the binary and rebuild the Docker image.' \
-		'\n* `docker-rebuild[image]`:' \
-		'\n         Force rebuild a named Docker image, even if all of its dependencies are' \
-		'\n         up to date.' \
-		'\n* `docker-start[container]`:' \
-		'\n         Create and start the named Docker container, ensuring the Docker image' \
-		'\n         it is based on is up to date.' \
-		'\n* `docker-restart[container]`:' \
-		'\n         Restart the named Docker container.' \
-		'\n* `docker-stop[container]`:' \
-		'\n         Stop the named Docker container.' \
-		'\n* `docker-clean[image]`:' \
-		'\n         Stop any container running from this Docker image and delete it, then' \
-		'\n         delete the Docker image. Also will delete the associated Docker volume' \
-		'\n         for the workdir, if one exists. Running this without an argument will' \
-		'\n         stop all containers and delete all images that are defined by any' \
-		'\n         project in the workspace.' \
+		'\n* `docker-rebuild[project]`:' \
+		'\n         Force rebuild the project's Docker image, even if all of its' \
+		'\n         dependencies are up to date.' \
+		'\n* `docker-start[project]`:' \
+		'\n         Create and start the project's Docker container, ensuring the Docker' \
+		'\n         image it is based on is up to date.' \
+		'\n* `docker-restart[project]`:' \
+		'\n         Restart the project's Docker container.' \
+		'\n* `docker-stop[project]`:' \
+		'\n         Stop the project's Docker container.' \
+		'\n* `docker-clean[project]`:' \
+		'\n         Stop the project's Docker container, and delete its image and any' \
+		'\n         workdir volumes.' \
 		'\n* `list`:' \
 		'\n         Display a list of all discovered project directories.' \
 		'\n* `list-targets`:' \
@@ -277,12 +297,6 @@ help:
 		'\n   parent/ancestor project to collect settings defined by its descendants.' \
 	| sed 's/ $$//'
 
-# Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
-clean::
-
-# Running "make deploy" will build and start Docker containers and publish challenge artifacts
-deploy: docker-start publish
-
 # Automatic creation of build directories
 %/.dir:
 	$(_v)mkdir -p $(@D) && touch $@
@@ -298,8 +312,5 @@ deploy: docker-start publish
 # time, even though it holds incomplete/incorrect contents due to the error.
 .DELETE_ON_ERROR:
 
-# Global targets that are "phony", aka don't name a file to be created
-.PHONY: all clean deploy env help list list-targets publish
-
-# Phony Docker targets
-.PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+# Disable old style suffix rules (the `-r` flag for make also disables these)
+.SUFFIXES:

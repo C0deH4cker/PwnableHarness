@@ -24,6 +24,7 @@ endif #!exists(cached_ubuntu_versions.mk)
 
 UBUNTU_VERSIONS :=
 UBUNTU_ALIASES :=
+GLIBC_VERSIONS :=
 include $(BUILD)/cached_ubuntu_versions.mk
 
 # For now, this is a manual process by looking up versions from:
@@ -35,29 +36,30 @@ include $(BUILD)/cached_ubuntu_versions.mk
 # image, so it doesn't need to be done in each project again.
 
 #####
-# glibc_ubuntu($1: glibc version, $2: ubuntu version)
+# ubuntu_glibc($1: ubuntu version, $2: glibc version)
 #
 # Creates bidirectional mappings between glibc and Ubuntu OS versions
 #####
-define _glibc_ubuntu
-GLIBC_TO_UBUNTU[$1] := $2
-UBUNTU_TO_GLIBC[$2] := $1
+define _ubuntu_glibc
+UBUNTU_TO_GLIBC[$1] := $2
+GLIBC_TO_UBUNTU[$2] := $1
+GLIBC_VERSIONS += $2
 
-ifdef UBUNTU_ALIAS_TO_VERSION[$2]
-UBUNTU_TO_GLIBC[$$(UBUNTU_ALIAS_TO_VERSION[$2])] := $1
+ifdef UBUNTU_ALIAS_TO_VERSION[$1]
+UBUNTU_TO_GLIBC[$$(UBUNTU_ALIAS_TO_VERSION[$1])] := $2
 endif
 endef
-glibc_ubuntu = $(eval $(call _glibc_ubuntu,$1,$2))
+ubuntu_glibc = $(eval $(call _ubuntu_glibc,$1,$2))
 #####
-$(call glibc_ubuntu,2.19,14.04)
-$(call glibc_ubuntu,2.23,16.04)
-$(call glibc_ubuntu,2.27,18.04)
-$(call glibc_ubuntu,2.31,20.04)
-$(call glibc_ubuntu,2.35,22.04)
-$(call glibc_ubuntu,2.37,23.04)
-$(call glibc_ubuntu,2.38,23.10)
-$(call glibc_ubuntu,2.39,24.04)
-$(call glibc_ubuntu,2.40,24.10)
+$(call ubuntu_glibc,14.04,2.19)
+$(call ubuntu_glibc,16.04,2.23)
+$(call ubuntu_glibc,18.04,2.27)
+$(call ubuntu_glibc,20.04,2.31)
+$(call ubuntu_glibc,22.04,2.35)
+$(call ubuntu_glibc,23.04,2.37)
+$(call ubuntu_glibc,23.10,2.38)
+$(call ubuntu_glibc,24.04,2.39)
+$(call ubuntu_glibc,24.10,2.40)
 
 
 #####

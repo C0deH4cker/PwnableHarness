@@ -268,7 +268,7 @@ endif
 
 # Build and link in the stdio_unbuffer.c source file unless opted out
 ifndef $2_NO_UNBUFFERED_STDIO
-$2_OBJS := $$($2_OBJS) $$($1+BUILD)/$2_objs/stdio_unbuffer.o
+$2_OBJS += $$($1+BUILD)/$2_objs/stdio_unbuffer.o
 
 ifdef MKTRACE
 $$(info Adding rule for $1+$2's stdio_unbuffer.o)
@@ -276,6 +276,7 @@ endif #MKTRACE
 
 # Compiler rule for stdio_unbuffer.o
 $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(ROOT_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif
@@ -284,9 +285,9 @@ endif
 # executable's directory and from /usr/local/lib
 ifdef $2_ALLLIBS
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
+$2_LDFLAGS += -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-rpath,/usr/local/lib,-rpath,@executable_path
+$2_LDFLAGS += -Wl,-rpath,/usr/local/lib,-rpath,@executable_path
 endif #IS_LINUX/IS_MAC
 endif #target_ALLLIBS
 
@@ -294,17 +295,17 @@ endif #target_ALLLIBS
 # executable's directory
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -install_name @rpath/$2
+$2_LDFLAGS += -install_name @rpath/$2
 endif #IS_MAC
 endif #dynamiclib
 
 # Convert a list of dynamic library names into linker arguments
 ifdef IS_LINUX
 $2_LIBPATHS := $$(sort $$(patsubst %/,%,$$(dir $$($2_ALLLIBS))))
-$2_LDFLAGS := $$($2_LDFLAGS) $$(addprefix -L,$$($2_LIBPATHS))
-$2_LDLIBS := $$($2_LDLIBS) $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
+$2_LDFLAGS += $$(addprefix -L,$$($2_LIBPATHS))
+$2_LDLIBS += $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
 else ifdef IS_MAC
-$2_LDLIBS := $$($2_LDLIBS) $$($2_ALLLIBS)
+$2_LDLIBS += $$($2_ALLLIBS)
 endif
 
 
@@ -347,45 +348,45 @@ endif
 ifdef IS_LINUX
 ifdef $2_RELRO
 ifneq "$$($2_RELRO)" "partial"
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,relro,-z,now
+$2_LDFLAGS += -Wl,-z,relro,-z,now
 endif #partial
 else #RELRO
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-z,norelro
+$2_LDFLAGS += -Wl,-z,norelro
 endif #RELRO
 endif #IS_LINUX
 
 # Stack canary
 ifndef $2_CANARY
-$2_CFLAGS := $$($2_CFLAGS) -fno-stack-protector
-$2_CXXFLAGS := $$($2_CXXFLAGS) -fno-stack-protector
+$2_CFLAGS += -fno-stack-protector
+$2_CXXFLAGS += -fno-stack-protector
 endif
 
 # NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
 ifndef $2_NX
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -z execstack
+$2_LDFLAGS += -z execstack
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-allow_stack_execute
+$2_LDFLAGS += -Wl,-allow_stack_execute
 endif #OS
 endif #target_NX
 
 # ASLR (Address Space Layout Randomization)
 ifdef $2_ASLR
-$2_CFLAGS := $$($2_CFLAGS) -fPIC
-$2_CXXFLAGS := $$($2_CXXFLAGS) -fPIC
+$2_CFLAGS += -fPIC
+$2_CXXFLAGS += -fPIC
 ifeq "$$($2_BINTYPE)" "executable"
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -pie
+$2_LDFLAGS += -pie
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-pie
+$2_LDFLAGS += -Wl,-pie
 endif #IS_LINUX/IS_MAC
 endif #executable
 else #ASLR
 ifeq "$$($2_BINTYPE)" "executable"
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -no-pie
+$2_LDFLAGS += -no-pie
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-no_pie
+$2_LDFLAGS += -Wl,-no_pie
 endif #IS_LINUX/IS_MAC
 endif #executable
 endif #ASLR
@@ -393,20 +394,20 @@ endif #ASLR
 # Strip symbols
 ifdef $2_STRIP
 ifdef IS_LINUX
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-s
+$2_LDFLAGS += -Wl,-s
 else ifdef IS_MAC
-$2_LDFLAGS := $$($2_LDFLAGS) -Wl,-S,-x
+$2_LDFLAGS += -Wl,-S,-x
 endif #IS_LINUX/IS_MAC
 endif #STRIP
 
 # Debug symbols
 ifdef $2_DEBUG
-$2_CFLAGS := $$($2_CFLAGS) -ggdb -DDEBUG=1 -UNDEBUG
-$2_CXXFLAGS := $$($2_CXXFLAGS) -ggdb -DDEBUG=1 -UNDEBUG
-$2_LDFLAGS := $$($2_LDFLAGS) -ggdb
+$2_CFLAGS += -ggdb -DDEBUG=1 -UNDEBUG
+$2_CXXFLAGS += -ggdb -DDEBUG=1 -UNDEBUG
+$2_LDFLAGS += -ggdb
 else #DEBUG
-$2_CFLAGS := $$($2_CFLAGS) -DNDEBUG=1
-$2_CXXFLAGS := $$($2_CXXFLAGS) -DNDEBUG=1
+$2_CFLAGS += -DNDEBUG=1
+$2_CXXFLAGS += -DNDEBUG=1
 endif #DEBUG
 
 ifdef MKTRACE
@@ -436,8 +437,10 @@ $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($2_P
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
-clean[$1]: clean[$1+$2]
-clean[$1+$2]:
+clean-one[$1]: clean-objs[$1+$2]
+
+$$(call add_phony_target,clean-objs[$1+$2])
+clean-objs[$1+$2]:
 	$$(_v)rm -rf $$($2_OBJS_DIR)
 
 ifdef MKTRACE
@@ -496,66 +499,60 @@ generate_target = $(eval $(call _generate_target,$1,$2))
 
 
 #####
-# docker_compose($1: project directory, $2: challenge name)
+# docker_compose($1: project directory)
 #
 # Rules for deploying a docker-compose project
 #####
 define _docker_compose
 
-# make docker-build
-docker-build: docker-build[$2]
+$$(call add_phony_target,docker-build[$1])
+docker-build[$1]: docker-build-one[$1]
 
-docker-build[$2]: docker-rebuild[$2]
+$$(call add_phony_target,docker-build-one[$1])
+docker-build-one[$1]: docker-rebuild-one[$1]
 
-.PHONY: docker-build[$2]
+$$(call add_phony_target,docker-rebuild[$1])
+docker-rebuild[$1]: docker-rebuild-one[$1]
 
-
-# make docker-rebuild
-docker-rebuild: docker-rebuild[$2]
-
-docker-rebuild[$2]:
-	$$(_V)echo "Building $2 images with docker-compose"
+$$(call add_phony_target,docker-rebuild-one[$1])
+docker-rebuild-one[$1]:
+	$$(_V)echo "Building images with docker-compose in $1"
 	$$(_v)cd $1 && docker-compose build
 
+$$(call add_phony_target,docker-start[$1])
+docker-start[$1]: docker-start-one[$1]
 
-# make docker-start
-docker-start: docker-start[$2]
-
-docker-start[$2]:
-	$$(_V)echo "Starting $2 containers with docker-compose"
+$$(call add_phony_target,docker-start-one[$1])
+docker-start-one[$1]:
+	$$(_V)echo "Starting containers with docker-compose in $1"
 	$$(_v)cd $1 && docker-compose up -d
 
+$$(call add_phony_target,docker-restart[$1])
+docker-restart[$1]: docker-restart-one[$1]
 
-# make docker-restart
-docker-restart: docker-restart[$2]
-
-docker-restart[$2]:
-	$$(_V)echo "Restarting $2 containers with docker-compose"
+$$(call add_phony_target,docker-restart-one[$1])
+docker-restart-one[$1]:
+	$$(_V)echo "Restarting containers with docker-compose in $1"
 	$$(_v)cd $1 && docker-compose restart
 
+$$(call add_phony_target,docker-stop[$1])
+docker-stop[$1]: docker-stop-one[$1]
 
-# make docker-stop
-docker-stop: docker-stop[$2]
-
-docker-stop[$2]:
-	$$(_V)echo "Stopping $2 containers with docker-compose"
+$$(call add_phony_target,docker-stop-one[$1])
+docker-stop-one[$1]:
+	$$(_V)echo "Stopping containers with docker-compose in $1"
 	$$(_v)cd $1 && docker-compose down
 
+$$(call add_phony_target,docker-clean[$1])
+docker-clean[$1]: docker-clean-one[$1]
 
-# make docker-clean
-docker-clean: docker-clean[$2]
-
-docker-clean[$2]:
-	$$(_V)echo "Removing $2 containers with docker-compose"
+$$(call add_phony_target,docker-clean-one[$1])
+docker-clean-one[$1]:
+	$$(_V)echo "Removing containers with docker-compose in $1"
 	$$(_v)cd $1 && docker-compose rm --stop
 
-$2_DOCKER_COMPOSE_TARGETS := $$(patsubst %,docker-%[$2],build rebuild start restart stop clean)
-TARGET_LIST := $$(TARGET_LIST) $$($2_DOCKER_COMPOSE_TARGETS)
-
-.PHONY: $$($2_DOCKER_COMPOSE_TARGETS)
-
 endef #_docker_compose
-docker_compose = $(eval $(call _docker_compose,$1,$2))
+docker_compose = $(eval $(call _docker_compose,$1))
 #####
 
 
@@ -575,7 +572,7 @@ endif #MKDEBUG
 $1+$2+PUB := $$(PUB_DIR)/$$(patsubst /%,%,$1)
 $1+$2+DST := $$(addprefix $$($1+$2+PUB)/,$$(notdir $3))
 
-publish[$1]: $$($1+$2+DST)
+publish-one[$1]: $$($1+$2+DST)
 
 # Publishing rule
 $$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
@@ -584,6 +581,36 @@ $$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
 
 endef
 add_publish_rule = $(eval $(call _add_publish_rule,$1,$2,$3))
+#####
+
+
+
+
+#####
+# link_project_target($1: project directory, $2: base target name (build, clean, docker-start, etc))
+#
+# Define the various project-specific rules, including:
+#  * <target>[$1]: <target>-one[$1]     (building this project tree should build the current directory)
+#  * <target>[<parent>]: <target>[$1]   (building the parent project tree should also build this project tree)
+#####
+define _link_project_target
+
+ifdef MKTRACE
+$$(info Tracing link_project_target($1,$2)...)
+endif #MKTRACE
+
+# This parent link isn't defining the rule but rather just adding a dependency.
+# Therefore, we don't call the add_phony_target function here.
+ifdef $1+PARENT
+$2[$$($1+PARENT)]: $2[$1]
+endif #PARENT
+
+$$(call add_phony_target,$2[$1])
+$$(call add_phony_target,$2-one[$1])
+$2[$1]: $2-one[$1]
+
+endef #_link_project_target
+link_project_target = $(eval $(call _link_project_target,$1,$2))
 #####
 
 
@@ -609,7 +636,7 @@ endif
 ifdef $1+BUILD_MK
 
 # Append project directory to the list of discovered projects
-PROJECT_LIST := $$(PROJECT_LIST) $1
+PROJECT_LIST += $1
 
 # Exactly one of these must be defined by Build.mk
 TARGET :=
@@ -618,6 +645,7 @@ TARGETS :=
 # For advanced users that want to define custom build rules for a directory
 PRODUCT :=
 PRODUCTS :=
+CLEAN :=
 
 # Optional list of files to publish
 PUBLISH :=
@@ -697,6 +725,7 @@ else
 # For container builds: subdirectories of the workspace directory
 # For normal builds: subdirectories of the PwnableHarness repo
 $1+BUILD := $$(BUILD)/$1
+$1+PARENT := $$(patsubst %/,%,$$(dir $1))
 endif
 
 # Define DIR and BUILD_DIR for use by Build.mk files
@@ -750,6 +779,7 @@ $1+PUBLISH_LIBC := $$(PUBLISH_LIBC)
 $1+PUBLISH_PROJ_FILES := $$(addprefix $1/,$$($1+PUBLISH))
 $1+PUBLISH_BUILD_FILES := $$(addprefix $$($1+BUILD)/,$$($1+PUBLISH_BUILD))
 $1+PUBLISH_ALL_FILES := $$(sort $$($1+PUBLISH_PROJ_FILES) $$($1+PUBLISH_BUILD_FILES) $$(PUBLISH_TOP))
+$1+CLEAN := $$(CLEAN)
 
 # Deployment
 $1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
@@ -853,19 +883,10 @@ $$(foreach target,$$($1+TARGETS),$$(call generate_target,$1,$$(target)))
 ## Directory specific build rules
 
 # Build rules
-all: all[$1]
-
-all[$1]: $$($1+PRODUCTS)
-
-TARGET_LIST := $$(TARGET_LIST) all[$1]
-.PHONY: all[$1]
+build-one[$1]: $$($1+PRODUCTS)
 
 # Publish rules
 ifdef $1+PUBLISH_ALL_FILES
-
-TARGET_LIST := $$(TARGET_LIST) publish[$1]
-.PHONY: publish[$1]
-publish: publish[$1]
 
 # Generate all the real publish rules based on the source directory
 $1+PUBLISH_DIRS := $$(sort $$(patsubst %/,%,$$(dir $$($1+PUBLISH_ALL_FILES))))
@@ -876,47 +897,37 @@ endif #$1+PUBLISH_ALL_FILES
 # Deploy rules
 ifdef $1+DEPLOY_COMMAND
 
-deploy: deploy[$1]
-
-TARGET_LIST := $$(TARGET_LIST) deploy[$1]
-deploy[$1]: $$($1+DEPLOY_DEPS)
+deploy-one[$1]: $$($1+DEPLOY_DEPS)
 	$$(_V)echo "Deploying $1"
 	$$(_v)cd $1 && $$($1+DEPLOY_COMMAND)
-
-.PHONY: deploy[$1]
 
 endif #$1+DEPLOY_COMMAND
 
 # Clean rules
-clean:: clean[$1]
+clean[$1]: clean-one[$1]
 
 $1+TO_CLEAN := $$($1+PRODUCTS)
 ifneq "$$($1+BUILD)" ".build"
-$1+TO_CLEAN := $$($1+TO_CLEAN) $$($1+BUILD)
+$1+TO_CLEAN += $$($1+BUILD)
 endif
 
-TARGET_LIST := $$(TARGET_LIST) clean[$1]
-clean[$1]:
+clean-one[$1]: $$($1+CLEAN)
 	$$(_V)echo "Removing build directory and products for $1"
 	$$(_v)rm -rf $$($1+TO_CLEAN)
-
-.PHONY: clean[$1]
 
 ## Docker variables
 
 ifdef $1+DOCKER_COMPOSE
-$$(call docker_compose,$1,$$(notdir $1))
+$$(call docker_compose,$1)
 endif #DOCKER_COMPOSE
 
 # If DOCKER_IMAGE was defined by Build.mk, add docker rules.
 ifdef $1+DOCKER_IMAGE
 
-# Define variables for dependencies (like docker-build[var]) and the argument
+# Use the specified tag rather than "latest" (if set)
 ifdef $1+DOCKER_IMAGE_TAG
-$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)+$$($1+DOCKER_IMAGE_TAG)
 $1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE):$$($1+DOCKER_IMAGE_TAG)
 else #DIR+DOCKER_IMAGE_TAG
-$1+DOCKER_IMAGE_DEP := $$($1+DOCKER_IMAGE)
 $1+DOCKER_TAG_ARG := $$($1+DOCKER_IMAGE)
 endif #DIR+DOCKER_IMAGE_TAG
 
@@ -941,10 +952,10 @@ endif #exists DIR+Dockerfile
 endif #DOCKERFILE
 
 # Add the Dockerfile as a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKERFILE)
+$1+DOCKER_BUILD_DEPS += $$($1+DOCKERFILE)
 
 # The Build.mk file is a dependency for the docker-build target
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
+$1+DOCKER_BUILD_DEPS += $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 
 # Ensure that DIR+DOCKER_CHALLENGE_NAME has a value. Default to the
 # first target in DIR+TARGETS, or if that's not defined, the name of the image
@@ -964,7 +975,7 @@ $1+DOCKER_CHALLENGE_PATH := $$(firstword $$($1+PRODUCTS))
 endif
 endif
 ifdef $1+DOCKER_CHALLENGE_PATH
-$1+DOCKER_BUILD_DEPS := $$($1+DOCKER_BUILD_DEPS) $$($1+DOCKER_CHALLENGE_PATH)
+$1+DOCKER_BUILD_DEPS += $$($1+DOCKER_CHALLENGE_PATH)
 endif
 
 # Ensure that DIR+DOCKER_CONTAINER has a value. Default to the Docker image name,
@@ -981,14 +992,14 @@ $1+DOCKER_PORT_ARGS := $$(foreach port,$$($1+DOCKER_PORTS),-p $$(port):$$(port))
 $1+DOCKER_RUNNABLE := true
 
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))"
+$1+DOCKER_BUILD_ARGS += --build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))"
 endif #DOCKER_IMAGE_CUSTOM
 endif #DOCKER_PORTS
 
 # Pass DOCKER_TIMELIMIT through as a build arg
 ifdef $1+DOCKER_TIMELIMIT
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
+$1+DOCKER_BUILD_ARGS += --build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)"
 endif #DOCKER_IMAGE_CUSTOM
 endif #DOCKER_TIMELIMIT
 
@@ -999,20 +1010,20 @@ endif
 
 # Append args for the challenge binary to pwnableserver's args (after a "--" sentinel)
 ifdef $1+DOCKER_CHALLENGE_ARGS
-$1+DOCKER_PWNABLESERVER_ARGS := $$($1+DOCKER_PWNABLESERVER_ARGS) -- $$($1+DOCKER_CHALLENGE_ARGS)
+$1+DOCKER_PWNABLESERVER_ARGS += -- $$($1+DOCKER_CHALLENGE_ARGS)
 endif
 
 # Add flag if the Docker container's filesystem should be read-only
 ifndef $1+DOCKER_WRITEABLE
 ifeq "$$(filter --read-only,$$($1+DOCKER_RUN_ARGS))" ""
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --read-only
+$1+DOCKER_RUN_ARGS += --read-only
 endif #--read-only
 endif #DOCKER_WRITEABLE
 
 # Add Docker arguments for limiting CPU usage of the container
 ifdef $1+DOCKER_CPULIMIT
 # https://docs.docker.com/engine/containers/resource_constraints/#configure-the-default-cfs-scheduler
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --cpus=$$($1+DOCKER_CPULIMIT)
+$1+DOCKER_RUN_ARGS += --cpus=$$($1+DOCKER_CPULIMIT)
 endif #DOCKER_CPULIMIT
 
 # Add Docker arguments for limiting memory usage of the container
@@ -1020,19 +1031,17 @@ ifdef $1+DOCKER_MEMLIMIT
 # Need to set both --memory and --memory-swap to properly limit memory usage.
 # Otherwise, the container gets access to N bytes of memory PLUS N bytes of swap, which is stupid.
 # https://docs.docker.com/engine/containers/resource_constraints/#prevent-a-container-from-using-swap
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --memory=$$($1+DOCKER_MEMLIMIT) --memory-swap=$$($1+DOCKER_MEMLIMIT)
+$1+DOCKER_RUN_ARGS += --memory=$$($1+DOCKER_MEMLIMIT) --memory-swap=$$($1+DOCKER_MEMLIMIT)
 endif #DOCKER_MEMLIMIT
 
 # If there's a password, supply it as an argument to pwnableserver
 ifdef $1+DOCKER_PASSWORD
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
-	--build-arg "CHALLENGE_PASSWORD=$$($1+DOCKER_PASSWORD)"
+$1+DOCKER_BUILD_ARGS += --build-arg "CHALLENGE_PASSWORD=$$($1+DOCKER_PASSWORD)"
 endif #DOCKER_PASSWORD
 
 # Check if DOCKER_PWNABLESERVER_ARGS was defined
 ifdef $1+DOCKER_PWNABLESERVER_ARGS
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
-	--build-arg "PWNABLESERVER_EXTRA_ARGS=$$($1+DOCKER_PWNABLESERVER_ARGS)"
+$1+DOCKER_BUILD_ARGS += --build-arg "PWNABLESERVER_EXTRA_ARGS=$$($1+DOCKER_PWNABLESERVER_ARGS)"
 endif
 
 # Apply DOCKER_BUILD_ONLY to cancel out DOCKER_RUNNABLE
@@ -1043,7 +1052,7 @@ endif
 # Append CHALLENGE_NAME, CHALLENGE_PATH, and DIR to the list of docker build arg
 ifneq "$1" "$$(PWNABLEHARNESS_CORE_PROJECT)"
 ifndef $1+DOCKER_IMAGE_CUSTOM
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) \
+$1+DOCKER_BUILD_ARGS += \
 	--build-arg "CHALLENGE_NAME=$$($1+DOCKER_CHALLENGE_NAME)" \
 	--build-arg "CHALLENGE_PATH=$$($1+DOCKER_CHALLENGE_PATH)"
 
@@ -1063,8 +1072,8 @@ $1+WORKDIR_COPY_CMDS :=
 # Handle copying the workdir folder contents to the Docker volume
 ifdef $1+WORKDIR
 $1+MOUNT_WORKDIR := true
-$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$(wildcard $1/workdir/*)
-$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+$1+WORKDIR_DEPS += $$(wildcard $1/workdir/*)
+$1+WORKDIR_COPY_CMDS += \
 	&& $$(DOCKER) cp $$($1+WORKDIR)/. $$($1+WORKDIR_VOLUME)-temp:/data
 endif
 
@@ -1078,10 +1087,10 @@ endif #MKDEBUG
 
 # Handle copying the flag file and setting its ownership and permissions in the Docker volume
 $1+HAS_FLAG := true
-$1+DOCKER_BUILD_ARGS := $$($1+DOCKER_BUILD_ARGS) --build-arg "FLAG_DST=$$($1+FLAG_DST)"
+$1+DOCKER_BUILD_ARGS += --build-arg "FLAG_DST=$$($1+FLAG_DST)"
 $1+MOUNT_WORKDIR := true
-$1+WORKDIR_DEPS := $$($1+WORKDIR_DEPS) $$($1+FLAG_FILE)
-$1+WORKDIR_COPY_CMDS := $$($1+WORKDIR_COPY_CMDS) \
+$1+WORKDIR_DEPS += $$($1+FLAG_FILE)
+$1+WORKDIR_COPY_CMDS += \
 	&& $$(DOCKER) cp $$($1+FLAG_FILE) $$($1+WORKDIR_VOLUME)-temp:/data/$$($1+FLAG_DST) \
 	&& $$(DOCKER) run --rm -v $$($1+WORKDIR_VOLUME):/data busybox \
 		sh -c 'chown root:1337 /data/$$($1+FLAG_DST) && chmod 0640 /data/$$($1+FLAG_DST)'
@@ -1089,8 +1098,8 @@ endif #FLAG_DST
 endif #FLAG_FILE
 
 ifdef $1+MOUNT_WORKDIR
-$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) -v $$($1+WORKDIR_VOLUME):/ctf:ro
-$1+DOCKER_START_DEPS := $$($1+DOCKER_START_DEPS) $$($1+BUILD)/.docker_workdir_volume_marker
+$1+DOCKER_RUN_ARGS += -v $$($1+WORKDIR_VOLUME):/ctf:ro
+$1+DOCKER_START_DEPS += $$($1+BUILD)/.docker_workdir_volume_marker
 endif
 
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
@@ -1106,31 +1115,9 @@ ifdef MKTRACE
 $$(info Adding docker-build rules for $1)
 endif #MKTRACE
 
-# Build a docker image
-docker-build: docker-build[$$($1+DOCKER_IMAGE_DEP)]
-
 # This only rebuilds the docker image if any of its prerequisites have
 # been changed since the last docker build
-TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE_DEP)]
-docker-build[$$($1+DOCKER_IMAGE_DEP)]: $$($1+BUILD)/.docker_build_marker
-
-# Makefile targets for Docker images can be aliased w/o the tag version
-ifdef $1+DOCKER_IMAGE_TAG
-
-ifdef MKTRACE
-$$(info Adding docker tag rules for $1)
-endif #MKTRACE
-
-TARGET_LIST := $$(TARGET_LIST) docker-build[$$($1+DOCKER_IMAGE)]
-docker-build[$$($1+DOCKER_IMAGE)]: docker-build[$$($1+DOCKER_IMAGE_DEP)]
-
-TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE)]
-docker-rebuild[$$($1+DOCKER_IMAGE)]: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
-
-TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE)]
-docker-clean[$$($1+DOCKER_IMAGE)]: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
-
-endif #DOCKER_IMAGE_TAG
+docker-build-one[$1]: $$($1+BUILD)/.docker_build_marker
 
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
@@ -1138,31 +1125,23 @@ $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($
 	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
-# Force build a docker image
-docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
-
 # This rebuilds the docker image no matter what
-TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
-docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
+docker-rebuild-one[$1]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
-# Rule for removing a docker image and any containers based on it (and volumes)
-docker-clean: docker-clean[$$($1+DOCKER_IMAGE_DEP)]
-
 # Force remove the container, volume, and image
-TARGET_LIST := $$(TARGET_LIST) docker-clean[$$($1+DOCKER_IMAGE_DEP)]
-docker-clean[$$($1+DOCKER_IMAGE_DEP)]:
+docker-clean-one[$1]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
-	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
 endif
 ifdef $1+MOUNT_WORKDIR
-	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
 endif
-	$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
-	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
+	-$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1
+	-$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
 
 ## Docker run rules
 
@@ -1172,19 +1151,13 @@ ifdef MKTRACE
 $$(info Adding docker runnable rules for $1)
 endif #MKTRACE
 
-# Rule for starting a docker container
-docker-start: docker-start[$$($1+DOCKER_CONTAINER)]
-
 # When starting a container, make sure the docker image is built
 # and up to date
-TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
-docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
+docker-start-one[$1]: docker-build[$1] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
+	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
 	$$(_v)$$(DOCKER) run $$($1+DOCKER_PLATFORM) -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
-
-.PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
 
 # Rule for mounting the workdir
 ifdef $1+MOUNT_WORKDIR
@@ -1195,8 +1168,8 @@ endif #MKTRACE
 
 $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 	$$(_V)echo "Preparing workdir volume for $1"
-	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
-	$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
+	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
+	-$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1
 	$$(_v)$$(DOCKER) volume create $$($1+WORKDIR_VOLUME) \
 		&& $$(DOCKER) container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
 		$$($1+WORKDIR_COPY_CMDS) \
@@ -1205,28 +1178,15 @@ $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 
 endif #MOUNT_WORKDIR
 
-
-# Rule for restarting a docker container
-docker-restart: docker-restart[$$($1+DOCKER_CONTAINER)]
-
 # Restart a docker container
-TARGET_LIST := $$(TARGET_LIST) docker-restart[$$($1+DOCKER_CONTAINER)]
-docker-restart[$$($1+DOCKER_CONTAINER)]:
+docker-restart-one[$1]:
 	$$(_V)echo "Restarting docker container $$($1+DOCKER_CONTAINER)"
 	$$(_v)$$(DOCKER) restart $$($1+DOCKER_CONTAINER)
 
-.PHONY: docker-restart[$$($1+DOCKER_CONTAINER)]
-
-# Rule for stopping a docker container
-docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
-
 # Stop the docker container
-TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
-docker-stop[$$($1+DOCKER_CONTAINER)]:
+docker-stop-one[$1]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-
-.PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
+	-$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
 
 endif #DOCKER_RUNNABLE
 
@@ -1247,12 +1207,12 @@ ifdef MKTRACE
 $$(info Adding publish libc rules for $1)
 endif #MKTRACE
 
-publish[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
+publish-one[$1]: $$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC)
 
 # Copy the libc from Docker only if the challenge builds a Docker image
 ifdef $1+DOCKER_IMAGE
 # If the challenge has a Docker image, copy the libc from there
-$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build[$$($1+DOCKER_IMAGE_DEP)] | $$(PUB_DIR)/$1/.dir
+$$(PUB_DIR)/$1/$$($1+PUBLISH_LIBC): docker-build-one[$1] | $$(PUB_DIR)/$1/.dir
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LIBC) from docker image $$($1+DOCKER_TAG_ARG):$$($1+LIBC_PATH)"
 	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LIBC_PATH) > $$@
 
@@ -1283,11 +1243,14 @@ include_subdir = $(eval $(call _include_subdir,$1))
 #####
 define _recurse_subdir
 ifeq "$$(wildcard $1)" ""
-$$(info Skipping "$1" as it doesn't exist, is there a file with spaces in the directory tree?)
+$$(warning Skipping "$1" as it doesn't exist, is there a file with spaces in the directory tree?)
 else #exists($1)
 
 # Include this directory's Build.mk file if it exists
 $$(call include_subdir,$1)
+
+# Link this directory's project targets
+$$(foreach proj,$$(PROJECT_TARGETS),$$(call link_project_target,$1,$$(proj)))
 
 # Ensure DIR+SUBDIRS has a value
 ifndef $1+SUBDIRS
@@ -1303,7 +1266,7 @@ $1+DIRLIST := $$(filter $1/%/,$$($1+RAW_DIRLIST))
 # Check if any directories were skipped
 $1+SKIPPED := $$(filter-out $1/%/,$$($1+RAW_DIRLIST))
 ifdef $1+SKIPPED
-$$(info Skipping "$$($1+SKIPPED)" due to spaces in the path)
+$$(warning Skipping "$$($1+SKIPPED)" due to spaces in the path)
 endif
 
 # Strip the trailing "/" from directories, and join DIRLIST with SUBDIRS
