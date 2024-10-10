@@ -215,7 +215,15 @@ endif
 ifeq "$$(origin $2_PWNCC_DEPS)" "undefined"
 $2_PWNCC_DEPS := $$($1+PWNCC_DEPS)
 endif
+ifeq "$$(origin $2_PWNCC_DESC)" "undefined"
+$2_PWNCC_DESC := $$($1+PWNCC_DESC)
 endif
+
+# Format string for a printed message prefix
+$2_PWNCC_DESC := [$$($2_PWNCC_DESC)]$$(SPACE)
+else #CONFIG_USE_PWNCC
+$2_PWNCC_DESC :=
+endif #CONFIG_USE_PWNCC
 
 # Ensure that target_BINTYPE has a value, defaulting to "dynamiclib" if target
 # name ends in ".so" otherwise "executable".
@@ -420,12 +428,12 @@ endif #MKTRACE
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c | $$($2_PWNCC_DEPS)
-	$$(_V)echo "Compiling $$<"
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($2_PWNCC_DEPS)
-	$$(_V)echo "Compiling $$<"
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 clean[$1]: clean[$1+$2]
@@ -449,21 +457,21 @@ endif #MKTRACE
 ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
-	$$(_V)echo "Linking shared library $$@"
+	$$(_V)echo "$$($2_PWNCC_DESC)Linking shared library $$@"
 	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
-	$$(_V)echo "Linking executable $$@"
+	$$(_V)echo "$$($2_PWNCC_DESC)Linking executable $$@"
 	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
-	$$(_V)echo "Archiving static library $$@"
+	$$(_V)echo "$$($2_PWNCC_DESC)Archiving static library $$@"
 	$$(_v)$$($2_PWNCC)$$($2_AR) rcs $$@ $$^
 
 else #dynamiclib & executable & staticlib
@@ -665,7 +673,10 @@ LIBS :=
 LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
 NO_UNBUFFERED_STDIO :=
-UBUNTU_VERSION := $(DEFAULT_UBUNTU_VERSION)
+
+# Ubuntu/glibc versions
+UBUNTU_VERSION :=
+GLIBC_VERSION :=
 
 # Hardening flags
 RELRO := $(DEFAULT_RELRO)
@@ -789,7 +800,33 @@ $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 $1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
+
+# Ubuntu/glibc versions
+ifdef UBUNTU_VERSION
+
+ifdef GLIBC_VERSION
+ifneq "$$(GLIBC_VERSION)" "$$(UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION)])"
+$$(error UBUNTU_VERSION ($$(UBUNTU_VERSION)) uses glibc $$(UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION)]), but GLIBC_VERSION is $$(GLIBC_VERSION))
+endif #glibc/ubuntu version mismatch
+endif #GLIBC_VERSION
+
 $1+UBUNTU_VERSION := $$(UBUNTU_VERSION)
+
+else ifdef GLIBC_VERSION
+
+ifndef GLIBC_TO_UBUNTU[$$(GLIBC_VERSION)]
+$$(error No known Ubuntu version has glibc version $$(GLIBC_VERSION))
+endif
+
+$1+UBUNTU_VERSION := $$(GLIBC_TO_UBUNTU[$$(GLIBC_VERSION)])
+
+else #!defined(UBUNTU_VERSION) && !defined(GLIBC_VERSION)
+
+$1+UBUNTU_VERSION := $$(DEFAULT_UBUNTU_VERSION)
+
+endif #UBUNTU_VERSION
+
+
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -802,8 +839,10 @@ $1+DEBUG := $$(DEBUG)
 # Run compiler commands in a pwncc container?
 $1+PWNCC :=
 $1+PWNCC_DEPS :=
+$1+PWNCC_DESC :=
 ifdef CONFIG_USE_PWNCC
 $$(call pwncc_prepare,$1,$$($1+UBUNTU_VERSION),$1+PWNCC,$1+PWNCC_DEPS)
+$1+PWNCC_DESC := $$($1+UBUNTU_VERSION)
 endif #CONFIG_USE_PWNCC
 
 # Produce target specific variables and build rules
@@ -896,8 +935,7 @@ $1+DOCKERFILE := $1/default.Dockerfile
 # https://docs.docker.com/build/checks/#skip-checks
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 	$$(_v)echo '# check=skip=SecretsUsedInArgOrEnv' > $$@ \
-		&& echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@ \
-		&& echo 'FROM $$$$BASE_IMAGE' >> $$@
+		&& echo 'FROM $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -1186,7 +1224,7 @@ docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 
 .PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
 
