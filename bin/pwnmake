@@ -257,7 +257,9 @@ main() {
 	if [ -z "$workspace" ]; then
 		local start="$(realpath "$PWD")"
 		if workspace="$(search_file_up .pwnmake)"; then
-			PROJECT="${start#$workspace/}"
+			if [ "$start" != "$workspace" ]; then
+				PROJECT="${start#$workspace/}"
+			fi
 		else
 			workspace=.
 		fi
