@@ -665,7 +665,10 @@ LIBS :=
 LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
 NO_UNBUFFERED_STDIO :=
-UBUNTU_VERSION := $(DEFAULT_UBUNTU_VERSION)
+
+# Ubuntu/glibc versions
+UBUNTU_VERSION :=
+GLIBC_VERSION :=
 
 # Hardening flags
 RELRO := $(DEFAULT_RELRO)
@@ -789,7 +792,33 @@ $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 $1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
+
+# Ubuntu/glibc versions
+ifdef UBUNTU_VERSION
+
+ifdef GLIBC_VERSION
+ifneq "$$(GLIBC_VERSION)" "$$(UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION)])"
+$$(error UBUNTU_VERSION ($$(UBUNTU_VERSION)) uses glibc $$(UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION)]), but GLIBC_VERSION is $$(GLIBC_VERSION))
+endif #glibc/ubuntu version mismatch
+endif #GLIBC_VERSION
+
 $1+UBUNTU_VERSION := $$(UBUNTU_VERSION)
+
+else ifdef GLIBC_VERSION
+
+ifndef GLIBC_TO_UBUNTU[$$(GLIBC_VERSION)]
+$$(error No known Ubuntu version has glibc version $$(GLIBC_VERSION))
+endif
+
+$1+UBUNTU_VERSION := $$(GLIBC_TO_UBUNTU[$$(GLIBC_VERSION)])
+
+else #!defined(UBUNTU_VERSION) && !defined(GLIBC_VERSION)
+
+$1+UBUNTU_VERSION := $$(DEFAULT_UBUNTU_VERSION)
+
+endif #UBUNTU_VERSION
+
+
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
