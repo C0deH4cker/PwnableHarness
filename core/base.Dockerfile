@@ -1,10 +1,11 @@
+# check=skip=SecretsUsedInArgOrEnv
+
 # Keep the default value aligned with DEFAULT_UBUNTU_VERSION in Macros.mk!
 ARG BASE_TAG=24.04
 FROM ubuntu:$BASE_TAG
 LABEL maintainer="c0deh4cker@gmail.com"
 
 ARG CONFIG_IGNORE_32BIT=
-ENV CONFIG_IGNORE_32BIT=$CONFIG_IGNORE_32BIT
 
 # Add support for running 32-bit executables
 ENV DEBIAN_FRONTEND=noninteractive
