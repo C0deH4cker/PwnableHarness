@@ -1135,13 +1135,13 @@ docker-rebuild-one[$1]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/
 docker-clean-one[$1]:
 	$$(_V)echo "Cleaning docker image/container/volume for $$($1+DOCKER_TAG_ARG)"
 ifdef $1+DOCKER_RUNNABLE
-	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 endif
 ifdef $1+MOUNT_WORKDIR
-	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
 endif
-	-$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1
-	-$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker
+	$$(_v)$$(DOCKER) rmi -f $$($1+DOCKER_TAG_ARG) >/dev/null 2>&1 || true
+	$$(_v)rm -f $$($1+BUILD)/.docker_build_marker $$($1+BUILD)/.docker_workdir_volume_marker || true
 
 ## Docker run rules
 
@@ -1155,7 +1155,7 @@ endif #MKTRACE
 # and up to date
 docker-start-one[$1]: docker-build[$1] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
-	-$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 	$$(_v)$$(DOCKER) run $$($1+DOCKER_PLATFORM) -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
@@ -1168,8 +1168,8 @@ endif #MKTRACE
 
 $$($1+BUILD)/.docker_workdir_volume_marker: $$($1+WORKDIR_DEPS)
 	$$(_V)echo "Preparing workdir volume for $1"
-	-$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1
-	-$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1
+	$$(_v)$$(DOCKER) volume rm -f $$($1+WORKDIR_VOLUME) >/dev/null 2>&1 || true
+	$$(_v)$$(DOCKER) container rm -f $$($1+WORKDIR_VOLUME)-temp >/dev/null 2>&1 || true
 	$$(_v)$$(DOCKER) volume create $$($1+WORKDIR_VOLUME) \
 		&& $$(DOCKER) container create --name $$($1+WORKDIR_VOLUME)-temp -v $$($1+WORKDIR_VOLUME):/data busybox \
 		$$($1+WORKDIR_COPY_CMDS) \
@@ -1186,7 +1186,7 @@ docker-restart-one[$1]:
 # Stop the docker container
 docker-stop-one[$1]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	-$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 
 endif #DOCKER_RUNNABLE
 
