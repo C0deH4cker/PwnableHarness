@@ -935,8 +935,7 @@ $1+DOCKERFILE := $1/default.Dockerfile
 # https://docs.docker.com/build/checks/#skip-checks
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
 	$$(_v)echo '# check=skip=SecretsUsedInArgOrEnv' > $$@ \
-		&& echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@ \
-		&& echo 'FROM $$$$BASE_IMAGE' >> $$@
+		&& echo 'FROM $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -1225,7 +1224,7 @@ docker-stop: docker-stop[$$($1+DOCKER_CONTAINER)]
 TARGET_LIST := $$(TARGET_LIST) docker-stop[$$($1+DOCKER_CONTAINER)]
 docker-stop[$$($1+DOCKER_CONTAINER)]:
 	$$(_V)echo "Stopping docker container $$($1+DOCKER_CONTAINER)"
-	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER)
+	$$(_v)$$(DOCKER) stop $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
 
 .PHONY: docker-stop[$$($1+DOCKER_CONTAINER)]
 
