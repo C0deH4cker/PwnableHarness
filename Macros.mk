@@ -282,6 +282,11 @@ $$(BUILD)/core/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so:
 	$$(_V)echo "Copying libpwnableharness$$($2_BITS).so from $$($1+DOCKER_FULL_BASE)"
 	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_FULL_BASE) /usr/local/lib/libpwnableharness$$($2_BITS).so > $$@
 
+clean: clean-libpwnableharness-$$($1+UBUNTU_VERSION)
+.PHONY: clean-libpwnableharness-$$($1+UBUNTU_VERSION)
+clean-libpwnableharness-$$($1+UBUNTU_VERSION):
+	$$(_v)rm -rf $$(BUILD)/core/$$($1+UBUNTU_VERSION)
+
 endif #DEFINED_GRAB_LIBPWNABLEHARNESS
 endif #THIS_IS_THE_CORE_PROJECT
 
@@ -297,8 +302,28 @@ ifdef MKTRACE
 $$(info Adding rule for $1+$2's stdio_unbuffer.o)
 endif #MKTRACE
 
+ifndef UNBUFFER_DIR
+ifdef CONTAINER_BUILD
+UNBUFFER_DIR := $$(BUILD)/core
+
+# Copy from pwnmake's ROOT_DIR to the workspace's .build directory. This is done
+# so that the pwncc image is able to access it (as it can't access files in the
+# pwnmake image).
+$$(UNBUFFER_DIR)/stdio_unbuffer.c: $$(ROOT_DIR)/stdio_unbuffer.c
+	$$(_v)cp $$< $$@
+
+clean: clean-unbuffer
+.PHONY: clean-unbuffer
+clean-unbuffer:
+	$$(_v)rm -f $$(UNBUFFER_DIR)/stdio_unbuffer.c
+
+else #CONTAINER_BUILD
+UNBUFFER_DIR := $$(ROOT_DIR)
+endif #CONTAINER_BUILD
+endif #UNBUFFER_DIR
+
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(ROOT_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
@@ -1251,6 +1276,10 @@ $$(info Done processing $1's project file $$($1+BUILD_MK))
 endif #MKTRACE
 
 endif #BUILD_MK
+
+# Link this directory's project targets
+$$(foreach proj,$$(PROJECT_TARGETS),$$(call link_project_target,$1,$$(proj)))
+
 endif #INCLUDE_GUARD
 endef #_include_subdir
 include_subdir = $(eval $(call _include_subdir,$1))
@@ -1269,9 +1298,6 @@ else #exists($1)
 
 # Include this directory's Build.mk file if it exists
 $$(call include_subdir,$1)
-
-# Link this directory's project targets
-$$(foreach proj,$$(PROJECT_TARGETS),$$(call link_project_target,$1,$$(proj)))
 
 # Ensure DIR+SUBDIRS has a value
 ifndef $1+SUBDIRS

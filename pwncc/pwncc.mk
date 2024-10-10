@@ -33,7 +33,7 @@ $(call generate_dependency_list,pwncc-build,$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)
 $(patsubst %,pwncc-build[%],$(UBUNTU_VERSIONS)): pwncc-build[%]: $(BUILD)/.pwncc_build_marker-%
 
 define pwncc_build_template
-$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/stdio_unbuffer.c $$(ROOT_DIR)/VERSION
+$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/VERSION
 	$$(_V)echo "Building pwncc image for ubuntu:$1"
 	$$(_v)$$(DOCKER) build \
 			-f $$< \

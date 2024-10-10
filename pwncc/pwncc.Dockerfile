@@ -5,6 +5,7 @@ LABEL maintainer="c0deh4cker@gmail.com"
 
 # BuilderImage.mk will set this depending on if the base image has 32-bit support
 ARG CONFIG_IGNORE_32BIT=
+ARG TARGETARCH
 
 # Add compilers
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,4 +17,3 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /PwnableHarness
-COPY stdio_unbuffer.c ./
