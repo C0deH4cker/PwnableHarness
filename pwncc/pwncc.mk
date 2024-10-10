@@ -181,7 +181,7 @@ endif #exists(DIR/prebuild.sh)
 ifdef CONTAINER_BUILD
 $1+PWNCC_ARGS := \
 	-v "$$(HOST_WORKSPACE)":/PwnableHarness/workspace \
-	--workdir=/PwnableHarness/workspace/$1
+	--workdir=/PwnableHarness/workspace
 else
 $1+PWNCC_ARGS := \
 	-v "$$(shell realpath '$$(ROOT_DIR)')":/PwnableHarness \
