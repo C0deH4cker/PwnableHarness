@@ -50,7 +50,6 @@ COPY \
 	VERSION \
 	./
 
-COPY core/ ./core/
 COPY pwncc/ ./pwncc/
 
 # Tell the top-level Makefile that this is a container build
