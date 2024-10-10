@@ -24,7 +24,7 @@ GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
 PWNMAKE_DIR := pwnmake
 endif #CONTAINER_BUILD
 
-PWNCC_DIR := $(ROOT_DIR)/pwncc
+PWNCC_DIR := $(patsubst ./%,%,$(ROOT_DIR)/pwncc)
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
@@ -133,9 +133,10 @@ include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := %$(BUILD) $(PUB_DIR) bin %.git %.cache %.docker core $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := %$(BUILD) $(PUB_DIR) bin core $(PWNCC_DIR) %.git %.cache %.docker $(RECURSION_BLACKLIST)
 
 ifndef CONTAINER_BUILD
+RECURSION_BLACKLIST += $(PWNMAKE_DIR)
 ifndef WITH_EXAMPLES
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
 RECURSION_BLACKLIST += examples
