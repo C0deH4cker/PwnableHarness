@@ -7,17 +7,19 @@
 
 ## Command line reference
 
-  Targets with arguments like `docker-build[image]` can also be used without an
-  argument. When no argument is provided, it will run that target for all
-  possible values of that parameter. So `docker-build` will build ALL Docker
-  images in the workspace.
+  Project-specific targets like `docker-build[project]` can also be used without
+  an argument. When no argument is provided, it will run that target for all
+  projects. So `docker-build` will build the Docker images for ALL projects.
+  Note that descendent projects are included automatically. If you only want
+  to run the target in the project but not its descendents, append "-one" to
+  the target name (`docker-build[project]` becomes `docker-build-one[project]`).
 
 ### Target descriptions:
 
-* `all[project]`:
+* `build[project]`:
          Compile and link all defined TARGETS for the given project.
          This is the default target, so running `pwnmake` without any provided
-         target is the same as running `pwnmake all`.
+         target is the same as running `pwnmake build`.
 * `clean[project]`:
          Deletes all build products for the given project. Running this target
          without an argument is effectively the same as `rm -rf .build`. Note
@@ -36,33 +38,30 @@
          which publishes its target (named `baz`), that will be copied to
          `publish/foo/bar/baz`. For serving published files over HTTP(S), it is
          useful to create symlinks from `/var/www/<path>` into the `publish`
-         directory in your workspace. Just ensure that the http server user has
-         read access to the contents.
+         directory in your workspace. Just ensure that the http server has read
+         access to the contents.
 * `deploy[project]`:
          Without an argument, this is shorthand for `docker-start publish`.
          Projects can optionally define the `DEPLOY_COMMAND` variable in their
          `Build.mk` file, which is a command to be run from the project's
          directory when running `deploy` or `deploy[project]`.
-* `docker-build[image]`:
-         Build the named Docker image, ensuring all dependencies are up to date.
-         For example, editing a C file and then running the `docker-build`
+* `docker-build[project]`:
+         Build the project's Docker image, ensuring all dependencies are up to
+         date. For example, editing a C file and then running the `docker-build`
          target will recompile the binary and rebuild the Docker image.
-* `docker-rebuild[image]`:
-         Force rebuild a named Docker image, even if all of its dependencies are
-         up to date.
-* `docker-start[container]`:
-         Create and start the named Docker container, ensuring the Docker image
-         it is based on is up to date.
-* `docker-restart[container]`:
-         Restart the named Docker container.
-* `docker-stop[container]`:
-         Stop the named Docker container.
-* `docker-clean[image]`:
-         Stop any container running from this Docker image and delete it, then
-         delete the Docker image. Also will delete the associated Docker volume
-         for the workdir, if one exists. Running this without an argument will
-         stop all containers and delete all images that are defined by any
-         project in the workspace.
+* `docker-rebuild[project]`:
+         Force rebuild the project's Docker image, even if all of its
+         dependencies are up to date.
+* `docker-start[project]`:
+         Create and start the project's Docker container, ensuring the Docker
+         image it is based on is up to date.
+* `docker-restart[project]`:
+         Restart the project's Docker container.
+* `docker-stop[project]`:
+         Stop the project's Docker container.
+* `docker-clean[project]`:
+         Stop the project's Docker container, and delete its image and any
+         workdir volumes.
 * `list`:
          Display a list of all discovered project directories.
 * `list-targets`:
