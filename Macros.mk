@@ -294,6 +294,7 @@ else #USE_LIBPWNABLEHARNESS
 $2_ALLLIBS := $$($2_LIBS)
 endif #USE_LIBPWNABLEHARNESS
 
+ifeq "$$($2_BINTYPE)" "executable"
 # Build and link in the stdio_unbuffer.c source file unless opted out
 ifndef $2_NO_UNBUFFERED_STDIO
 $2_OBJS += $$($1+BUILD)/$2_objs/stdio_unbuffer.o
@@ -327,7 +328,8 @@ $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c | $$($2
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
-endif
+endif #NO_UNBUFFERED_STDIO
+endif #BINTYPE == executable
 
 # If additional shared libraries should be linked, allow loading them from the
 # executable's directory and from /usr/local/lib
