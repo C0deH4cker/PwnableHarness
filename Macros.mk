@@ -1282,6 +1282,9 @@ include_subdir = $(eval $(call _include_subdir,$1))
 # Perform a depth-first recursion through the given directory including all Build.mk files found.
 #####
 define _recurse_subdir
+ifeq "$$(wildcard $1)" ""
+$$(info Skipping "$1" as it doesn't exist, is there a file with spaces in the directory tree?)
+else #exists($1)
 
 # Include this directory's Build.mk file if it exists
 $$(call include_subdir,$1)
@@ -1291,8 +1294,20 @@ ifndef $1+SUBDIRS
 $1+SUBDIRS :=
 endif
 
-# Make a list of all items in this directory that are directories and strip the trailing "/"
-$1+SUBDIRS := $$($1+SUBDIRS) $$(patsubst %/,%,$$(dir $$(wildcard $1/*/)))
+# Make a list of all items in this directory that are directories
+$1+RAW_DIRLIST := $$(wildcard $1/*/)
+
+# In case a directory had a space in its filename, filter that out with a pattern
+$1+DIRLIST := $$(filter $1/%/,$$($1+RAW_DIRLIST))
+
+# Check if any directories were skipped
+$1+SKIPPED := $$(filter-out $1/%/,$$($1+RAW_DIRLIST))
+ifdef $1+SKIPPED
+$$(info Skipping "$$($1+SKIPPED)" due to spaces in the path)
+endif
+
+# Strip the trailing "/" from directories, and join DIRLIST with SUBDIRS
+$1+SUBDIRS := $$(patsubst %/,%,$$($1+SUBDIRS) $$(dir $$($1+DIRLIST)))
 
 # Remove current directory and blacklisted items from the list of subdirectories
 $1+SUBDIRS := $$(filter-out $1 %.disabled $$(addprefix %/,$$(RECURSION_BLACKLIST)),$$($1+SUBDIRS))
@@ -1321,7 +1336,7 @@ endif
 include $1/After.mk
 
 endif #DIR/After.mk
-
+endif #exists($1)
 endef #_recurse_subdir
 recurse_subdir = $(eval $(call _recurse_subdir,$1))
 #####
