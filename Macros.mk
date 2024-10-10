@@ -90,6 +90,23 @@ ifndef DEFAULT_UBUNTU_VERSION
 DEFAULT_UBUNTU_VERSION := 24.04
 endif
 
+ifndef DEFAULT_DOCKER_CPULIMIT
+# Default to half of a virtual CPU core
+DEFAULT_DOCKER_CPULIMIT := 0.5
+endif
+
+ifndef DEFAULT_DOCKER_MEMLIMIT
+# Default to 500MB of RAM usage total
+# This can be measured with `docker stats <container>`. As a baseline, I
+# checked a basic challenge. It uses 3.2MB when sitting idle without any
+# connections, then jumps to 5.8MB with an active connection. That's 2.6MB
+# per connection (for a basic challenge). If we overestimate this to 10MB
+# per connection and want to support 50 concurrent connections, this gives
+# us 500MB. Challenges that need more memory can of course override this
+# default by setting `DOCKER_MEMLIMIT`.
+DEFAULT_DOCKER_MEMLIMIT := 500m
+endif
+
 ifndef DEFAULT_DOCKER_TIMELIMIT
 DEFAULT_DOCKER_TIMELIMIT :=
 endif
@@ -626,6 +643,8 @@ DOCKER_RUN_ARGS :=
 DOCKER_PWNABLESERVER_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
+DOCKER_CPULIMIT := $(DEFAULT_DOCKER_CPULIMIT)
+DOCKER_MEMLIMIT := $(DEFAULT_DOCKER_MEMLIMIT)
 DOCKER_TIMELIMIT := $(DEFAULT_DOCKER_TIMELIMIT)
 DOCKER_WRITEABLE :=
 DOCKER_PASSWORD := $(DEFAULT_DOCKER_PASSWORD)
@@ -747,6 +766,8 @@ $1+DOCKER_RUN_ARGS := $$(DOCKER_RUN_ARGS)
 $1+DOCKER_PWNABLESERVER_ARGS := $$(DOCKER_PWNABLESERVER_ARGS)
 $1+DOCKER_RUNNABLE := $$(DOCKER_RUNNABLE)
 $1+DOCKER_BUILD_ONLY := $$(DOCKER_BUILD_ONLY)
+$1+DOCKER_CPULIMIT := $$(DOCKER_CPULIMIT)
+$1+DOCKER_MEMLIMIT := $$(DOCKER_MEMLIMIT)
 $1+DOCKER_TIMELIMIT := $$(DOCKER_TIMELIMIT)
 $1+DOCKER_WRITEABLE := $$(DOCKER_WRITEABLE)
 $1+DOCKER_PASSWORD := $$(DOCKER_PASSWORD)
@@ -869,9 +890,14 @@ ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
+# Ignore the "SecretsUsedInArgOrEnv" build check which is triggered by CHALLENGE_PASSWORD.
+# This usage is safe since it's just intended for pre-competition testing. The image produced
+# isn't intended to keep that password secret.
+# https://docs.docker.com/build/checks/#skip-checks
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
-	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
-		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
+	$$(_v)echo '# check=skip=SecretsUsedInArgOrEnv' > $$@ \
+		&& echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@ \
+		&& echo 'FROM $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -944,6 +970,20 @@ ifeq "$$(filter --read-only,$$($1+DOCKER_RUN_ARGS))" ""
 $1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --read-only
 endif #--read-only
 endif #DOCKER_WRITEABLE
+
+# Add Docker arguments for limiting CPU usage of the container
+ifdef $1+DOCKER_CPULIMIT
+# https://docs.docker.com/engine/containers/resource_constraints/#configure-the-default-cfs-scheduler
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --cpus=$$($1+DOCKER_CPULIMIT)
+endif #DOCKER_CPULIMIT
+
+# Add Docker arguments for limiting memory usage of the container
+ifdef $1+DOCKER_MEMLIMIT
+# Need to set both --memory and --memory-swap to properly limit memory usage.
+# Otherwise, the container gets access to N bytes of memory PLUS N bytes of swap, which is stupid.
+# https://docs.docker.com/engine/containers/resource_constraints/#prevent-a-container-from-using-swap
+$1+DOCKER_RUN_ARGS := $$($1+DOCKER_RUN_ARGS) --memory=$$($1+DOCKER_MEMLIMIT) --memory-swap=$$($1+DOCKER_MEMLIMIT)
+endif #DOCKER_MEMLIMIT
 
 # If there's a password, supply it as an argument to pwnableserver
 ifdef $1+DOCKER_PASSWORD
@@ -1018,6 +1058,9 @@ endif
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
+# Only support amd64 images (for now)
+$1+DOCKER_PLATFORM := --platform=linux/amd64
+
 
 ## Docker build rules
 
@@ -1054,7 +1097,7 @@ endif #DOCKER_IMAGE_TAG
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
@@ -1064,7 +1107,7 @@ docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it (and volumes)
@@ -1100,7 +1143,7 @@ TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-	$$(_v)$$(DOCKER) run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
+	$$(_v)$$(DOCKER) run $$($1+DOCKER_PLATFORM) -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]
