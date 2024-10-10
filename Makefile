@@ -230,21 +230,21 @@ help:
 		'\n         `Build.mk` file, which is a command to be run from the project'"'"'s' \
 		'\n         directory when running `deploy` or `deploy[project]`.' \
 		'\n* `docker-build[project]`:' \
-		'\n         Build the project's Docker image, ensuring all dependencies are up to' \
+		'\n         Build the project'"'"'s Docker image, ensuring all dependencies are up to' \
 		'\n         date. For example, editing a C file and then running the `docker-build`' \
 		'\n         target will recompile the binary and rebuild the Docker image.' \
 		'\n* `docker-rebuild[project]`:' \
-		'\n         Force rebuild the project's Docker image, even if all of its' \
+		'\n         Force rebuild the project'"'"'s Docker image, even if all of its' \
 		'\n         dependencies are up to date.' \
 		'\n* `docker-start[project]`:' \
-		'\n         Create and start the project's Docker container, ensuring the Docker' \
+		'\n         Create and start the project'"'"'s Docker container, ensuring the Docker' \
 		'\n         image it is based on is up to date.' \
 		'\n* `docker-restart[project]`:' \
-		'\n         Restart the project's Docker container.' \
+		'\n         Restart the project'"'"'s Docker container.' \
 		'\n* `docker-stop[project]`:' \
-		'\n         Stop the project's Docker container.' \
+		'\n         Stop the project'"'"'s Docker container.' \
 		'\n* `docker-clean[project]`:' \
-		'\n         Stop the project's Docker container, and delete its image and any' \
+		'\n         Stop the project'"'"'s Docker container, and delete its image and any' \
 		'\n         workdir volumes.' \
 		'\n* `list`:' \
 		'\n         Display a list of all discovered project directories.' \
