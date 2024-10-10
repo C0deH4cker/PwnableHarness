@@ -890,9 +890,14 @@ ifndef $1+DOCKERFILE
 $1+DOCKERFILE := $1/default.Dockerfile
 
 # Add a rule to generate a default.Dockerfile in the project directory
+# Ignore the "SecretsUsedInArgOrEnv" build check which is triggered by CHALLENGE_PASSWORD.
+# This usage is safe since it's just intended for pre-competition testing. The image produced
+# isn't intended to keep that password secret.
+# https://docs.docker.com/build/checks/#skip-checks
 $1/default.Dockerfile: $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
-	$$(_v)echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' > $$@ \
-		&& echo 'FROM --platform=$$(DOCKER_DEFAULT_PLATFORM) $$$$BASE_IMAGE' >> $$@
+	$$(_v)echo '# check=skip=SecretsUsedInArgOrEnv' > $$@ \
+		&& echo 'ARG BASE_IMAGE=$$(PWNABLEHARNESS_REPO):base-$$(UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)' >> $$@ \
+		&& echo 'FROM $$$$BASE_IMAGE' >> $$@
 
 endif #exists DIR+Dockerfile
 endif #DOCKERFILE
@@ -1053,6 +1058,9 @@ endif
 # Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
 $1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
+# Only support amd64 images (for now)
+$1+DOCKER_PLATFORM := --platform=linux/amd64
+
 
 ## Docker build rules
 
@@ -1089,7 +1097,7 @@ endif #DOCKER_IMAGE_TAG
 # Create a marker file to track last docker build time
 $$($1+BUILD)/.docker_build_marker: $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Building docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$@
 
 # Force build a docker image
@@ -1099,7 +1107,7 @@ docker-rebuild: docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 TARGET_LIST := $$(TARGET_LIST) docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]
 docker-rebuild[$$($1+DOCKER_IMAGE_DEP)]: | $$($1+PRODUCTS) $$($1+DOCKER_BUILD_DEPS) $$($1+BUILD)/.dir
 	$$(_V)echo "Rebuilding docker image $$($1+DOCKER_TAG_ARG)"
-	$$(_v)$$(DOCKER) build -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
+	$$(_v)$$(DOCKER) build $$($1+DOCKER_PLATFORM) -t $$($1+DOCKER_TAG_ARG) $$($1+DOCKER_BUILD_FLAGS) -f $$($1+DOCKERFILE) . \
 		&& touch $$($1+BUILD)/.docker_build_marker
 
 # Rule for removing a docker image and any containers based on it (and volumes)
@@ -1135,7 +1143,7 @@ TARGET_LIST := $$(TARGET_LIST) docker-start[$$($1+DOCKER_CONTAINER)]
 docker-start[$$($1+DOCKER_CONTAINER)]: docker-build[$$($1+DOCKER_IMAGE_DEP)] $$($1+DOCKER_START_DEPS)
 	$$(_V)echo "Starting docker container $$($1+DOCKER_CONTAINER) from image $$($1+DOCKER_TAG_ARG)"
 	$$(_v)$$(DOCKER) rm -f $$($1+DOCKER_CONTAINER) >/dev/null 2>&1 || true
-	$$(_v)$$(DOCKER) run -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
+	$$(_v)$$(DOCKER) run $$($1+DOCKER_PLATFORM) -itd --restart=unless-stopped --name $$($1+DOCKER_CONTAINER) \
 		$$($1+DOCKER_PORT_ARGS) $$($1+DOCKER_RUN_ARGS) $$($1+DOCKER_TAG_ARG)
 
 .PHONY: docker-start[$$($1+DOCKER_CONTAINER)]

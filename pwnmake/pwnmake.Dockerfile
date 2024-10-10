@@ -19,6 +19,10 @@ RUN apt-get update \
 		vim \
 	&& rm -rf /var/lib/apt/lists/*
 
+# Add the "docker buildx" plugin so "docker build" commands use the new
+# (non-deprecated) builder strategy.
+COPY --from=docker/buildx-bin /buildx /usr/libexec/docker/cli-plugins/docker-buildx
+
 # Make the "sudo" command work as scripts would normally expect
 ARG DIR
 COPY $DIR/pwnmake-sudo.sh /usr/sbin/sudo

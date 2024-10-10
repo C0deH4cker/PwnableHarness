@@ -5,7 +5,6 @@ LABEL maintainer="c0deh4cker@gmail.com"
 
 # BuilderImage.mk will set this depending on if the base image has 32-bit support
 ARG CONFIG_IGNORE_32BIT=
-ENV CONFIG_IGNORE_32BIT=$CONFIG_IGNORE_32BIT
 
 # Add compilers
 ENV DEBIAN_FRONTEND=noninteractive
