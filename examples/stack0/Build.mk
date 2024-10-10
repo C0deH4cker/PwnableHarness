@@ -69,7 +69,8 @@ TARGET := stack0
 #                  Default: empty
 #
 # BITS:            Either 32 or 64, for deciding the architecture to
-#                    build for (i386/amd64).
+#                    build for (i386/amd64). Note that Ubuntu versions
+#                    starting with 19.10 removed 32-bit support!
 #                  Default: 64
 BITS := 32
 #
@@ -128,6 +129,18 @@ PUBLISH_BUILD := $(TARGET)
 # copied from the docker image if the challenge is configured to run
 # in docker, otherwise the local system's libc will be copied.
 #PUBLISH_LIBC := stack0-libc.so
+
+# UBUNTU_VERSION is the numeric or named Ubuntu version which should be
+# used as the base image for this challenge. Changing this value will
+# change which version of Ubuntu is used both for compiling the challenge
+# and for running it.
+UBUNTU_VERSION := 16.04
+
+# GLIBC_VERSION is the numeric version number of glibc that is required
+# for this challenge. Setting this will select the corresponding version
+# of Ubuntu that uses this specific glibc version and use that for compiling
+# and running the challenge.
+#GLIBC_VERSION := 2.23
 
 # DOCKER_IMAGE is the name of the docker image to create when
 # running "make docker-build".
