@@ -263,6 +263,11 @@ ifeq "$$(origin $2_NO_UNBUFFERED_STDIO)" "undefined"
 $2_NO_UNBUFFERED_STDIO := $$($1+NO_UNBUFFERED_STDIO)
 endif
 
+# Ensure that target_NO_RPATH has a value
+ifeq "$$(origin $2_NO_RPATH)" "undefined"
+$2_NO_RPATH := $$($1+NO_RPATH)
+endif
+
 # Ensure that target_LDLIBS has a value
 ifeq "$$(origin $2_LDLIBS)" "undefined"
 $2_LDLIBS := $$($1+LDLIBS)
@@ -331,15 +336,14 @@ $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c | $$($2
 endif #NO_UNBUFFERED_STDIO
 endif #BINTYPE == executable
 
-# If additional shared libraries should be linked, allow loading them from the
-# executable's directory and from /usr/local/lib
-ifdef $2_ALLLIBS
+# Allow loading shared libraries from the executable directory
+ifndef $2_NO_RPATH
 ifdef IS_LINUX
-$2_LDFLAGS += -Wl,-rpath,/usr/local/lib,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
+$2_LDFLAGS += -Wl,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
 else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-rpath,/usr/local/lib,-rpath,@executable_path
+$2_LDFLAGS += -Wl,-rpath,@executable_path
 endif #IS_LINUX/IS_MAC
-endif #target_ALLLIBS
+endif #target_NO_RPATH
 
 # On macOS, dylibs need an "install name" to allow them to be loaded from the
 # executable's directory
@@ -752,6 +756,7 @@ LIBS :=
 LDLIBS :=
 USE_LIBPWNABLEHARNESS :=
 NO_UNBUFFERED_STDIO :=
+NO_RPATH :=
 
 # Ubuntu/glibc versions
 UBUNTU_VERSION :=
@@ -879,6 +884,7 @@ $1+LIBS := $$(LIBS)
 $1+LDLIBS := $$(LDLIBS)
 $1+USE_LIBPWNABLEHARNESS := $$(USE_LIBPWNABLEHARNESS)
 $1+NO_UNBUFFERED_STDIO := $$(NO_UNBUFFERED_STDIO)
+$1+NO_RPATH := $$(NO_RPATH)
 
 # Ubuntu/glibc versions
 ifdef UBUNTU_VERSION
