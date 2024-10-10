@@ -7,7 +7,6 @@ PWNMAKE_DEPS := \
 	stdio_unbuffer.c \
 	UbuntuVersions.mk \
 	VERSION \
-	$(wildcard $(PWNABLEHARNESS_CORE_PROJECT)/*) \
 	$(wildcard $(PWNCC_DIR)/*) \
 	$(wildcard $(PWNMAKE_DIR)/*)
 
