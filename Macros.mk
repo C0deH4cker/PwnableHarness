@@ -502,6 +502,7 @@ $2_CANARY_FLAG := -fstack-protector-explicit
 else ifeq "$$($2_CANARY)" "normal"
 $2_CANARY_FLAG := -fstack-protector
 else ifeq "$$($2_CANARY)" "default"
+# Nothing
 $2_CANARY_FLAG :=
 else ifeq "$$($2_CANARY)" "none"
 $2_CANARY_FLAG := -fno-stack-protector
@@ -510,11 +511,19 @@ $2_CFLAGS += $$($2_CANARY_FLAG)
 $2_CXXFLAGS += $$($2_CANARY_FLAG)
 
 # NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
-ifeq "1" "$$(call is_var_true,$2_NX)"
+ifeq "1" "$$(call is_var_false_or_undefined,$2_NX)"
 ifdef IS_LINUX
 $2_EXTRA_LDFLAGS += -z execstack
 else ifdef IS_MAC
 $2_EXTRA_LDFLAGS += -Wl,-allow_stack_execute
+endif #OS
+else ifeq "$$($2_NX)" "default"
+# Nothing
+else #NX
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -z noexecstack
+else ifdef IS_MAC
+# No option, default is stack isn't executable
 endif #OS
 endif #NX
 
@@ -527,7 +536,17 @@ $2_ASLR := $$($2_PIE)
 endif #PIE
 
 # ASLR (Address Space Layout Randomization)
-ifeq "1" "$$(call is_var_true,$2_ASLR)"
+ifeq "1" "$$(call is_var_false_or_undefined,$2_ASLR)"
+ifeq "$$($2_BINTYPE)" "executable"
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -no-pie
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-no_pie
+endif #IS_LINUX/IS_MAC
+endif #executable
+else ifeq "$$($2_ASLR)" "default"
+# Nothing
+else #ASLR
 ifeq "$$($2_BINTYPE)" "executable"
 $2_EXTRA_CFLAGS += -fPIE
 $2_EXTRA_CXXFLAGS += -fPIE
@@ -539,14 +558,6 @@ endif #IS_LINUX/IS_MAC
 else #executable
 $2_EXTRA_CFLAGS += -fPIC
 $2_EXTRA_CXXFLAGS += -fPIC
-endif #executable
-else #ASLR
-ifeq "$$($2_BINTYPE)" "executable"
-ifdef IS_LINUX
-$2_EXTRA_LDFLAGS += -no-pie
-else ifdef IS_MAC
-$2_EXTRA_LDFLAGS += -Wl,-no_pie
-endif #IS_LINUX/IS_MAC
 endif #executable
 endif #ASLR
 
@@ -562,6 +573,8 @@ endif #STRIP
 # Debug symbols
 ifeq "1" "$$(call is_var_false_or_undefined,$2_DEBUG)"
 $2_EXTRA_CPPFLAGS += -DNDEBUG=1 -UDEBUG
+else ifeq "$$($2_DEBUG)" "default"
+# Nothing
 else #DEBUG
 $2_EXTRA_CPPFLAGS += -DDEBUG=1 -UNDEBUG
 ifeq "1" "$$(call is_var_true,$2_DEBUG)"
