@@ -28,8 +28,8 @@ ifndef DEFAULT_BITS
 DEFAULT_BITS := 64
 endif
 
-ifndef DEFAULT_OFLAGS
-DEFAULT_OFLAGS := -O0
+ifndef DEFAULT_CPPFLAGS
+DEFAULT_CPPFLAGS :=
 endif
 
 ifndef DEFAULT_CFLAGS
@@ -38,6 +38,14 @@ endif
 
 ifndef DEFAULT_CXXFLAGS
 DEFAULT_CXXFLAGS :=
+endif
+
+ifndef DEFAULT_OFLAGS
+DEFAULT_OFLAGS := -O0
+endif
+
+ifndef DEFAULT_ASFLAGS
+DEFAULT_ASFLAGS :=
 endif
 
 ifndef DEFAULT_LDFLAGS
@@ -52,6 +60,10 @@ ifndef DEFAULT_CXX
 DEFAULT_CXX := g++
 endif
 
+ifndef DEFAULT_AS
+DEFAULT_AS := gcc
+endif
+
 ifndef DEFAULT_LD
 DEFAULT_LD :=
 endif
@@ -61,15 +73,19 @@ DEFAULT_AR := ar
 endif
 
 ifndef DEFAULT_RELRO
-DEFAULT_RELRO :=
+DEFAULT_RELRO := 0
 endif
 
 ifndef DEFAULT_CANARY
-DEFAULT_CANARY :=
+DEFAULT_CANARY := none
 endif
 
 ifndef DEFAULT_NX
-DEFAULT_NX :=
+DEFAULT_NX := 0
+endif
+
+ifndef DEFAULT_PIE
+DEFAULT_PIE :=
 endif
 
 ifndef DEFAULT_ASLR
@@ -77,11 +93,11 @@ DEFAULT_ASLR :=
 endif
 
 ifndef DEFAULT_STRIP
-DEFAULT_STRIP :=
+DEFAULT_STRIP := 0
 endif
 
 ifndef DEFAULT_DEBUG
-DEFAULT_DEBUG :=
+DEFAULT_DEBUG := 0
 endif
 
 ifndef DEFAULT_UBUNTU_VERSION
@@ -116,6 +132,37 @@ DEFAULT_DOCKER_PASSWORD :=
 endif
 
 
+# Any of these values indicate that a variable is "true"
+TRUE_VALUES  := 1 true  True  TRUE  yes y Yes Y YES on  On  ON
+
+# Any of these values indicate that a variable is "false"
+FALSE_VALUES := 0 false False FALSE no  n No  N NO  off Off OFF
+
+# Returns 1 when $1 is an empty string
+is_value_empty = $(if $1,,1)
+
+# Returns 1 when $1 is in $(TRUE_VALUES)
+is_value_true = $(if $(filter $1,$(TRUE_VALUES)),1)
+
+# Returns 1 when $1 is in $(FALSE_VALUES)
+is_value_false = $(if $(filter $1,$(FALSE_VALUES)),1)
+
+# Returns 1 when $1 names an undefined variable
+is_var_undefined = $(if $(filter $(origin $1),undefined),1)
+
+# Returns 1 when $1 names a defined variable
+is_var_defined = $(if $(call is_var_undefined,$1),,1)
+
+# Returns 1 when $1 names a variable whose value is in $(TRUE_VALUES)
+is_var_true = $(and $(call is_var_defined,$1),$(call is_value_true,$($1)))
+
+# Returns 1 when $1 names a variable whose value is in $(FALSE_VALUES)
+is_var_false = $(and $(call is_var_defined,$1),$(call is_value_false,$($1)))
+
+# Returns 1 when $1 names an undefined variable or when $1's value is the empty string or in $(FALSE_VALUES)
+is_var_false_or_undefined = $(or $(call is_var_undefined,$1),$(call is_value_empty,$($1)),$(call is_value_false,$($1)))
+
+
 #####
 # generate_target($1: subdirectory, $2: target)
 #
@@ -148,25 +195,64 @@ endif #UBUNTU_32BIT_SUPPORT
 endif #BITS==32
 endif #THIS_IS_THE_CORE_PROJECT
 
-# Ensure that target_OFLAGS has a value, default to no optimization
-ifeq "$$(origin $2_OFLAGS)" "undefined"
-$2_OFLAGS := $$($1+OFLAGS)
+ifeq "$$(origin $2_NO_EXTRA_FLAGS)" "undefined"
+$2_NO_EXTRA_FLAGS := $$($1+NO_EXTRA_FLAGS)
 endif
+
+# Ensure that target_CPPFLAGS is defined
+ifeq "$$(origin $2_CPPFLAGS)" "undefined"
+$2_CPPFLAGS := $$($1+CPPFLAGS)
+endif
+ifeq "$$(origin $2_NO_EXTRA_CPPFLAGS)" "undefined"
+$2_NO_EXTRA_CPPFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_CPPFLAGS))
+endif
+$2_EXTRA_CPPFLAGS :=
+
 
 # Ensure that target_CFLAGS is defined
 ifeq "$$(origin $2_CFLAGS)" "undefined"
 $2_CFLAGS := $$($1+CFLAGS)
 endif
+ifeq "$$(origin $2_NO_EXTRA_CFLAGS)" "undefined"
+$2_NO_EXTRA_CFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_CFLAGS))
+endif
+$2_EXTRA_CFLAGS :=
 
 # Ensure that target_CXXFLAGS is defined
 ifeq "$$(origin $2_CXXFLAGS)" "undefined"
 $2_CXXFLAGS := $$($1+CXXFLAGS)
 endif
+ifeq "$$(origin $2_NO_EXTRA_CXXFLAGS)" "undefined"
+$2_NO_EXTRA_CXXFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_CXXFLAGS))
+endif
+$2_EXTRA_CXXFLAGS :=
+
+# Ensure that target_OFLAGS has a value, default to no optimization
+ifeq "$$(origin $2_OFLAGS)" "undefined"
+$2_OFLAGS := $$($1+OFLAGS)
+endif
+ifeq "$$(origin $2_NO_EXTRA_OFLAGS)" "undefined"
+$2_NO_EXTRA_OFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_OFLAGS))
+endif
+$2_EXTRA_OFLAGS :=
+
+# Ensure that target_ASFLAGS is defined
+ifeq "$$(origin $2_ASFLAGS)" "undefined"
+$2_ASFLAGS := $$($1+ASFLAGS)
+endif
+ifeq "$$(origin $2_NO_EXTRA_ASFLAGS)" "undefined"
+$2_NO_EXTRA_ASFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_ASFLAGS))
+endif
+$2_EXTRA_ASFLAGS := -D__ASSEMBLY__
 
 # Ensure that target_LDFLAGS is defined
 ifeq "$$(origin $2_LDFLAGS)" "undefined"
 $2_LDFLAGS := $$($1+LDFLAGS)
 endif
+ifeq "$$(origin $2_NO_EXTRA_LDFLAGS)" "undefined"
+$2_NO_EXTRA_LDFLAGS := $$(or $$($2_NO_EXTRA_FLAGS),$$($1+NO_EXTRA_LDFLAGS))
+endif
+$2_EXTRA_LDFLAGS :=
 
 # Ensure that target_SRCS has a value, default to searching for all C and
 # C++ sources in the same directory as Build.mk.
@@ -195,14 +281,19 @@ ifeq "$$(origin $2_DEPS)" "undefined"
 $2_DEPS := $$($2_OBJS:.o=.d)
 endif
 
-# Ensure that target_CC has a value, defaulting to gcc
+# Ensure that target_CC has a value
 ifeq "$$(origin $2_CC)" "undefined"
 $2_CC := $$($1+CC)
 endif
 
-# Ensure that target_CXX has a value, defaulting to g++
+# Ensure that target_CXX has a value
 ifeq "$$(origin $2_CXX)" "undefined"
 $2_CXX := $$($1+CXX)
+endif
+
+# Ensure that target_AS has a value
+ifeq "$$(origin $2_AS)" "undefined"
+$2_AS := $$($1+AS)
 endif
 
 # Ensure that target_LD has a value, defaulting to target_CC unless there are
@@ -299,6 +390,187 @@ else #USE_LIBPWNABLEHARNESS
 $2_ALLLIBS := $$($2_LIBS)
 endif #USE_LIBPWNABLEHARNESS
 
+# Allow loading shared libraries from the executable directory
+ifeq "1" "$$(call is_var_false_or_undefined,$2_NO_RPATH)"
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -Wl,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-rpath,@executable_path
+endif #IS_LINUX/IS_MAC
+endif #NO_RPATH
+
+# On macOS, dylibs need an "install name" to allow them to be loaded from the
+# executable's directory
+ifeq "$$($2_BINTYPE)" "dynamiclib"
+ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -install_name @rpath/$2
+endif #IS_MAC
+endif #dynamiclib
+
+# Convert a list of dynamic library names into linker arguments
+ifdef IS_LINUX
+$2_LIBPATHS := $$(sort $$(patsubst %/,%,$$(dir $$($2_ALLLIBS))))
+$2_EXTRA_LDFLAGS += $$(addprefix -L,$$($2_LIBPATHS))
+$2_LDLIBS += $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
+else ifdef IS_MAC
+$2_LDLIBS += $$($2_ALLLIBS)
+endif
+
+
+## Hardening flags
+
+# Ensure that target_RELRO has a value
+ifeq "$$(origin $2_RELRO)" "undefined"
+$2_RELRO := $$($1+RELRO)
+endif
+
+# Ensure that target_CANARY has a value
+ifeq "$$(origin $2_CANARY)" "undefined"
+$2_CANARY := $$($1+CANARY)
+endif
+
+# Ensure that target_NX has a value
+ifeq "$$(origin $2_NX)" "undefined"
+$2_NX := $$($1+NX)
+endif
+
+# Ensure that target_PIE has a value
+ifeq "$$(origin $2_PIE)" "undefined"
+$2_PIE := $$($1+PIE)
+endif
+
+# Ensure that target_ASLR has a value
+ifeq "$$(origin $2_ASLR)" "undefined"
+$2_ASLR := $$($1+ASLR)
+endif
+
+# Ensure that target_STRIP has a value
+ifeq "$$(origin $2_STRIP)" "undefined"
+$2_STRIP := $$($1+STRIP)
+endif
+
+# Ensure that target_DEBUG has a value
+ifeq "$$(origin $2_DEBUG)" "undefined"
+$2_DEBUG := $$($1+DEBUG)
+endif
+
+
+## Apply hardening flags
+
+# RELRO (Read-only relocations), only works on Linux
+ifdef IS_LINUX
+ifeq "1" "$$(call is_var_true,$2_RELRO)"
+$2_EXTRA_LDFLAGS += -Wl,-z,relro,-z,now
+else ifneq "$$($2_RELRO)" "default"
+$2_EXTRA_LDFLAGS += -Wl,-z,norelro
+endif #RELRO
+endif #IS_LINUX
+
+# Map user-provided value of CANARY to a valid value
+ifeq "1" "$$(call is_var_false_or_undefined,$2_CANARY)"
+# False-ish values
+$2_CANARY := none
+else ifeq "1" "$$(call is_var_true,$2_CANARY)"
+# True-ish values imply strong
+$2_CANARY := strong
+else ifeq "" "$$(filter $$($2_CANARY),all strong explicit normal default none)"
+$$(error Unknown value for CANARY in $1/$2: "$$($2_CANARY)". Possible values: all strong explicit normal default none)
+endif #CANARY
+
+# Apply CANARY setting to flags
+ifeq "$$($2_CANARY)" "all"
+$2_CANARY_FLAG := -fstack-protector-all
+else ifeq "$$($2_CANARY)" "strong"
+$2_CANARY_FLAG := -fstack-protector-strong
+else ifeq "$$($2_CANARY)" "explicit"
+$2_CANARY_FLAG := -fstack-protector-explicit
+else ifeq "$$($2_CANARY)" "normal"
+$2_CANARY_FLAG := -fstack-protector
+else ifeq "$$($2_CANARY)" "default"
+$2_CANARY_FLAG :=
+else ifeq "$$($2_CANARY)" "none"
+$2_CANARY_FLAG := -fno-stack-protector
+endif #CANARY
+$2_CFLAGS += $$($2_CANARY_FLAG)
+$2_CXXFLAGS += $$($2_CANARY_FLAG)
+
+# NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
+ifeq "1" "$$(call is_var_true,$2_NX)"
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -z execstack
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-allow_stack_execute
+endif #OS
+endif #NX
+
+# PIE is an alias for ASLR
+ifdef $2_PIE
+ifdef $2_ASLR
+$$(error Both ASLR and PIE are defined! Use ASLR only.)
+endif #ASLR
+$2_ASLR := $$($2_PIE)
+endif #PIE
+
+# ASLR (Address Space Layout Randomization)
+ifeq "1" "$$(call is_var_true,$2_ASLR)"
+ifeq "$$($2_BINTYPE)" "executable"
+$2_EXTRA_CFLAGS += -fPIE
+$2_EXTRA_CXXFLAGS += -fPIE
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -pie
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-pie
+endif #IS_LINUX/IS_MAC
+else #executable
+$2_EXTRA_CFLAGS += -fPIC
+$2_EXTRA_CXXFLAGS += -fPIC
+endif #executable
+else #ASLR
+ifeq "$$($2_BINTYPE)" "executable"
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -no-pie
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-no_pie
+endif #IS_LINUX/IS_MAC
+endif #executable
+endif #ASLR
+
+# Strip symbols
+ifeq "1" "$$(call is_var_true,$2_STRIP)"
+ifdef IS_LINUX
+$2_EXTRA_LDFLAGS += -Wl,-s
+else ifdef IS_MAC
+$2_EXTRA_LDFLAGS += -Wl,-S,-x
+endif #IS_LINUX/IS_MAC
+endif #STRIP
+
+# Debug symbols
+ifeq "1" "$$(call is_var_false_or_undefined,$2_DEBUG)"
+$2_EXTRA_CPPFLAGS += -DNDEBUG=1 -UDEBUG
+else #DEBUG
+$2_EXTRA_CPPFLAGS += -DDEBUG=1 -UNDEBUG
+ifeq "1" "$$(call is_var_true,$2_DEBUG)"
+$2_EXTRA_CFLAGS += -ggdb
+$2_EXTRA_CXXFLAGS += -ggdb
+$2_EXTRA_LDFLAGS += -ggdb
+else #!is_true(DEBUG)
+$2_EXTRA_CFLAGS += $$($2_DEBUG)
+$2_EXTRA_CXXFLAGS += $$($2_DEBUG)
+$2_EXTRA_LDFLAGS += $$($2_DEBUG)
+endif #!is_true(DEBUG)
+endif #DEBUG
+
+# Add project directory to include path
+$2_EXTRA_CPPFLAGS += -I$1
+
+# Combine user-provided flags with PwnableHarness-generated flags
+$2_ALL_CPPFLAGS := $$(if $$($2_NO_EXTRA_CPPFLAGS),,$$($2_EXTRA_CPPFLAGS) )$$($2_CPPFLAGS)
+$2_ALL_ASFLAGS  := $$(if $$($2_NO_EXTRA_ASFLAGS),,$$($2_EXTRA_ASFLAGS) )$$($2_ASFLAGS)
+$2_ALL_CFLAGS   := $$(if $$($2_NO_EXTRA_CFLAGS),,$$($2_EXTRA_CFLAGS) )$$($2_CFLAGS)
+$2_ALL_CXXFLAGS := $$(if $$($2_NO_EXTRA_CXXFLAGS),,$$($2_EXTRA_CXXFLAGS) )$$($2_CXXFLAGS)
+$2_ALL_OFLAGS   := $$(if $$($2_NO_EXTRA_OFLAGS),,$$($2_EXTRA_OFLAGS) )$$($2_OFLAGS)
+$2_ALL_LDFLAGS  := $$(if $$($2_NO_EXTRA_LDFLAGS),,$$($2_EXTRA_LDFLAGS) )$$($2_LDFLAGS)
+
 ifeq "$$($2_BINTYPE)" "executable"
 # Build and link in the stdio_unbuffer.c source file unless opted out
 ifndef $2_NO_UNBUFFERED_STDIO
@@ -331,138 +603,10 @@ endif #UNBUFFER_DIR
 # Compiler rule for stdio_unbuffer.o
 $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
-	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif #NO_UNBUFFERED_STDIO
 endif #BINTYPE == executable
-
-# Allow loading shared libraries from the executable directory
-ifndef $2_NO_RPATH
-ifdef IS_LINUX
-$2_LDFLAGS += -Wl,-rpath,`printf "\044"`ORIGIN -Wl,-z,origin
-else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-rpath,@executable_path
-endif #IS_LINUX/IS_MAC
-endif #target_NO_RPATH
-
-# On macOS, dylibs need an "install name" to allow them to be loaded from the
-# executable's directory
-ifeq "$$($2_BINTYPE)" "dynamiclib"
-ifdef IS_MAC
-$2_LDFLAGS += -install_name @rpath/$2
-endif #IS_MAC
-endif #dynamiclib
-
-# Convert a list of dynamic library names into linker arguments
-ifdef IS_LINUX
-$2_LIBPATHS := $$(sort $$(patsubst %/,%,$$(dir $$($2_ALLLIBS))))
-$2_LDFLAGS += $$(addprefix -L,$$($2_LIBPATHS))
-$2_LDLIBS += $$(addprefix -l:,$$(notdir $$($2_ALLLIBS)))
-else ifdef IS_MAC
-$2_LDLIBS += $$($2_ALLLIBS)
-endif
-
-
-## Hardening flags
-
-# Ensure that target_RELRO has a value
-ifeq "$$(origin $2_RELRO)" "undefined"
-$2_RELRO := $$($1+RELRO)
-endif
-
-# Ensure that target_CANARY has a value
-ifeq "$$(origin $2_CANARY)" "undefined"
-$2_CANARY := $$($1+CANARY)
-endif
-
-# Ensure that target_NX has a value
-ifeq "$$(origin $2_NX)" "undefined"
-$2_NX := $$($1+NX)
-endif
-
-# Ensure that target_ASLR has a value
-ifeq "$$(origin $2_ASLR)" "undefined"
-$2_ASLR := $$($1+ASLR)
-endif
-
-# Ensure that target_STRIP has a value
-ifeq "$$(origin $2_STRIP)" "undefined"
-$2_STRIP := $$($1+STRIP)
-endif
-
-# Ensure that target_DEBUG has a value
-ifeq "$$(origin $2_DEBUG)" "undefined"
-$2_DEBUG := $$($1+DEBUG)
-endif
-
-
-## Apply hardening flags
-
-# RELRO (Read-only relocations), only works on Linux
-ifdef IS_LINUX
-ifdef $2_RELRO
-ifneq "$$($2_RELRO)" "partial"
-$2_LDFLAGS += -Wl,-z,relro,-z,now
-endif #partial
-else #RELRO
-$2_LDFLAGS += -Wl,-z,norelro
-endif #RELRO
-endif #IS_LINUX
-
-# Stack canary
-ifndef $2_CANARY
-$2_CFLAGS += -fno-stack-protector
-$2_CXXFLAGS += -fno-stack-protector
-endif
-
-# NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
-ifndef $2_NX
-ifdef IS_LINUX
-$2_LDFLAGS += -z execstack
-else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-allow_stack_execute
-endif #OS
-endif #target_NX
-
-# ASLR (Address Space Layout Randomization)
-ifdef $2_ASLR
-$2_CFLAGS += -fPIC
-$2_CXXFLAGS += -fPIC
-ifeq "$$($2_BINTYPE)" "executable"
-ifdef IS_LINUX
-$2_LDFLAGS += -pie
-else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-pie
-endif #IS_LINUX/IS_MAC
-endif #executable
-else #ASLR
-ifeq "$$($2_BINTYPE)" "executable"
-ifdef IS_LINUX
-$2_LDFLAGS += -no-pie
-else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-no_pie
-endif #IS_LINUX/IS_MAC
-endif #executable
-endif #ASLR
-
-# Strip symbols
-ifdef $2_STRIP
-ifdef IS_LINUX
-$2_LDFLAGS += -Wl,-s
-else ifdef IS_MAC
-$2_LDFLAGS += -Wl,-S,-x
-endif #IS_LINUX/IS_MAC
-endif #STRIP
-
-# Debug symbols
-ifdef $2_DEBUG
-$2_CFLAGS += -ggdb -DDEBUG=1 -UNDEBUG
-$2_CXXFLAGS += -ggdb -DDEBUG=1 -UNDEBUG
-$2_LDFLAGS += -ggdb
-else #DEBUG
-$2_CFLAGS += -DNDEBUG=1
-$2_CXXFLAGS += -DNDEBUG=1
-endif #DEBUG
 
 ifdef MKTRACE
 $$(info Adding build deps for $1+$2)
@@ -484,12 +628,17 @@ endif #MKTRACE
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
-	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
-	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$(sort -I. -I$1) $$($2_OFLAGS) $$($2_CXXFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CXXFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+
+# Assembler rule
+$$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S | $$($2_PWNCC_DEPS)
+	$$(_V)echo "$$($2_PWNCC_DESC)Assembling $$<"
+	$$(_v)$$($2_PWNCC)$$($2_AS) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_ASFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 clean-one[$1]: clean-objs[$1+$2]
 
@@ -511,18 +660,18 @@ ifdef MKTRACE
 $$(info Adding linker rules for $1+$2)
 endif #MKTRACE
 
-ifeq "$$($2_BINTYPE)" "dynamiclib"
-# Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
-	$$(_V)echo "$$($2_PWNCC_DESC)Linking shared library $$@"
-	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_LDFLAGS) \
-		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
-
-else ifeq "$$($2_BINTYPE)" "executable"
+ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Linking executable $$@"
-	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_LDFLAGS) \
+	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
+		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
+
+else ifeq "$$($2_BINTYPE)" "dynamiclib"
+# Linker rule to produce the final target (specialization for shared libraries)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
+	$$(_V)echo "$$($2_PWNCC_DESC)Linking shared library $$@"
+	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
@@ -742,13 +891,23 @@ DOCKER_PASSWORD := $(DEFAULT_DOCKER_PASSWORD)
 
 # These can optionally be defined to set directory-specific variables
 BITS := $(DEFAULT_BITS)
-OFLAGS := $(DEFAULT_OFLAGS)
+CPPFLAGS := $(DEFAULT_CPPFLAGS)
 CFLAGS := $(DEFAULT_CFLAGS)
 CXXFLAGS := $(DEFAULT_CXXFLAGS)
+OFLAGS := $(DEFAULT_OFLAGS)
+ASFLAGS := $(DEFAULT_ASFLAGS)
 LDFLAGS := $(DEFAULT_LDFLAGS)
-SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp,$$(wildcard $1/*.$$(ext))))
+NO_EXTRA_CPPFLAGS :=
+NO_EXTRA_CFLAGS :=
+NO_EXTRA_CXXFLAGS :=
+NO_EXTRA_OFLAGS :=
+NO_EXTRA_ASFLAGS :=
+NO_EXTRA_LDFLAGS :=
+NO_EXTRA_FLAGS :=
+SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp S,$$(wildcard $1/*.$$(ext))))
 CC := $(DEFAULT_CC)
 CXX := $(DEFAULT_CXX)
+AS := $(DEFAULT_AS)
 LD := $(DEFAULT_LD)
 AR := $(DEFAULT_AR)
 BINTYPE :=
@@ -766,6 +925,7 @@ GLIBC_VERSION :=
 RELRO := $(DEFAULT_RELRO)
 CANARY := $(DEFAULT_CANARY)
 NX := $(DEFAULT_NX)
+PIE := $(DEFAULT_PIE)
 ASLR := $(DEFAULT_ASLR)
 STRIP := $(DEFAULT_STRIP)
 DEBUG := $(DEFAULT_DEBUG)
@@ -870,13 +1030,23 @@ $1+DOCKER_COMPOSE := $$(wildcard $1/docker-compose.yml)
 
 # Directory specific variables
 $1+BITS := $$(BITS)
-$1+OFLAGS := $$(OFLAGS)
+$1+CPPFLAGS := $$(CPPFLAGS)
 $1+CFLAGS := $$(CFLAGS)
 $1+CXXFLAGS := $$(CXXFLAGS)
+$1+OFLAGS := $$(OFLAGS)
+$1+ASFLAGS := $$(ASFLAGS)
 $1+LDFLAGS := $$(LDFLAGS)
+$1+NO_EXTRA_CPPFLAGS := $$(NO_EXTRA_CPPFLAGS)
+$1+NO_EXTRA_CFLAGS := $$(NO_EXTRA_CFLAGS)
+$1+NO_EXTRA_CXXFLAGS := $$(NO_EXTRA_CXXFLAGS)
+$1+NO_EXTRA_OFLAGS := $$(NO_EXTRA_OFLAGS)
+$1+NO_EXTRA_ASFLAGS := $$(NO_EXTRA_ASFLAGS)
+$1+NO_EXTRA_LDFLAGS := $$(NO_EXTRA_LDFLAGS)
+$1+NO_EXTRA_FLAGS := $$(NO_EXTRA_FLAGS)
 $1+SRCS := $$(addprefix $1/,$$(SRCS))
 $1+CC := $$(CC)
 $1+CXX := $$(CXX)
+$1+AS := $$(AS)
 $1+LD := $$(LD)
 $1+AR := $$(AR)
 $1+BINTYPE := $$(BINTYPE)
@@ -918,6 +1088,7 @@ $1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWN
 $1+RELRO := $$(RELRO)
 $1+CANARY := $$(CANARY)
 $1+NX := $$(NX)
+$1+PIE := $$(PIE)
 $1+ASLR := $$(ASLR)
 $1+STRIP := $$(STRIP)
 $1+DEBUG := $$(DEBUG)
