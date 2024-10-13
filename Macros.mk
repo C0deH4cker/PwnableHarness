@@ -307,22 +307,33 @@ ifeq "$$(origin $2_AR)" "undefined"
 $2_AR := $$($1+AR)
 endif
 
-# Undocumented feature for allowing per-target PWNCC overriding (used by core)
-ifdef CONFIG_USE_PWNCC
-ifeq "$$(origin $2_PWNCC)" "undefined"
-$2_PWNCC := $$($1+PWNCC)
-endif
-ifeq "$$(origin $2_PWNCC_DEPS)" "undefined"
-$2_PWNCC_DEPS := $$($1+PWNCC_DEPS)
-endif
-ifeq "$$(origin $2_PWNCC_DESC)" "undefined"
-$2_PWNCC_DESC := $$($1+PWNCC_DESC)
+ifeq "$$(origin $2_UBUNTU_VERSION)" "undefined"
+$2_UBUNTU_VERSION := $$($1+UBUNTU_VERSION)
 endif
 
-# Format string for a printed message prefix
-$2_PWNCC_DESC := [$$($2_PWNCC_DESC)]$$(SPACE)
-else #CONFIG_USE_PWNCC
+# Define UBUNTU_VERSION_NUMBER as the numeric version for Ubuntu (even when UBUNTU_VERSION is the named alias)
+ifdef UBUNTU_VERSION_TO_ALIAS[$$($2_UBUNTU_VERSION)]
+$2_UBUNTU_VERSION_NUMBER := $$($2_UBUNTU_VERSION)
+else ifdef UBUNTU_ALIAS_TO_VERSION[$$($2_UBUNTU_VERSION)]
+$2_UBUNTU_VERSION_NUMBER := $$(UBUNTU_ALIAS_TO_VERSION[$$($2_UBUNTU_VERSION)])
+else
+$$(error Unknown Ubuntu version in $1/$2: "$$($2_UBUNTU_VERSION)")
+endif
+
+# Split Ubuntu version number into major, minor, and int. 24.04 -> major=24, minor=04, int=2404
+$2_UBUNTU_VERSION_PARTS := $$(subst .,$$(SPACE),$$($2_UBUNTU_VERSION_NUMBER))
+$2_UBUNTU_VERSION_MAJOR := $$(firstword $$($2_UBUNTU_VERSION_PARTS))
+$2_UBUNTU_VERSION_MINOR := $$(word 2,$$($2_UBUNTU_VERSION_PARTS))
+$2_UBUNTU_VERSION_INT := $$($2_UBUNTU_VERSION_MAJOR)$$($2_UBUNTU_VERSION_MINOR)
+
+# Run compiler commands in a pwncc container?
+$2_PWNCC :=
+$2_PWNCC_DEPS :=
 $2_PWNCC_DESC :=
+ifdef CONFIG_USE_PWNCC
+$$(call pwncc_prepare,$1,$$($2_UBUNTU_VERSION),$2_PWNCC,$2_PWNCC_DEPS)
+# Format string for a printed message prefix
+$2_PWNCC_DESC := [$$($2_UBUNTU_VERSION)]$$(SPACE)
 endif #CONFIG_USE_PWNCC
 
 # Ensure that target_BINTYPE has a value, defaulting to "dynamiclib" if target
@@ -366,24 +377,28 @@ endif #target_LDLIBS undefined
 
 # Add dependency on libpwnableharness(32|64).so if requested
 ifdef $2_USE_LIBPWNABLEHARNESS
-$2_ALLLIBS := $$($2_LIBS) $$(BUILD)/core/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so
+$2_ALLLIBS := $$($2_LIBS) $$(BUILD)/core/$$($2_UBUNTU_VERSION_NUMBER)/libpwnableharness$$($2_BITS).so
 
 # When not building PwnableHarness core, just extract the prebuilt libpwnableharness*.so library out of the Docker image
 ifndef $1+THIS_IS_THE_CORE_PROJECT
-ifndef DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($1+UBUNTU_VERSION)
-DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($1+UBUNTU_VERSION) := 1
-$$(BUILD)/core/$$($1+UBUNTU_VERSION)/libpwnableharness$$($2_BITS).so:
+ifndef DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($2_UBUNTU_VERSION_NUMBER)
+DEFINED_GRAB_LIBPWNABLEHARNESS$$($2_BITS)_$$($2_UBUNTU_VERSION_NUMBER) := 1
+$$(BUILD)/core/$$($2_UBUNTU_VERSION_NUMBER)/libpwnableharness$$($2_BITS).so:
 	$$(_V)echo "Pulling $$($1+DOCKER_FULL_BASE) (if necessary)"
 	$$(_v)$$(DOCKER) pull $$($1+DOCKER_PLATFORM) $$($1+DOCKER_FULL_BASE)
 	$$(_V)echo "Copying libpwnableharness$$($2_BITS).so from $$($1+DOCKER_FULL_BASE)"
 	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_FULL_BASE) /usr/local/lib/libpwnableharness$$($2_BITS).so > $$@
 
-clean: clean-libpwnableharness-$$($1+UBUNTU_VERSION)
-.PHONY: clean-libpwnableharness-$$($1+UBUNTU_VERSION)
-clean-libpwnableharness-$$($1+UBUNTU_VERSION):
-	$$(_v)rm -rf $$(BUILD)/core/$$($1+UBUNTU_VERSION)
-
 endif #DEFINED_GRAB_LIBPWNABLEHARNESS
+ifndef DEFINED_CLEAN_LIBPWNABLEHARNESS_$$($2_UBUNTU_VERSION_NUMBER)
+DEFINED_CLEAN_LIBPWNABLEHARNESS_$$($2_UBUNTU_VERSION_NUMBER) := 1
+
+clean: clean-libpwnableharness-$$($2_UBUNTU_VERSION_NUMBER)
+.PHONY: clean-libpwnableharness-$$($2_UBUNTU_VERSION_NUMBER)
+clean-libpwnableharness-$$($2_UBUNTU_VERSION_NUMBER):
+	$$(_v)rm -rf $$(BUILD)/core/$$($2_UBUNTU_VERSION_NUMBER)
+
+endif #DEFINED_CLEAN_LIBPWNABLEHARNESS
 endif #THIS_IS_THE_CORE_PROJECT
 
 else #USE_LIBPWNABLEHARNESS
@@ -471,8 +486,8 @@ ifeq "1" "$$(call is_var_false_or_undefined,$2_CANARY)"
 # False-ish values
 $2_CANARY := none
 else ifeq "1" "$$(call is_var_true,$2_CANARY)"
-# True-ish values imply strong
-$2_CANARY := strong
+# True-ish values imply strong (except gcc in Ubuntu <= 14.04 doesn't support that)
+$2_CANARY := $$(intcmp $$($2_UBUNTU_VERSION_INT),1410,all,strong)
 else ifeq "" "$$(filter $$($2_CANARY),all strong explicit normal default none)"
 $$(error Unknown value for CANARY in $1/$2: "$$($2_CANARY)". Possible values: all strong explicit normal default none)
 endif #CANARY
@@ -1092,15 +1107,6 @@ $1+PIE := $$(PIE)
 $1+ASLR := $$(ASLR)
 $1+STRIP := $$(STRIP)
 $1+DEBUG := $$(DEBUG)
-
-# Run compiler commands in a pwncc container?
-$1+PWNCC :=
-$1+PWNCC_DEPS :=
-$1+PWNCC_DESC :=
-ifdef CONFIG_USE_PWNCC
-$$(call pwncc_prepare,$1,$$($1+UBUNTU_VERSION),$1+PWNCC,$1+PWNCC_DEPS)
-$1+PWNCC_DESC := $$($1+UBUNTU_VERSION)
-endif #CONFIG_USE_PWNCC
 
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1+TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
