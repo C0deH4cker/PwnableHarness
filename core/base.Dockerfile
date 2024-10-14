@@ -7,27 +7,34 @@ LABEL maintainer="c0deh4cker@gmail.com"
 
 ARG CONFIG_IGNORE_32BIT=
 
-# Add support for running 32-bit executables
+# The Ubuntu repos for old, unsupported versions of Ubuntu are offline. Modify
+# the APT sources for these to use the old-releases.ubuntu.com server (if needed).
+# https://stackoverflow.com/a/65301993
 ENV DEBIAN_FRONTEND=noninteractive
 RUN if [ -z "$CONFIG_IGNORE_32BIT" ]; then \
-	dpkg --add-architecture i386 \
-		&& apt-get update \
-		&& apt-get install -y libc6:i386 \
-		&& rm -rf /var/lib/apt/lists/* \
+	echo "Updating repos..."; \
+	if ! apt-get update >/dev/null 2>&1; then \
+		sed -i -re 's/([a-z]{2}\.)?archive.ubuntu.com|security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list \
+		&& apt-get update >/dev/null \
+	; fi \
+	&& dpkg --add-architecture i386 \
+	&& apt-get update \
+	&& apt-get install -y libc6:i386 \
+	&& rm -rf /var/lib/apt/lists/* \
 ; fi
 
-# Copy PwnableHarness libraries to /usr/local/lib
+# Copy PwnableHarness libraries to /usr/lib
 ARG BUILD_DIR
 ARG BASE_TAG
-COPY ${BUILD_DIR}/${BASE_TAG}/libpwnableharness*.so /usr/local/lib/
+COPY ${BUILD_DIR}/${BASE_TAG}/libpwnableharness*.so /usr/lib/
 
-# Copy pwnable server program to /usr/local/bin
-COPY ${BUILD_DIR}/${BASE_TAG}/pwnableserver /usr/local/bin/
+# Copy pwnable server program to /usr/bin
+COPY ${BUILD_DIR}/${BASE_TAG}/pwnableserver /usr/bin/
 
 # Set privileges of everything
 RUN chmod 0755 \
-	/usr/local/lib/libpwnableharness*.so \
-	/usr/local/bin/pwnableserver
+	/usr/lib/libpwnableharness*.so \
+	/usr/bin/pwnableserver
 
 # CHALLENGE_NAME is the name of both the user and executable
 ONBUILD ARG CHALLENGE_NAME
@@ -75,5 +82,5 @@ ONBUILD ENV PWNABLESERVER_EXTRA_ARGS=$PWNABLESERVER_EXTRA_ARGS
 ONBUILD ENTRYPOINT [ \
 	"/bin/sh", \
 	"-c", \
-	"exec /usr/local/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $CHALLENGE_NAME --password \"$CHALLENGE_PASSWORD\" --exec /home/$CHALLENGE_NAME/$CHALLENGE_NAME $PWNABLESERVER_EXTRA_ARGS" \
+	"exec /usr/bin/pwnableserver --listen --no-chroot --alarm $TIMELIMIT --port $PORT --user $CHALLENGE_NAME --password \"$CHALLENGE_PASSWORD\" --exec /home/$CHALLENGE_NAME/$CHALLENGE_NAME $PWNABLESERVER_EXTRA_ARGS" \
 ]

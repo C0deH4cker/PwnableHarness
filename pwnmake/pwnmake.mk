@@ -1,6 +1,7 @@
 # Files used when building the pwnmake container
 PWNMAKE_DEPS := \
 	.dockerignore \
+	$(BUILD)/cached_glibc_versions.mk \
 	get_supported_ubuntu_versions.py \
 	Macros.mk \
 	Makefile \
@@ -18,6 +19,7 @@ $(BUILD)/.pwnmake_image_build_marker: $(PWNMAKE_DEPS)
 	$(_v)$(DOCKER) build \
 			-f $(PWNMAKE_DIR)/pwnmake.Dockerfile \
 			--build-arg DIR=$(PWNMAKE_DIR) \
+			--build-arg BUILD_DIR=$(BUILD) \
 			--build-arg GIT_HASH=$$(git rev-parse HEAD) \
 			-t $(PWNABLEHARNESS_REPO):pwnmake-$(PWNABLEHARNESS_VERSION) . \
 		&& mkdir -p $(@D) && touch $@

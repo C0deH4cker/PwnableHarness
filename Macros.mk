@@ -101,8 +101,6 @@ DEFAULT_DEBUG := 0
 endif
 
 ifndef DEFAULT_UBUNTU_VERSION
-# Note: versions 19.10 and above dropped support for running 32-bit programs
-# Keep aligned with the first line of base.Dockerfile!
 DEFAULT_UBUNTU_VERSION := 24.04
 endif
 
@@ -186,12 +184,12 @@ ifeq "$$(origin $2_BITS)" "undefined"
 $2_BITS := $$($1+BITS)
 endif
 
-# Check that BITS is compatible with UBUNTU_VERSION
+# Check that BITS doesn't conflict with CONFIG_IGNORE_32BIT
 ifndef $1+THIS_IS_THE_CORE_PROJECT
 ifeq "$$($2_BITS)" "32"
-ifndef UBUNTU_32BIT_SUPPORT[$$($1+UBUNTU_VERSION)]
-$$(error $1/$2: Requesting 32-bit binaries, but Ubuntu $$($1+UBUNTU_VERSION) doesn't have 32-bit support. Must be <= 19.04!)
-endif #UBUNTU_32BIT_SUPPORT
+ifdef CONFIG_IGNORE_32BIT
+$$(error $1/$2: Requesting 32-bit binaries, but CONFIG_IGNORE_32BIT is set!)
+endif #CONFIG_IGNORE_32BIT
 endif #BITS==32
 endif #THIS_IS_THE_CORE_PROJECT
 

@@ -1,3 +1,8 @@
+# Check if there's a cached_ubuntu_versions.mk shipped in this pwnmake image
+ifneq "$(wildcard $(ROOT_DIR)/cached_ubuntu_versions.mk)" ""
+include $(ROOT_DIR)/cached_ubuntu_versions.mk
+else #!exists(ROOT_DIR/cached_ubuntu_versions.mk)
+
 # Generate cached_ubuntu_versions.mk file the first time only, to avoid
 # delay from the network requests in every pwnmake command.
 ifeq "$(wildcard $(BUILD)/cached_ubuntu_versions.mk)" ""
@@ -20,46 +25,49 @@ $(shell \
 	)
 
 endif #clean not in MAKECMDGOALS
-endif #!exists(cached_ubuntu_versions.mk)
-
-UBUNTU_VERSIONS :=
-UBUNTU_ALIASES :=
-GLIBC_VERSIONS :=
+endif #!exists(BUILD/cached_ubuntu_versions.mk)
 include $(BUILD)/cached_ubuntu_versions.mk
+endif #!exists(ROOT_DIR/cached_ubuntu_versions.mk)
 
-# For now, this is a manual process by looking up versions from:
-# https://repology.org/project/glibc/versions
-# In the future, this could be improved to dynamically lookup the glibc
-# version from each Ubuntu image. That would require pulling all the
-# images though, so it should only be done in CI. Ideally, the supported
-# Ubuntu versions check could also happen while building the `pwnmake`
-# image, so it doesn't need to be done in each project again.
+
+ifneq "$(wildcard $(ROOT_DIR)/cached_glibc_versions.mk)" ""
+include $(ROOT_DIR)/cached_glibc_versions.mk
+else #!exists(ROOT_DIR/cached_glibc_versions.mk)
+
+$(BUILD)/.glibc_message_%.txt: | $(BUILD)/.dir
+	$(_v)$(DOCKER) run --platform=linux/amd64 --rm ubuntu:$* \
+		/lib64/ld-linux-x86-64.so.2 /lib/x86_64-linux-gnu/libc.so.6 > $@
+
+$(BUILD)/.glibc_%.mk: $(BUILD)/.glibc_message_%.txt
+	$(_v)echo "UBUNTU_TO_GLIBC[$*] := $$(sed -nE 's/.*release version ([0-9]+\.[0-9]+).*/\1/p' $<)" > $@
+
+$(BUILD)/cached_glibc_versions.mk: $(foreach ubu,$(UBUNTU_VERSIONS),$(BUILD)/.glibc_$(ubu).mk)
+	$(_v)cat $^ | sort > $@
+
+include $(BUILD)/cached_glibc_versions.mk
+endif #!exists(ROOT_DIR/cached_glibc_versions.mk)
 
 #####
-# ubuntu_glibc($1: ubuntu version, $2: glibc version)
+# ubuntu_glibc($1: ubuntu version)
 #
 # Creates bidirectional mappings between glibc and Ubuntu OS versions
 #####
 define _ubuntu_glibc
-UBUNTU_TO_GLIBC[$1] := $2
-GLIBC_TO_UBUNTU[$2] := $1
-GLIBC_VERSIONS += $2
+ifndef UBUNTU_TO_GLIBC[$1]
+$$(info Undefined: UBUNTU_TO_GLIBC[$1])
+endif
 
-ifdef UBUNTU_ALIAS_TO_VERSION[$1]
-UBUNTU_TO_GLIBC[$$(UBUNTU_ALIAS_TO_VERSION[$1])] := $2
+GLIBC_TO_UBUNTU[$$(UBUNTU_TO_GLIBC[$1])] := $1
+GLIBC_VERSIONS += $$(UBUNTU_TO_GLIBC[$1])
+
+ifdef UBUNTU_VERSION_TO_ALIAS[$1]
+UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION_TO_ALIAS[$1])] := $$(UBUNTU_TO_GLIBC[$1])
 endif
 endef
-ubuntu_glibc = $(eval $(call _ubuntu_glibc,$1,$2))
+ubuntu_glibc = $(eval $(call _ubuntu_glibc,$1))
 #####
-$(call ubuntu_glibc,14.04,2.19)
-$(call ubuntu_glibc,16.04,2.23)
-$(call ubuntu_glibc,18.04,2.27)
-$(call ubuntu_glibc,20.04,2.31)
-$(call ubuntu_glibc,22.04,2.35)
-$(call ubuntu_glibc,23.04,2.37)
-$(call ubuntu_glibc,23.10,2.38)
-$(call ubuntu_glibc,24.04,2.39)
-$(call ubuntu_glibc,24.10,2.40)
+GLIBC_VERSIONS :=
+$(foreach ubu,$(UBUNTU_VERSIONS),$(call ubuntu_glibc,$(ubu)))
 
 
 #####
