@@ -18,13 +18,14 @@ ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
 GIT_HASH := $(shell cat '$(ROOT_DIR)/.githash')
 CONFIG_USE_PWNCC ?= 1
+PWNCC_DIR := $(ROOT_DIR)
 else #CONTAINER_BUILD
 ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
 GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
+PWNCC_DIR := $(patsubst ./%,%,$(ROOT_DIR)/pwncc)
 PWNMAKE_DIR := pwnmake
 endif #CONTAINER_BUILD
 
-PWNCC_DIR := $(patsubst ./%,%,$(ROOT_DIR)/pwncc)
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
 PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
@@ -98,6 +99,7 @@ $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 # UBUNTU_ALIASES: list[string alias name]
 # UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
 # UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
+# UBUNTU_32BIT_SUPPORT: map[string alias/version] -> bool
 include $(ROOT_DIR)/UbuntuVersions.mk
 
 # If there is a Config.mk present in the root of this workspace or a subdirectory, include it
@@ -163,7 +165,8 @@ all: build-all
 # Used for debugging this Makefile
 # `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
 %?:
-	@echo '$* := $($*)'
+	$(info $* := $(value $*))
+	@true
 
 # Print environment
 env:

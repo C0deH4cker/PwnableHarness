@@ -2,6 +2,11 @@
 FROM ubuntu:24.04
 LABEL maintainer="c0deh4cker@gmail.com"
 
+ARG DIR
+ARG BUILD_DIR
+ARG TARGETARCH
+ARG GIT_HASH
+
 # Add necessary and useful packages
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -24,7 +29,6 @@ RUN apt-get update \
 COPY --from=docker/buildx-bin /buildx /usr/libexec/docker/cli-plugins/docker-buildx
 
 # Make the "sudo" command work as scripts would normally expect
-ARG DIR
 COPY $DIR/pwnmake-sudo.sh /usr/sbin/sudo
 COPY $DIR/pwnmake-in-container /usr/bin/pwnmake
 COPY $DIR/pwnmake-entrypoint.sh /pwnmake-entrypoint.sh
@@ -42,23 +46,23 @@ WORKDIR /PwnableHarness
 # Copy in the root PwnableHarness files
 COPY \
 	.dockerignore \
+	$BUILD_DIR/cached_glibc_versions.mk \
 	get_supported_ubuntu_versions.py \
 	Macros.mk \
 	Makefile \
+	pwncc/pwncc.mk \
 	stdio_unbuffer.c \
 	UbuntuVersions.mk \
 	VERSION \
 	./
 
-COPY pwncc/ pwncc/
+# Look up the supported Ubuntu versions now, during build time
+RUN ./get_supported_ubuntu_versions.py > cached_ubuntu_versions.mk
+
 
 # Tell the top-level Makefile that this is a container build
 ENV CONTAINER_BUILD=1
-
-ARG TARGETARCH
 ENV DOCKER_ARCH=$TARGETARCH
-
-ARG GIT_HASH=missing
 RUN echo -n '${GIT_HASH}' > /PwnableHarness/.githash
 
 # Set up PwnableHarness top-level directory and workspace location
