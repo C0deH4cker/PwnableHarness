@@ -14,6 +14,7 @@
 ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
 
 CONFIG_USE_PWNCC := 1
+CONFIG_IGNORE_32BIT ?=
 
 #
 # Building
@@ -38,7 +39,7 @@ $$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/
 	$$(_v)$$(DOCKER) build \
 			-f $$< \
 			--build-arg BASE_IMAGE=ubuntu:$1 \
-			$$(if $$(UBUNTU_32BIT_SUPPORT[$1]),,--build-arg CONFIG_IGNORE_32BIT=1) \
+			--build-arg CONFIG_IGNORE_32BIT=$$(CONFIG_IGNORE_32BIT) \
 			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION) . \
 		&& mkdir -p $$(@D) && touch $$@
 

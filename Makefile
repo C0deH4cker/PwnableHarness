@@ -99,7 +99,9 @@ $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 # UBUNTU_ALIASES: list[string alias name]
 # UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
 # UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
-# UBUNTU_32BIT_SUPPORT: map[string alias/version] -> bool
+# GLIBC_VERSIONS: list[string glibc version number]
+# UBUNTU_TO_GLIBC: map[string version/alias] -> string glibc version number
+# GLIBC_TO_UBUNTU: map[string glibc version number] -> string version number
 include $(ROOT_DIR)/UbuntuVersions.mk
 
 # If there is a Config.mk present in the root of this workspace or a subdirectory, include it

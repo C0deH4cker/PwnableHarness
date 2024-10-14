@@ -19,7 +19,7 @@ try:
 		consumer_name="series-support-check",
 		service_root="production",
 		launchpadlib_dir=cachedir,
-		timeout=5,
+		timeout=15,
 		version="devel")
 	series = lp.distributions["ubuntu"].series
 	for s in series:
@@ -27,7 +27,7 @@ try:
 		dr: datetime = s.datereleased
 		how_old = datetime.now(timezone.utc) - dr
 		if s.supported or how_old.days < 365 * 4:
-			ubus.append((s.version, s.name, s.supported))
+			ubus.append((s.version, s.name))
 except Exception as e:
 	# Now that this only runs during pwnmake image building, we don't need
 	# to be nice when an error happens.
@@ -56,18 +56,4 @@ print("\n")
 
 for p in ubus:
 	print(f"UBUNTU_ALIAS_TO_VERSION[{p[1]}] := {p[0]}")
-
-for p in ubus:
-	major, minor = map(int, p[0].split("."))
-	supports32bit = True
-	if major > 19 or major == 19 and minor == 10:
-		supports32bit = False
-	
-	if supports32bit:
-		print(f"UBUNTU_32BIT_SUPPORT[{p[0]}] := 1")
-		print(f"UBUNTU_32BIT_SUPPORT[{p[1]}] := 1")
-
-for p in ubus:
-	if not p[2]:
-		print(f"UBUNTU_VERSION_UNSUPPORTED[{p[0]}] := 1")
-		print(f"UBUNTU_VERSION_UNSUPPORTED[{p[1]}] := 1")
+print("\n")
