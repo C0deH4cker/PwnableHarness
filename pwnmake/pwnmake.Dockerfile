@@ -43,6 +43,10 @@ ENV GOSU_PLEASE_LET_ME_BE_COMPLETELY_INSECURE_I_GET_TO_KEEP_ALL_THE_PIECES="I've
 
 WORKDIR /PwnableHarness
 
+# Look up the supported Ubuntu versions now, during build time
+COPY get_supported_ubuntu_versions.py ./
+RUN ./get_supported_ubuntu_versions.py > cached_ubuntu_versions.mk
+
 # Copy in the root PwnableHarness files
 COPY \
 	.dockerignore \
@@ -55,10 +59,6 @@ COPY \
 	UbuntuVersions.mk \
 	VERSION \
 	./
-
-# Look up the supported Ubuntu versions now, during build time
-RUN ./get_supported_ubuntu_versions.py > cached_ubuntu_versions.mk
-
 
 # Tell the top-level Makefile that this is a container build
 ENV CONTAINER_BUILD=1

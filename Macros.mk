@@ -385,7 +385,7 @@ $$(BUILD)/core/$$($2_UBUNTU_VERSION_NUMBER)/libpwnableharness$$($2_BITS).so:
 	$$(_V)echo "Pulling $$($1+DOCKER_FULL_BASE) (if necessary)"
 	$$(_v)$$(DOCKER) pull $$($1+DOCKER_PLATFORM) $$($1+DOCKER_FULL_BASE)
 	$$(_V)echo "Copying libpwnableharness$$($2_BITS).so from $$($1+DOCKER_FULL_BASE)"
-	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_FULL_BASE) /usr/local/lib/libpwnableharness$$($2_BITS).so > $$@
+	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_FULL_BASE) /usr/lib/libpwnableharness$$($2_BITS).so > $$@
 
 endif #DEFINED_GRAB_LIBPWNABLEHARNESS
 ifndef DEFINED_CLEAN_LIBPWNABLEHARNESS_$$($2_UBUNTU_VERSION_NUMBER)
