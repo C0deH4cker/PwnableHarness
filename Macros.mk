@@ -485,7 +485,8 @@ ifeq "1" "$$(call is_var_false_or_undefined,$2_CANARY)"
 $2_CANARY := none
 else ifeq "1" "$$(call is_var_true,$2_CANARY)"
 # True-ish values imply strong (except gcc in Ubuntu <= 14.04 doesn't support that)
-$2_CANARY := $$(intcmp $$($2_UBUNTU_VERSION_INT),1410,all,strong)
+# Just use "all" for now: https://github.com/C0deH4cker/PwnableHarness/issues/54
+$2_CANARY := all
 else ifeq "" "$$(filter $$($2_CANARY),all strong explicit normal default none)"
 $$(error Unknown value for CANARY in $1/$2: "$$($2_CANARY)". Possible values: all strong explicit normal default none)
 endif #CANARY
