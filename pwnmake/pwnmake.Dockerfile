@@ -63,7 +63,7 @@ COPY \
 # Tell the top-level Makefile that this is a container build
 ENV CONTAINER_BUILD=1
 ENV DOCKER_ARCH=$TARGETARCH
-RUN echo -n '${GIT_HASH}' > /PwnableHarness/.githash
+RUN echo -n "$GIT_HASH" > .githash
 
 # Set up PwnableHarness top-level directory and workspace location
 WORKDIR /PwnableHarness/workspace
