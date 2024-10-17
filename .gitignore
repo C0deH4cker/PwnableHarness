@@ -1,50 +1,67 @@
-# Ignore all top-level items by default
-/*
+###################################
+# PwnableHarness-specific ignores #
+###################################
 
-# Do NOT ignore the top-level examples directory
-!/examples/
+# Ignore build directories
+.build/
 
-# Ignore the contents of each example directory
-/examples/*/*
+# Publish directory
+/publish/
 
+# Disabled projects
+*.disabled
 
-##################
-# Do NOT ignore: #
-##################
-
-# All C/C++ source files and text files
-!*.c
-!*.cpp
-!*.h
-!*.txt
-!*.md
-
-# (...but REALLY ignore real flags and debug histories)
-real_flag*.txt
-peda-session-*.txt
-
-# All Makefiles except Config.mk
-!Makefile
-!*.mk
+# Ignore any Config.mk files
 Config.mk
 
-# All gitignore files
-!.gitignore
+# Default generated Dockerfiles
+default.Dockerfile
 
-# Dockerfiles, including the top-level builder.Dockerfile
-!Dockerfile
-!/builder.Dockerfile
 
-# YAML files (including docker-compose.yml)
-!*.yml
-!*.yaml
+###################
+# Generic ignores #
+###################
 
-# Scripts (including builder-entrypoint.sh)
-!*.sh
-!/bin
+# Docker caches
+.docker/
+.cache/
 
-# Workdir directories
-!workdir/
+# Real flags
+real_flag*.txt
 
-# Any other filetypes that should be allowed should
-# be added here or in another .gitignore file.
+# Binary files
+*.o
+*.obj
+*.class
+*.jar
+*.exe
+*.bin
+
+# Reversing tools projects
+*.idb
+*.i64
+*.id0
+*.id1
+*.nam
+*.til
+*.bndb
+
+# Debugger files
+core
+!/core/
+.gdb_history
+peda-session-*.txt
+
+# OS files
+._*
+.DS_Store
+Thumbs.db
+
+# Vim swap files
+*.swp
+
+# VSCode settings
+.vscode/
+
+# PyTest cache directory
+.pytest_cache/

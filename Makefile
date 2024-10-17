@@ -1,46 +1,54 @@
-# Make sure the default target is to "make all"
-all:
+# By default, build the current project tree (which might be a subset of the
+# workspace, if `pwnmake` was invoked below the workspace root).
+build:
+MAKECMDGOALS ?=
+
+# For now, always use "linux/amd64" as the Docker platform
+export DOCKER_DEFAULT_PLATFORM := linux/amd64
 
 # Environment variables that may be defined by pwnmake
 CONTAINER_BUILD ?=
 PWNMAKE_VERSION ?=
 
-# Current Docker image name and tag
-PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
-
-# Keep aligned with version in bin/pwnmake script
-ifndef PWNABLEHARNESS_VERSION
-ifdef WORKING
-PWNABLEHARNESS_VERSION := working
-else #WORKING
-PWNABLEHARNESS_VERSION := 2.0b1
-endif #WORKING
-endif #PWNABLEHARNESS_VERSION
+# Which project tree in the workspace should be built?
+PROJECT ?= .
 
 # Container builds run from /PwnableHarness/workspace as their CWD
 ifdef CONTAINER_BUILD
 ROOT_DIR := /PwnableHarness
-else
-ROOT_DIR := .
-endif
+GIT_HASH := $(shell cat '$(ROOT_DIR)/.githash')
+CONFIG_USE_PWNCC ?= 1
+PWNCC_DIR := $(ROOT_DIR)
+else #CONTAINER_BUILD
+ROOT_DIR := $(patsubst %/,%,$(dir $(firstword $(MAKEFILE_LIST))))
+GIT_HASH := $(shell git -C '$(ROOT_DIR)' rev-parse HEAD)
+PWNCC_DIR := $(patsubst ./%,%,$(ROOT_DIR)/pwncc)
+PWNMAKE_DIR := pwnmake
+endif #CONTAINER_BUILD
 
-# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
--include Config.mk $(wildcard */Config.mk)
+PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
+PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
-# Path to the root build directory
-BUILD := .build
-ROOT_BUILD := $(BUILD)/PwnableHarness
-
-# Path to the publish directory
-PUB_DIR := publish
-
-# For debugging development of this Makefile
-MKDEBUG ?=
-
-# Print all commands executed when VERBOSE is defined, but don't echo explanations
+# Define useful variables for special Makefile characters
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COLON := :
+COMMA := ,
+DOLLAR := $$
 define HASH
 #
 endef
+define NEWLINE
+
+
+endef
+
+# For debugging purposes
+MKDEBUG ?=
+MKTRACE ?=
+DOCKER_DEBUG ?=
+
+# Print all commands executed when VERBOSE is defined, but don't echo explanations
 VERBOSE ?=
 ifdef VERBOSE
 _v :=
@@ -49,6 +57,55 @@ else
 _v := @
 _V := @
 endif
+
+# Path to the root build directory
+BUILD := .build
+
+# Path to the publish directory
+PUB_DIR := publish
+
+# List of PwnableHarness projects discovered
+PROJECT_LIST :=
+
+# List of PwnableHarness target rules available
+TARGET_LIST :=
+
+add_targets = $(eval TARGET_LIST += $1)
+add_target = $(add_targets)
+define _add_phony_target
+.PHONY: $1
+
+TARGET_LIST += $1
+endef
+add_phony_targets = $(eval $(call _add_phony_target,$1))
+add_phony_target = $(add_phony_targets)
+
+# Top-level (non-project) targets
+$(call add_phony_targets,all env help list list-targets)
+
+# Define each of these general targets as aliases of that target for the selected project
+PROJECT_TARGETS := build clean publish deploy docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+define _def_proj_targ
+$$(call add_phony_targets,$1 $1-all)
+$1: $1[$$(PROJECT)]
+$1-all: $1[.]
+
+endef #_def_proj_targ
+def_proj_targ = $(eval $(call _def_proj_targ,$1))
+$(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
+
+# Provides information about currently supported Ubuntu versions:
+# UBUNTU_VERSIONS: list[string version number]
+# UBUNTU_ALIASES: list[string alias name]
+# UBUNTU_VERSION_TO_ALIAS: map[string version number] -> string alias name
+# UBUNTU_ALIAS_TO_VERSION: map[string alias name] -> string version number
+# GLIBC_VERSIONS: list[string glibc version number]
+# UBUNTU_TO_GLIBC: map[string version/alias] -> string glibc version number
+# GLIBC_TO_UBUNTU: map[string glibc version number] -> string version number
+include $(ROOT_DIR)/UbuntuVersions.mk
+
+# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
 
 # Basic OS detection (Windows is detected but not supported)
 ifndef OS
@@ -65,40 +122,57 @@ else ifeq "$(OS)" "Darwin"
 IS_MAC := 1
 endif
 
+# Unless overridden in a Config.mk file, don't build 32-bit binaries on macOS.
+ifdef IS_MAC
+CONFIG_IGNORE_32BIT := true
+endif #IS_MAC
+
+DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
+
 # Define useful build macros
 include $(ROOT_DIR)/Macros.mk
 
+# The pwncc.mk file will use config options to decide what to define
+include $(PWNCC_DIR)/pwncc.mk
+
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := $(BUILD) $(PUB_DIR) bin .git $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := %$(BUILD) $(PUB_DIR) bin core $(PWNCC_DIR) %.git %.cache %.docker $(RECURSION_BLACKLIST)
 
-# Only include examples when invoked like `make WITH_EXAMPLES=1`
 ifndef CONTAINER_BUILD
+RECURSION_BLACKLIST += $(PWNMAKE_DIR)
 ifndef WITH_EXAMPLES
-RECURSION_BLACKLIST := examples $(RECURSION_BLACKLIST)
+# Only include examples when invoked like `make WITH_EXAMPLES=1`
+RECURSION_BLACKLIST += examples
 endif #WITH_EXAMPLES
 endif #CONTAINER_BUILD
 
-# List of PwnableHarness projects discovered
-PROJECT_LIST :=
-
-# List of PwnableHarness target rules available
-TARGET_LIST := all help list list-targets base clean publish deploy \
-	docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
-
-# Container builds start in a subdirectory of the PwnableHarness root. This call will
-# explicitly include the root Build.mk.
-ifdef CONTAINER_BUILD
-$(call include_subdir,$(ROOT_DIR))
+# Users of PwnableHarness aren't expected to build the core project and image
+# themselves, but rather pull the pre-built images from Docker Hub.
+ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
+$(call include_subdir,core)
+ifndef CONTAINER_BUILD
+# Responsible for building, tagging, and pushing the pwnmake builder images
+include $(PWNMAKE_DIR)/pwnmake.mk
 endif #CONTAINER_BUILD
+endif #C0deH4cker
 
 # Recursively grab each subdirectory's Build.mk file and generate rules for its targets
 $(call recurse_subdir,.)
 
+# "make all" is an alias for "make build-all", which explicitly builds the
+# whole workspace tree.
+all: build-all
+
 # Used for debugging this Makefile
-# `make stack0:DOCKER_PORTS?` will print the ports exposed by stack0's Docker container
+# `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
 %?:
-	@echo '$* := $($*)'
+	$(info $* := $(value $*))
+	@true
+
+# Print environment
+env:
+	@export
 
 # List discovered project directories that contain Build.mk files
 list:
@@ -122,17 +196,19 @@ help:
 		) \
 		'\n## Command line reference' \
 		'\n' \
-		'\n  Targets with arguments like `docker-build[image]` can also be used without an' \
-		'\n  argument. When no argument is provided, it will run that target for all' \
-		'\n  possible values of that parameter. So `docker-build` will build ALL Docker' \
-		'\n  images in the workspace.' \
+		'\n  Project-specific targets like `docker-build[project]` can also be used without' \
+		'\n  an argument. When no argument is provided, it will run that target for all' \
+		'\n  projects. So `docker-build` will build the Docker images for ALL projects.' \
+		'\n  Note that descendent projects are included automatically. If you only want' \
+		'\n  to run the target in the project but not its descendents, append "-one" to' \
+		'\n  the target name (`docker-build[project]` becomes `docker-build-one[project]`).' \
 		'\n' \
 		'\n### Target descriptions:' \
 		'\n' \
-		'\n* `all[project]`:' \
+		'\n* `build[project]`:' \
 		'\n         Compile and link all defined TARGETS for the given project.' \
 		'\n         This is the default target, so running `pwnmake` without any provided' \
-		'\n         target is the same as running `pwnmake all`.' \
+		'\n         target is the same as running `pwnmake build`.' \
 		'\n* `clean[project]`:' \
 		'\n         Deletes all build products for the given project. Running this target' \
 		'\n         without an argument is effectively the same as `rm -rf .build`. Note' \
@@ -151,39 +227,34 @@ help:
 		'\n         which publishes its target (named `baz`), that will be copied to' \
 		'\n         `publish/foo/bar/baz`. For serving published files over HTTP(S), it is' \
 		'\n         useful to create symlinks from `/var/www/<path>` into the `publish`' \
-		'\n         directory in your workspace. Just ensure that the http server user has' \
-		'\n         read access to the contents.' \
+		'\n         directory in your workspace. Just ensure that the http server has read' \
+		'\n         access to the contents.' \
 		'\n* `deploy[project]`:' \
 		'\n         Without an argument, this is shorthand for `docker-start publish`.' \
 		'\n         Projects can optionally define the `DEPLOY_COMMAND` variable in their' \
 		'\n         `Build.mk` file, which is a command to be run from the project'"'"'s' \
 		'\n         directory when running `deploy` or `deploy[project]`.' \
-		'\n* `docker-build[image]`:' \
-		'\n         Build the named Docker image, ensuring all dependencies are up to date.' \
-		'\n         For example, editing a C file and then running the `docker-build`' \
+		'\n* `docker-build[project]`:' \
+		'\n         Build the project'"'"'s Docker image, ensuring all dependencies are up to' \
+		'\n         date. For example, editing a C file and then running the `docker-build`' \
 		'\n         target will recompile the binary and rebuild the Docker image.' \
-		'\n* `docker-rebuild[image]`:' \
-		'\n         Force rebuild a named Docker image, even if all of its dependencies are' \
-		'\n         up to date.' \
-		'\n* `docker-start[container]`:' \
-		'\n         Create and start the named Docker container, ensuring the Docker image' \
-		'\n         it is based on is up to date.' \
-		'\n* `docker-restart[container]`:' \
-		'\n         Restart the named Docker container.' \
-		'\n* `docker-stop[container]`:' \
-		'\n         Stop the named Docker container.' \
-		'\n* `docker-clean[image]`:' \
-		'\n         Stop any container running from this Docker image and delete it, then' \
-		'\n         delete the Docker image. Also will delete the associated Docker volume' \
-		'\n         for the workdir, if one exists. Running this without an argument will' \
-		'\n         stop all containers and delete all images that are defined by any' \
-		'\n         project in the workspace.' \
+		'\n* `docker-rebuild[project]`:' \
+		'\n         Force rebuild the project'"'"'s Docker image, even if all of its' \
+		'\n         dependencies are up to date.' \
+		'\n* `docker-start[project]`:' \
+		'\n         Create and start the project'"'"'s Docker container, ensuring the Docker' \
+		'\n         image it is based on is up to date.' \
+		'\n* `docker-restart[project]`:' \
+		'\n         Restart the project'"'"'s Docker container.' \
+		'\n* `docker-stop[project]`:' \
+		'\n         Stop the project'"'"'s Docker container.' \
+		'\n* `docker-clean[project]`:' \
+		'\n         Stop the project'"'"'s Docker container, and delete its image and any' \
+		'\n         workdir volumes.' \
 		'\n* `list`:' \
 		'\n         Display a list of all discovered project directories.' \
 		'\n* `list-targets`:' \
 		'\n         Display a list of all provided targets.' \
-		'\n* `base`:' \
-		'\n         Build only the core PwnableHarness binaries.' \
 		'\n' \
 		'\n### Command-line variables:' \
 		'\n' \
@@ -228,15 +299,6 @@ help:
 		'\n   parent/ancestor project to collect settings defined by its descendants.' \
 	| sed 's/ $$//'
 
-# Running "make base" builds only PwnableHarness binaries
-base: all[$(ROOT_DIR)]
-
-# Define "make clean" as a multi-recipe target so that Build.mk files may add their own clean actions
-clean::
-
-# Running "make deploy" will build and start Docker containers and publish challenge artifacts
-deploy: docker-start publish
-
 # Automatic creation of build directories
 %/.dir:
 	$(_v)mkdir -p $(@D) && touch $@
@@ -247,8 +309,10 @@ deploy: docker-start publish
 # Disable magic when a dependency looks like "-l<whatever>"
 .LIBPATTERNS :=
 
-# Global targets that are "phony", aka don't name a file to be created
-.PHONY: all base clean publish deploy list list-targets help
+# Whenever a recipe returns an error while building a file, make will delete that file (if it changes).
+# This is useful to avoid corrupt build states where a file is considered up to date by its modification
+# time, even though it holds incomplete/incorrect contents due to the error.
+.DELETE_ON_ERROR:
 
-# Phony Docker targets
-.PHONY: docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
+# Disable old style suffix rules (the `-r` flag for make also disables these)
+.SUFFIXES:

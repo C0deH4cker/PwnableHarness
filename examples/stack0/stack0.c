@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -39,7 +40,15 @@ static void handle_connection(void) {
 	printf("Debug info: Address of input buffer = %p\n", input);
 	
 	printf("Enter the name you used to purchase this program: ");
-	read(STDIN_FILENO, input, 1024);
+	ssize_t bytes_read = read(STDIN_FILENO, input, 256);
+	if(bytes_read < 0) {
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
+	else if(bytes_read == 0) {
+		printf("Error reading input!\n");
+		exit(EXIT_FAILURE);
+	}
 	
 	if(didPurchase) {
 		printf("Thank you for purchasing Hackersoft Powersploit!\n");
