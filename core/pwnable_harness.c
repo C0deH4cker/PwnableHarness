@@ -432,6 +432,7 @@ static int serve_internal(
 				char pass[100];
 				if(!fgets(pass, sizeof(pass), stdin)) {
 					printf("Must enter a password.\n");
+					fflush(stdout);
 					fprintf(stderr_fp, "%u: No password provided.\n", getpid());
 					_exit(EXIT_FAILURE);
 				}
@@ -444,6 +445,7 @@ static int serve_internal(
 				/* Not a constant-time comparison, but this doesn't need to be ultra secure */
 				if(strcmp(pass, password) != 0) {
 					printf("Incorrect password.\n");
+					fflush(stdout);
 					fprintf(stderr_fp, "%u: Incorrect password (%s)\n", getpid(), pass);
 					_exit(EXIT_FAILURE);
 				}
