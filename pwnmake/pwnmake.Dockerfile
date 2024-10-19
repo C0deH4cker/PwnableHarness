@@ -43,15 +43,11 @@ ENV GOSU_PLEASE_LET_ME_BE_COMPLETELY_INSECURE_I_GET_TO_KEEP_ALL_THE_PIECES="I've
 
 WORKDIR /PwnableHarness
 
-# Look up the supported Ubuntu versions now, during build time
-COPY get_supported_ubuntu_versions.py ./
-RUN ./get_supported_ubuntu_versions.py > cached_ubuntu_versions.mk
-
 # Copy in the root PwnableHarness files
 COPY \
-	.dockerignore \
+	$BUILD_DIR/cached_ubuntu_versions.mk \
 	$BUILD_DIR/cached_glibc_versions.mk \
-	get_supported_ubuntu_versions.py \
+	.dockerignore \
 	Macros.mk \
 	Makefile \
 	pwncc/pwncc.mk \

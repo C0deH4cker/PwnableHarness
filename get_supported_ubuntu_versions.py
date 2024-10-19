@@ -3,6 +3,7 @@ import os
 import tempfile
 import atexit
 import shutil
+from typing import Optional
 from datetime import datetime, timedelta, timezone
 from launchpadlib.launchpad import Launchpad
 
@@ -24,9 +25,14 @@ try:
 	series = lp.distributions["ubuntu"].series
 	for s in series:
 		# We want more than just the supported versions
-		dr: datetime = s.datereleased
-		how_old = datetime.now(timezone.utc) - dr
-		if s.supported or how_old.days < 365 * 4:
+		dr: Optional[datetime] = s.datereleased
+		if dr is None:
+			# Seems to happen for upcoming versions, which won't have working
+			# Docker images ready yet.
+			continue
+		
+		days_old = (datetime.now(timezone.utc) - dr).days
+		if s.supported or days_old < 365 * 4:
 			ubus.append((s.version, s.name))
 except Exception as e:
 	# Now that this only runs during pwnmake image building, we don't need

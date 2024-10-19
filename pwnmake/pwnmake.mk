@@ -1,8 +1,8 @@
 # Files used when building the pwnmake container
 PWNMAKE_DEPS := \
 	.dockerignore \
+	$(BUILD)/cached_ubuntu_versions.mk \
 	$(BUILD)/cached_glibc_versions.mk \
-	get_supported_ubuntu_versions.py \
 	Macros.mk \
 	Makefile \
 	stdio_unbuffer.c \
