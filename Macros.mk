@@ -829,11 +829,14 @@ ifdef MKTRACE
 $$(info Tracing link_project_target($1,$2)...)
 endif #MKTRACE
 
+$2[$1]-DEPS :=
+
 # This parent link isn't defining the rule but rather just adding a dependency.
 # Therefore, we don't call the add_phony_target function here.
-ifdef $1+PARENT
-$2[$$($1+PARENT)]: $2[$1]
-endif #PARENT
+ifdef $1/..
+$2[$$($1/..)]-DEPS += $2[$1]
+$2[$$($1/..)]: $2[$1]
+endif #DIR/..
 
 $$(call add_phony_target,$2[$1])
 $$(call add_phony_target,$2-one[$1])
@@ -965,7 +968,6 @@ else
 # For container builds: subdirectories of the workspace directory
 # For normal builds: subdirectories of the PwnableHarness repo
 $1+BUILD := $$(BUILD)/$1
-$1+PARENT := $$(patsubst %/,%,$$(dir $1))
 endif
 
 # Define DIR and BUILD_DIR for use by Build.mk files
@@ -1521,6 +1523,11 @@ define _recurse_subdir
 ifeq "$$(wildcard $1)" ""
 $$(warning Skipping "$1" as it doesn't exist, is there a file with spaces in the directory tree?)
 else #exists($1)
+
+# Add the ".." link if not in the workspace root
+ifneq "$1" "."
+$1/.. := $$(patsubst %/,%,$$(dir $1))
+endif #not workspace root
 
 # Include this directory's Build.mk file if it exists
 $$(call include_subdir,$1)

@@ -59,7 +59,9 @@ _V := @
 endif
 
 # Path to the root build directory
+ifndef BUILD
 BUILD := .build
+endif
 
 # Path to the publish directory
 PUB_DIR := publish
@@ -94,6 +96,9 @@ endef #_def_proj_targ
 def_proj_targ = $(eval $(call _def_proj_targ,$1))
 $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 
+# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+-include Config.mk $(wildcard */Config.mk)
+
 # Provides information about currently supported Ubuntu versions:
 # UBUNTU_VERSIONS: list[string version number]
 # UBUNTU_ALIASES: list[string alias name]
@@ -103,9 +108,6 @@ $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 # UBUNTU_TO_GLIBC: map[string version/alias] -> string glibc version number
 # GLIBC_TO_UBUNTU: map[string glibc version number] -> string version number
 include $(ROOT_DIR)/UbuntuVersions.mk
-
-# If there is a Config.mk present in the root of this workspace or a subdirectory, include it
--include Config.mk $(wildcard */Config.mk)
 
 # Basic OS detection (Windows is detected but not supported)
 ifndef OS
@@ -137,10 +139,10 @@ include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := %$(BUILD) $(PUB_DIR) bin core $(PWNCC_DIR) %.git %.cache %.docker $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := %.build %$(BUILD) $(PUB_DIR) %workdir %.git %.cache %.docker $(RECURSION_BLACKLIST)
 
 ifndef CONTAINER_BUILD
-RECURSION_BLACKLIST += $(PWNMAKE_DIR)
+RECURSION_BLACKLIST += $(PWNCC_DIR) $(PWNMAKE_DIR) bin core
 ifndef WITH_EXAMPLES
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
 RECURSION_BLACKLIST += examples

@@ -16,12 +16,19 @@ _VSH :=
 $(info Looking up currently supported Ubuntu versions...)
 endif #VERBOSE
 
+ifeq "$(wildcard /etc/lsb-release)" ""
+LAUNCHPADLIB_PREFIX := pwnmake --shell --$(SPACE)
+else #IS_LINUX
+LAUNCHPADLIB_PREFIX :=
+endif #IS_LINUX
+
 $(shell \
 	$(_VSH) \
 	mkdir -p $(BUILD) && \
 	touch $(BUILD)/.dir && \
-	python3 $(ROOT_DIR)/get_supported_ubuntu_versions.py > $(BUILD)/cached_ubuntu_versions.mk.tmp && \
-	mv $(BUILD)/cached_ubuntu_versions.mk.tmp $(BUILD)/cached_ubuntu_versions.mk \
+	$(LAUNCHPADLIB_PREFIX)python3 get_supported_ubuntu_versions.py > $(BUILD)/cached_ubuntu_versions.mk.tmp && \
+	mv $(BUILD)/cached_ubuntu_versions.mk.tmp $(BUILD)/cached_ubuntu_versions.mk || \
+	rm -f $(BUILD)/cached_ubuntu_versions.mk.tmp \
 	)
 
 endif #clean not in MAKECMDGOALS
