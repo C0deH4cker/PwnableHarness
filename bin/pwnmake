@@ -129,7 +129,7 @@ docker_get_local_digest() {
 
 show_help() {
 	cat <<EOF
-Usage: pwnmake [-C/--dir <path>] [--env <NAME=VALUE> ...] [--pwnableharness-version <version>]
+Usage: pwnmake [-C/--dir <path>] [--env <NAME=VALUE> ...] [--pwnableharness-version <version>] [--init]
                [--tag <tag>] [--digest <digest>] [--skip-update] [--reinit] [--shell] [--help] [--version]
                [--] [targets...]
 Options:
@@ -140,6 +140,8 @@ Options:
                      Select a specific PwnableHarness version for the pwnmake image base. For example,
                      '--pwnableharness-version 2.1' will use '${docker_image_tag_prefix}-v2.1' as the
                      pwnmake image base.
+  --init             Creates a '.pwnmake' marker file in the workspace directory (default '.'), pinning
+                     the current "latest" version of pwnmake.
   --tag <tag>        PwnableHarness pwnmake image tag to use (default 'latest'). The tag will be
                      prefixed with '${docker_image_tag_prefix}'. For example, '--tag v2.1' will use
                      '${docker_image_tag_prefix}v2.1' as the pwnmake image base.
@@ -163,7 +165,7 @@ EOF
 
 # pwnmake [...]
 main() {
-	local digest= pull= reinit= shell= skip_update= tag= verbose= workspace=
+	local digest= init= pull= reinit= shell= skip_update= tag= verbose= want_version= workspace=
 	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
 	local env_args=()
 	
@@ -175,6 +177,11 @@ main() {
 			--help)
 				show_help >&2
 				exit 1
+				;;
+			
+			--init)
+				shift
+				init=1
 				;;
 			
 			--reinit)
@@ -233,8 +240,8 @@ main() {
 				;;
 			
 			--version)
-				echo "pwnmake script version $version"
-				exit 0
+				shift
+				want_version=1
 				;;
 			
 			--)
@@ -267,6 +274,23 @@ main() {
 	
 	local HOST_WORKSPACE="$(realpath "$workspace")"
 	
+	# Handle --init (and --reinit should do this too)
+	if [ -n "$init" ] || [ -n "$reinit" ]; then
+		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image_prefix}latest" /PwnableHarness/VERSION)"
+		echo "$ph_version" > "$workspace/.pwnmake"
+		echo "Initialized $HOST_WORKSPACE/.pwnmake ($ph_version)"
+		
+		# Only --init should exit here, --reinit keeps going
+		if [ -n "$init" ]; then
+			exit 0
+		fi
+	fi
+	
+	# Is there a non-empty .pwnmake file that contains the version?
+	if [ -z "$reinit" ] && [ -z "$ph_version" ] && [ -s "$workspace/.pwnmake" ]; then
+		ph_version="$(cat "$workspace/.pwnmake")"
+	fi
+	
 	# Check that --pwnableharness-version is a supported version
 	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ]; then
 		if vercmp "$ph_version" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
@@ -295,13 +319,17 @@ main() {
 	if [ -n "$digest" ]; then
 		# With a digest, the tag is unnecessary. It can be useful as documentation, though,
 		# as it shows up in 'docker ps'. If a tag was provided, include it.
-		if [ "$tag" != "latest" ]; then
-			docker_image="${docker_image_prefix}${tag}@${digest}"
-		else
-			docker_image="${docker_image_repo}@${digest}"
-		fi
+		docker_image="${docker_image_prefix}${tag}@${digest}"
 	else
 		docker_image="${docker_image_prefix}${tag}"
+	fi
+	
+	# Handle --version
+	if [ -n "$want_version" ]; then
+		echo "pwnmake script version $version"
+		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image}" /PwnableHarness/VERSION)"
+		echo "PwnableHarness version $ph_version"
+		exit 0
 	fi
 	
 	# Get version of the Docker server on the host to know which version of the
