@@ -1,2 +1,22 @@
 # We won't be building any disabled project directories
 *.disabled/
+
+# Very likely, these file types will never be added to a Docker image
+.vscode/
+*_objs/
+.dir
+*.o
+*.d
+*.md
+*.txt
+.glibc_*.mk
+
+# Typically, source files don't go into Docker images
+*.c
+*.h
+*.cpp
+*.hpp
+*.S
+
+# Exception to the above rule
+!stdio_unbuffer.c
