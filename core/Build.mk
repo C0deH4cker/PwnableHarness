@@ -61,4 +61,7 @@ $(call generate_ubuntu_versioned_rules,core_target_def)
 TARGETS := $(CORE_TARGETS)
 
 # Responsible for building, tagging, and pushing the base PwnableHarness images
+ifdef MKDEBUG
+$(info Including $(CORE_DIR)/BaseImage.mk)
+endif
 include $(CORE_DIR)/BaseImage.mk
