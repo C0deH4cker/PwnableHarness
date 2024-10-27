@@ -188,7 +188,7 @@ all: build-all
 
 # Used by pwnmake.Dockerfile to create the /PwnableHarness/VERSION file
 version:
-	@echo '$(PWNMAKE_VERSION)'
+	@echo '$(patsubst v%,%,$(PWNMAKE_VERSION))'
 
 # Used for debugging this Makefile
 # `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
