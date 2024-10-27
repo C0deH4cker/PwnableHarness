@@ -8,10 +8,33 @@
 #
 # Docker image tag versioning strategy for pwncc images:
 #
-# * pwncc-<ubuntu tag>-v<pwnableharness version>
-#     Specific base image and version of PwnableHarness
+# * pwncc-<ubuntu tag>-v<pwncc version>
+#     Specific base image and version of pwncc
+
+# This updates slower than PWNABLEHARNESS_VERSION. It's expected that a given
+# pwncc version can be used by potentially many versions of PwnableHarness.
+PWNCC_VERSION ?= v2.1
+
 
 ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
+
+# Update this to the last released version (which should be immutable now)
+PWNCC_RELEASED := v2.1
+
+# Attempt to prevent accidentally updating a published version
+ifeq "$(PWNCC_VERSION)" "$(PWNCC_RELEASED)"
+
+$(call add_phony_target,pwncc-build)
+pwncc-build:
+	@echo "Not building pwncc, as version $(PWNCC_VERSION) is already released!"
+	$(_v)false
+
+$(call add_phony_target,pwncc-push)
+pwncc-push:
+	@echo "Not pushing pwncc, as version $(PWNCC_VERSION) is already released!"
+	$(_v)false
+
+else #PWNCC_VERSION != PWNCC_RELEASED
 
 CONFIG_USE_PWNCC := 1
 CONFIG_IGNORE_32BIT ?=
@@ -22,7 +45,7 @@ CONFIG_IGNORE_32BIT ?=
 # pwncc-build
 #  \- pwncc-build[<ubuntu-version>]
 #      \- BUILD/.pwncc_build_marker-<ubuntu version>
-#          (tags pwncc-<ubuntu version>-v<pwnableharness version)
+#          (tags pwncc-<ubuntu version>-v<pwncc version)
 #  \- pwncc-build[<ubuntu-alias>]
 #      \- pwncc-tag[<ubuntu-alias>]
 #
@@ -40,7 +63,7 @@ $$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/
 			-f $$< \
 			--build-arg BASE_IMAGE=ubuntu:$1 \
 			--build-arg CONFIG_IGNORE_32BIT=$$(CONFIG_IGNORE_32BIT) \
-			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION) . \
+			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNCC_VERSION) . \
 		&& mkdir -p $$(@D) && touch $$@
 
 endef #pwncc_build_template
@@ -66,9 +89,9 @@ $(call add_target,pwncc-build[<ubuntu-version>])
 # pwncc-tag
 #  \- pwncc-tag[<ubuntu-version>]
 #      \- pwncc-build[<ubuntu-version>]
-#          (builds pwncc-<ubuntu-version>-v<pwnableharness version>)
+#          (builds pwncc-<ubuntu-version>-v<pwncc version>)
 #  \- pwncc-tag[<ubuntu-alias>]
-#      (tags pwncc-<ubuntu-alias>-v<pwnableharness version>)
+#      (tags pwncc-<ubuntu-alias>-v<pwncc version>)
 #
 
 $(call add_phony_target,pwncc-tag)
@@ -78,15 +101,15 @@ $(call add_target,pwncc-tag[<ubuntu-version>])
 # pwncc-tag[<ubuntu-version>] is a nickname for pwncc-build[<ubuntu-version>]
 $(patsubst %,pwncc-tag[%],$(UBUNTU_VERSIONS)): pwncc-tag[%]: pwncc-build[%]
 
-# (tags pwncc-<ubuntu-alias>-v<pwnableharness version>)
+# (tags pwncc-<ubuntu-alias>-v<pwncc version>)
 define pwncc_tag_version_aliased_template
 
 .PHONY: pwncc-tag[$1]
 pwncc-tag[$1]: pwncc-build[$2]
-	$$(_V)echo "Tagging Docker image with tag 'pwncc-$2-$$(PWNABLEHARNESS_VERSION)' as 'pwncc-$1-$$(PWNABLEHARNESS_VERSION)'"
+	$$(_V)echo "Tagging Docker image with tag 'pwncc-$2-$$(PWNCC_VERSION)' as 'pwncc-$1-$$(PWNCC_VERSION)'"
 	$$(_v)$$(DOCKER) tag \
-		$$(PWNABLEHARNESS_REPO):pwncc-$2-$$(PWNABLEHARNESS_VERSION) \
-		$$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNABLEHARNESS_VERSION)
+		$$(PWNABLEHARNESS_REPO):pwncc-$2-$$(PWNCC_VERSION) \
+		$$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNCC_VERSION)
 
 endef #pwncc_tag_version_aliased_template
 $(call generate_ubuntu_aliased_rules,pwncc_tag_version_aliased_template)
@@ -98,17 +121,17 @@ $(call generate_ubuntu_aliased_rules,pwncc_tag_version_aliased_template)
 # pwncc-push
 #  \- pwncc-push-version[<ubuntu version or alias>]
 #      \- pwncc-tag-version[<ubuntu version or alias>]
-#      (pushes pwncc-<ubuntu version or alias>-v<pwnableharness version)
+#      (pushes pwncc-<ubuntu version or alias>-v<pwncc version)
 #
 
 $(call add_phony_target,pwncc-push)
 $(call generate_dependency_list,pwncc-push,$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES))
 $(call add_target,pwncc-push[<ubuntu-version>])
 
-# (push pwncc-<ubuntu version or alias>-v<pwnableharness version)
+# (push pwncc-<ubuntu version or alias>-v<pwncc version)
 pwncc-push[%]: pwncc-tag[%]
-	$(_V)echo "Pushing tag 'pwncc-$*-$(PWNABLEHARNESS_VERSION)' to $(PWNABLEHARNESS_REPO)"
-	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION)
+	$(_V)echo "Pushing tag 'pwncc-$*-$(PWNCC_VERSION)' to $(PWNABLEHARNESS_REPO)"
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNCC_VERSION)
 
 
 #
@@ -122,19 +145,20 @@ $(call add_phony_target,pwncc-clean)
 $(call generate_dependency_list,pwncc-clean,$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES))
 $(call add_target,pwncc-clean[<ubuntu-version>])
 
-# Remove pwncc-<ubuntu version>-v<pwnableharness version> tags and the build markers
+# Remove pwncc-<ubuntu version>-v<pwncc version> tags and the build markers
 $(patsubst %,pwncc-clean[%],$(UBUNTU_VERSIONS)): pwncc-clean[%]:
 	$(_v)rm -f $(BUILD)/.pwncc_build_marker-$* || true
 	$(_v)$(DOCKER) rmi -f \
-		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) \
+		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNCC_VERSION) \
 		>/dev/null 2>&1 || true
 
-# Remove pwncc-<ubuntu-alias>-v<pwnableharness version> tags
+# Remove pwncc-<ubuntu-alias>-v<pwncc version> tags
 $(patsubst %,pwncc-clean[%],$(UBUNTU_ALIASES)): pwncc-clean[%]:
 	$(_v)$(DOCKER) rmi -f \
-		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNABLEHARNESS_VERSION) \
+		$(PWNABLEHARNESS_REPO):pwncc-$*-$(PWNCC_VERSION) \
 		>/dev/null 2>&1 || true
 
+endif #PWNCC_VERSION != PWNCC_RELEASED
 endif #C0deH4cker
 
 
@@ -156,7 +180,7 @@ else #exists(DIR/prebuild.sh)
 $1+PWNCC_MODIFIER :=
 endif #exists(DIR/prebuild.sh)
 
-$1+PWNCC_TAG_BASE := pwncc-$2-$$(PWNABLEHARNESS_VERSION)
+$1+PWNCC_TAG_BASE := pwncc-$2-$$(PWNCC_VERSION)
 $1+PWNCC_TAG := $$($1+PWNCC_TAG_BASE)$$($1+PWNCC_MODIFIER)
 
 $4 :=
