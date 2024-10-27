@@ -27,7 +27,6 @@ PWNMAKE_DIR := pwnmake
 endif #CONTAINER_BUILD
 
 PWNABLEHARNESS_REPO := c0deh4cker/pwnableharness
-PWNABLEHARNESS_VERSION := v$(file < $(ROOT_DIR)/VERSION)
 
 # Define useful variables for special Makefile characters
 EMPTY :=
@@ -58,6 +57,12 @@ _v := @
 _V := @
 endif
 
+
+ifdef MKDEBUG
+$(info Including $(ROOT_DIR)/Versions.mk)
+endif #MKDEBUG
+include $(ROOT_DIR)/Versions.mk
+
 # Path to the root build directory
 ifndef BUILD
 BUILD := .build
@@ -83,7 +88,7 @@ add_phony_targets = $(eval $(call _add_phony_target,$1))
 add_phony_target = $(add_phony_targets)
 
 # Top-level (non-project) targets
-$(call add_phony_targets,all env help list list-targets)
+$(call add_phony_targets,all env help list list-targets version)
 
 # Define each of these general targets as aliases of that target for the selected project
 PROJECT_TARGETS := build clean publish deploy docker-build docker-rebuild docker-start docker-restart docker-stop docker-clean
@@ -180,6 +185,10 @@ $(call recurse_subdir,.)
 # "make all" is an alias for "make build-all", which explicitly builds the
 # whole workspace tree.
 all: build-all
+
+# Used by pwnmake.Dockerfile to create the /PwnableHarness/VERSION file
+version:
+	@echo '$(PWNMAKE_VERSION)'
 
 # Used for debugging this Makefile
 # `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used

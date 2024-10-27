@@ -33,8 +33,8 @@ COPY $DIR/pwnmake-sudo.sh /usr/sbin/sudo
 COPY $DIR/pwnmake-in-container /usr/bin/pwnmake
 COPY $DIR/pwnmake-entrypoint.sh /pwnmake-entrypoint.sh
 RUN chmod 4755 /usr/sbin/gosu \
-&& chmod +x /usr/sbin/sudo \
-&& chmod +x /usr/bin/pwnmake
+	&& chmod +x /usr/sbin/sudo \
+	&& chmod +x /usr/bin/pwnmake
 
 # Yes, we really want to have gosu be setuid root. This is just a builder
 # container, only used for challenge development and management (not runtime).
@@ -53,16 +53,19 @@ COPY \
 	pwncc/pwncc.mk \
 	stdio_unbuffer.c \
 	UbuntuVersions.mk \
-	VERSION \
+	Versions.mk \
 	./
 
 # Tell the top-level Makefile that this is a container build
 ENV CONTAINER_BUILD=1
 ENV DOCKER_ARCH=$TARGETARCH
-RUN echo -n "$GIT_HASH" > .githash
 
 # Set up PwnableHarness top-level directory and workspace location
 WORKDIR /PwnableHarness/workspace
+
+# Store versions to disk
+RUN echo -n "$GIT_HASH" > /PwnableHarness/.githash \
+	&& make --no-print-directory -C /PwnableHarness version > /PwnableHarness/VERSION
 
 # Wrapper script may pass arguments to the entrypoint
 ENTRYPOINT [ "/pwnmake-entrypoint.sh" ]
