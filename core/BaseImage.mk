@@ -3,29 +3,20 @@
 # * base-<ubuntu tag>-v<pwnableharness version>
 #     Specific base image and version of PwnableHarness
 
-# This only needs to update when there's a change that would affect the base
-# images. Changes that only affect PwnableHarness as a build system don't need
-# to update the base image version.
-BASE_IMAGE_VERSION ?= v2.1
-
-# Update this to the last released version (which should be immutable now)
-BASE_IMAGE_RELEASED := v2.1
-
-
 # Attempt to prevent accidentally updating a published version
-ifeq "$(BASE_IMAGE_VERSION)" "$(BASE_IMAGE_RELEASED)"
+ifeq "$(BASE_VERSION)" "$(BASE_RELEASED)"
 
 .PHONY: docker-base-build
 docker-base-build:
-	@echo "Not building base images, as version $(BASE_IMAGE_VERSION) is already released!"
+	@echo "Not building base images, as version $(BASE_VERSION) is already released!"
 	$(_v)false
 
 .PHONY: docker-base-push
 docker-base-push:
-	@echo "Not pushing base images, as version $(BASE_IMAGE_VERSION) is already released!"
+	@echo "Not pushing base images, as version $(BASE_VERSION) is already released!"
 	$(_v)false
 
-else #BASE_IMAGE_VERSION != BASE_IMAGE_RELEASED
+else #BASE_VERSION != BASE_RELEASED
 
 #
 # Building
@@ -53,7 +44,7 @@ $$(CORE_BUILD)/.docker_base_build_marker-$1: $$(PWNABLE_CORE_DEPS-$1)
 	$$(_v)$$(DOCKER) build -f $$(CORE_DIR)/base.Dockerfile \
 			--build-arg BASE_TAG=$1 \
 			--build-arg BUILD_DIR=$$(CORE_BUILD) \
-			-t $$(PWNABLEHARNESS_REPO):base-$1-$$(BASE_IMAGE_VERSION) . \
+			-t $$(PWNABLEHARNESS_REPO):base-$1-$$(BASE_VERSION) . \
 		&& mkdir -p $$(@D) && touch $$@
 
 endef
@@ -93,10 +84,10 @@ define docker_base_tag_aliased_template
 
 .PHONY: docker-base-tag[$1]
 docker-base-tag[$1]: docker-base-build[$2]
-	$$(_V)echo "Tagging Docker image with tag 'base-$2-$$(BASE_IMAGE_VERSION)' as 'base-$1-$$(BASE_IMAGE_VERSION)'"
+	$$(_V)echo "Tagging Docker image with tag 'base-$2-$$(BASE_VERSION)' as 'base-$1-$$(BASE_VERSION)'"
 	$$(_v)$$(DOCKER) tag \
-		$$(PWNABLEHARNESS_REPO):base-$2-$$(BASE_IMAGE_VERSION) \
-		$$(PWNABLEHARNESS_REPO):base-$1-$$(BASE_IMAGE_VERSION)
+		$$(PWNABLEHARNESS_REPO):base-$2-$$(BASE_VERSION) \
+		$$(PWNABLEHARNESS_REPO):base-$1-$$(BASE_VERSION)
 
 endef #docker_base_tag_aliased_template
 $(call generate_ubuntu_aliased_rules,docker_base_tag_aliased_template)
@@ -119,8 +110,8 @@ $(call add_target,docker-base-push[<ubuntu-version>])
 
 # (push base-<ubuntu version or alias>-v<pwnableharness version)
 docker-base-push[%]: docker-base-tag[%]
-	$(_V)echo "Pushing tag 'docker-base-$*-$(BASE_IMAGE_VERSION)' to $(PWNABLEHARNESS_REPO)"
-	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):base-$*-$(BASE_IMAGE_VERSION)
+	$(_V)echo "Pushing tag 'docker-base-$*-$(BASE_VERSION)' to $(PWNABLEHARNESS_REPO)"
+	$(_v)$(DOCKER) push $(PWNABLEHARNESS_REPO):base-$*-$(BASE_VERSION)
 
 
 #
@@ -144,13 +135,13 @@ $(call add_target,docker-base-clean[<ubuntu-version>])
 $(patsubst %,docker-base-clean[%],$(UBUNTU_VERSIONS)): docker-base-clean[%]:
 	$(_v)rm -f $(CORE_BUILD)/.docker_base_build_marker.$* || true
 	$(_v)$(DOCKER) rmi -f \
-		$(PWNABLEHARNESS_REPO):base-$*-$(BASE_IMAGE_VERSION) \
+		$(PWNABLEHARNESS_REPO):base-$*-$(BASE_VERSION) \
 		>/dev/null 2>&1 || true
 
 # Remove base-<ubuntu-alias>-v<pwnableharness version> tags
 $(patsubst %,docker-base-clean[%],$(UBUNTU_ALIASES)): docker-base-clean[%]:
 	$(_v)$(DOCKER) rmi -f \
-		$(PWNABLEHARNESS_REPO):base-$*-$(BASE_IMAGE_VERSION) \
+		$(PWNABLEHARNESS_REPO):base-$*-$(BASE_VERSION) \
 		>/dev/null 2>&1 || true
 
-endif #BASE_IMAGE_VERSION != BASE_IMAGE_RELEASED
+endif #BASE_VERSION != BASE_RELEASED

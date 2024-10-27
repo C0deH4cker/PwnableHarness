@@ -1,8 +1,3 @@
-PWNMAKE_VERSION := $(PWNABLEHARNESS_VERSION)
-
-# Update this to the last released version (which should be immutable now)
-PWNMAKE_RELEASED := v2.1
-
 # Attempt to prevent accidentally updating a published version
 ifeq "$(PWNMAKE_VERSION)" "$(PWNMAKE_RELEASED)"
 
@@ -30,7 +25,7 @@ PWNMAKE_DEPS := \
 	Makefile \
 	stdio_unbuffer.c \
 	UbuntuVersions.mk \
-	VERSION \
+	Versions.mk \
 	$(wildcard $(PWNCC_DIR)/*) \
 	$(wildcard $(PWNMAKE_DIR)/*)
 

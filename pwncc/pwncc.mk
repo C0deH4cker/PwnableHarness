@@ -11,15 +11,7 @@
 # * pwncc-<ubuntu tag>-v<pwncc version>
 #     Specific base image and version of pwncc
 
-# This updates slower than PWNABLEHARNESS_VERSION. It's expected that a given
-# pwncc version can be used by potentially many versions of PwnableHarness.
-PWNCC_VERSION ?= v2.1
-
-
 ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
-
-# Update this to the last released version (which should be immutable now)
-PWNCC_RELEASED := v2.1
 
 # Attempt to prevent accidentally updating a published version
 ifeq "$(PWNCC_VERSION)" "$(PWNCC_RELEASED)"

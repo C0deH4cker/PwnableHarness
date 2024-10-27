@@ -1118,7 +1118,7 @@ $1+UBUNTU_VERSION := $$(DEFAULT_UBUNTU_VERSION)
 endif #UBUNTU_VERSION
 
 # Fully qualified base image to use for the challenge image
-$1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(PWNABLEHARNESS_VERSION)
+$1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(BASE_VERSION)
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
