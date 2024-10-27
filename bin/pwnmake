@@ -300,7 +300,7 @@ main() {
 	fi
 	
 	# Check that --tag references a supported tag
-	if [ -n "$tag" ] && [ "$tag" != "latest" ]; then
+	if [ -n "$tag" ] && [ "$tag" != "latest" ] && [ "$tag" != "dev" ]; then
 		if vercmp "${tag#v}" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
 			echo "pwnmake image with tag $tag is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
 			exit 1
@@ -310,7 +310,7 @@ main() {
 	# Build tag if neither a tag/digest were supplied
 	if [ -z "$tag" ] && [ -z "$digest" ]; then
 		tag="$ph_version"
-		if [ "$ph_version" != "latest" ]; then
+		if [ "$ph_version" != "latest" ] && [ "$ph_version" != "dev" ]; then
 			tag="v$ph_version"
 		fi
 	fi
