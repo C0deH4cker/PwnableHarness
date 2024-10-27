@@ -472,10 +472,14 @@ endif
 
 # RELRO (Read-only relocations), only works on Linux
 ifdef IS_LINUX
-ifeq "1" "$$(call is_var_true,$2_RELRO)"
-$2_EXTRA_LDFLAGS += -Wl,-z,relro,-z,now
-else ifneq "$$($2_RELRO)" "default"
+ifeq "1" "$$(call is_var_false_or_undefined,$2_RELRO)"
 $2_EXTRA_LDFLAGS += -Wl,-z,norelro
+else ifeq "1" "$$(call is_var_true,$2_RELRO)"
+$2_EXTRA_LDFLAGS += -Wl,-z,relro,-z,now
+else ifeq "" "$$(filter $$($2_RELRO),partial default)"
+# Nothing
+else #RELRO
+$$(error Unknown value for RELRO in $1/$2: "$$($2_RELRO)". Possible values: 0 1 partial default)
 endif #RELRO
 endif #IS_LINUX
 
@@ -516,22 +520,27 @@ $2_EXTRA_LDFLAGS += -z execstack
 else ifdef IS_MAC
 $2_EXTRA_LDFLAGS += -Wl,-allow_stack_execute
 endif #OS
-else ifeq "$$($2_NX)" "default"
-# Nothing
-else #NX
+else ifeq "1" "$$(call is_var_true,$2_NX)"
 ifdef IS_LINUX
 $2_EXTRA_LDFLAGS += -z noexecstack
 else ifdef IS_MAC
 # No option, default is stack isn't executable
 endif #OS
+else ifeq "$$($2_NX)" "default"
+# Nothing
+else #NX
+$$(error Unknown value for NX in $1/$2: "$$($2_NX)". Possible values: 0 1 default)
 endif #NX
 
 # PIE is an alias for ASLR
 ifdef $2_PIE
 ifdef $2_ASLR
-$$(error Both ASLR and PIE are defined! Use ASLR only.)
+$$(error Both ASLR and PIE are defined! Pick one.)
 endif #ASLR
 $2_ASLR := $$($2_PIE)
+$2_ASLR_VAR := PIE
+else #PIE
+$2_ASLR_VAR := ASLR
 endif #PIE
 
 # ASLR (Address Space Layout Randomization)
@@ -545,7 +554,7 @@ endif #IS_LINUX/IS_MAC
 endif #executable
 else ifeq "$$($2_ASLR)" "default"
 # Nothing
-else #ASLR
+else ifeq "1" "$$(call is_var_true,$2_ASLR)"
 ifeq "$$($2_BINTYPE)" "executable"
 $2_EXTRA_CFLAGS += -fPIE
 $2_EXTRA_CXXFLAGS += -fPIE
@@ -558,6 +567,8 @@ else #executable
 $2_EXTRA_CFLAGS += -fPIC
 $2_EXTRA_CXXFLAGS += -fPIC
 endif #executable
+else #ASLR
+$$(error Unknown value for $$($2_ASLR_VAR) in $1/$2: "$$($2_ASLR)". Possible values: 0 1 default)
 endif #ASLR
 
 # Strip symbols
@@ -577,13 +588,9 @@ else ifeq "$$($2_DEBUG)" "default"
 else #DEBUG
 $2_EXTRA_CPPFLAGS += -DDEBUG=1 -UNDEBUG
 ifeq "1" "$$(call is_var_true,$2_DEBUG)"
-$2_EXTRA_CFLAGS += -ggdb
-$2_EXTRA_CXXFLAGS += -ggdb
-$2_EXTRA_LDFLAGS += -ggdb
+$2_EXTRA_OFLAGS += -ggdb
 else #!is_true(DEBUG)
-$2_EXTRA_CFLAGS += $$($2_DEBUG)
-$2_EXTRA_CXXFLAGS += $$($2_DEBUG)
-$2_EXTRA_LDFLAGS += $$($2_DEBUG)
+$2_EXTRA_OFLAGS += $$($2_DEBUG)
 endif #!is_true(DEBUG)
 endif #DEBUG
 
@@ -892,7 +899,7 @@ DEPLOY_COMMAND :=
 DEPLOY_DEPS :=
 
 # Optional CTF flag management
-FLAG_FILE := $(or $(wildcard $1/real_flag.txt),$(wildcard $1/flag.txt))
+FLAG_FILE := $$(or $$(wildcard $1/real_flag.txt),$$(wildcard $1/flag.txt))
 FLAG_DST := flag.txt
 
 # These can optionally be defined by Build.mk for Docker management
@@ -913,20 +920,20 @@ DOCKER_RUN_ARGS :=
 DOCKER_PWNABLESERVER_ARGS :=
 DOCKER_RUNNABLE :=
 DOCKER_BUILD_ONLY :=
-DOCKER_CPULIMIT := $(DEFAULT_DOCKER_CPULIMIT)
-DOCKER_MEMLIMIT := $(DEFAULT_DOCKER_MEMLIMIT)
-DOCKER_TIMELIMIT := $(DEFAULT_DOCKER_TIMELIMIT)
+DOCKER_CPULIMIT := $$(DEFAULT_DOCKER_CPULIMIT)
+DOCKER_MEMLIMIT := $$(DEFAULT_DOCKER_MEMLIMIT)
+DOCKER_TIMELIMIT := $$(DEFAULT_DOCKER_TIMELIMIT)
 DOCKER_WRITEABLE :=
-DOCKER_PASSWORD := $(DEFAULT_DOCKER_PASSWORD)
+DOCKER_PASSWORD := $$(DEFAULT_DOCKER_PASSWORD)
 
 # These can optionally be defined to set directory-specific variables
-BITS := $(DEFAULT_BITS)
-CPPFLAGS := $(DEFAULT_CPPFLAGS)
-CFLAGS := $(DEFAULT_CFLAGS)
-CXXFLAGS := $(DEFAULT_CXXFLAGS)
-OFLAGS := $(DEFAULT_OFLAGS)
-ASFLAGS := $(DEFAULT_ASFLAGS)
-LDFLAGS := $(DEFAULT_LDFLAGS)
+BITS := $$(DEFAULT_BITS)
+CPPFLAGS := $$(DEFAULT_CPPFLAGS)
+CFLAGS := $$(DEFAULT_CFLAGS)
+CXXFLAGS := $$(DEFAULT_CXXFLAGS)
+OFLAGS := $$(DEFAULT_OFLAGS)
+ASFLAGS := $$(DEFAULT_ASFLAGS)
+LDFLAGS := $$(DEFAULT_LDFLAGS)
 NO_EXTRA_CPPFLAGS :=
 NO_EXTRA_CFLAGS :=
 NO_EXTRA_CXXFLAGS :=
@@ -935,11 +942,11 @@ NO_EXTRA_ASFLAGS :=
 NO_EXTRA_LDFLAGS :=
 NO_EXTRA_FLAGS :=
 SRCS := $$(patsubst $1/%,%,$$(foreach ext,c cpp S,$$(wildcard $1/*.$$(ext))))
-CC := $(DEFAULT_CC)
-CXX := $(DEFAULT_CXX)
-AS := $(DEFAULT_AS)
-LD := $(DEFAULT_LD)
-AR := $(DEFAULT_AR)
+CC := $$(DEFAULT_CC)
+CXX := $$(DEFAULT_CXX)
+AS := $$(DEFAULT_AS)
+LD := $$(DEFAULT_LD)
+AR := $$(DEFAULT_AR)
 BINTYPE :=
 LIBS :=
 LDLIBS :=
@@ -952,13 +959,13 @@ UBUNTU_VERSION :=
 GLIBC_VERSION :=
 
 # Hardening flags
-RELRO := $(DEFAULT_RELRO)
-CANARY := $(DEFAULT_CANARY)
-NX := $(DEFAULT_NX)
-PIE := $(DEFAULT_PIE)
-ASLR := $(DEFAULT_ASLR)
-STRIP := $(DEFAULT_STRIP)
-DEBUG := $(DEFAULT_DEBUG)
+RELRO := $$(DEFAULT_RELRO)
+CANARY := $$(DEFAULT_CANARY)
+NX := $$(DEFAULT_NX)
+PIE := $$(DEFAULT_PIE)
+ASLR := $$(DEFAULT_ASLR)
+STRIP := $$(DEFAULT_STRIP)
+DEBUG := $$(DEFAULT_DEBUG)
 
 # Set DIR+BUILD to the build directory for this project folder
 ifeq "$1" "."
@@ -1148,7 +1155,16 @@ deploy-one[$1]: $$($1+DEPLOY_DEPS)
 	$$(_V)echo "Deploying $1"
 	$$(_v)cd $1 && $$($1+DEPLOY_COMMAND)
 
-endif #$1+DEPLOY_COMMAND
+else #DIR+DEPLOY_COMMAND
+
+deploy-one[$1]: publish-one[$1]
+
+ifdef $1+DOCKER_RUNNABLE
+
+deploy-one[$1]: docker-start-one[$1]
+
+endif #DIR+DOCKER_RUNNABLE
+endif #DIR+DEPLOY_COMMAND
 
 # Clean rules
 clean[$1]: clean-one[$1]
@@ -1157,6 +1173,11 @@ $1+TO_CLEAN := $$($1+PRODUCTS)
 ifneq "$$($1+BUILD)" ".build"
 $1+TO_CLEAN += $$($1+BUILD)
 endif
+
+# Mark custom clean rule as phony
+ifdef $1+CLEAN
+.PHONY: $$($1+CLEAN)
+endif #DIR+CLEAN
 
 clean-one[$1]: $$($1+CLEAN)
 	$$(_V)echo "Removing build directory and products for $1"
