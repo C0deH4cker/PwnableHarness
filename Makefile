@@ -97,6 +97,9 @@ def_proj_targ = $(eval $(call _def_proj_targ,$1))
 $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 
 # If there is a Config.mk present in the root of this workspace or a subdirectory, include it
+ifdef MKDEBUG
+$(info Including Config.mk $(wildcard */Config.mk) (if present))
+endif #MKDEBUG
 -include Config.mk $(wildcard */Config.mk)
 
 # Provides information about currently supported Ubuntu versions:
@@ -107,6 +110,9 @@ $(foreach t,$(PROJECT_TARGETS),$(call def_proj_targ,$t))
 # GLIBC_VERSIONS: list[string glibc version number]
 # UBUNTU_TO_GLIBC: map[string version/alias] -> string glibc version number
 # GLIBC_TO_UBUNTU: map[string glibc version number] -> string version number
+ifdef MKDEBUG
+$(info Including $(ROOT_DIR)/UbuntuVersions.mk)
+endif #MKDEBUG
 include $(ROOT_DIR)/UbuntuVersions.mk
 
 # Basic OS detection (Windows is detected but not supported)
@@ -132,9 +138,15 @@ endif #IS_MAC
 DOCKER := docker$(if $(DOCKER_DEBUG), --debug)
 
 # Define useful build macros
+ifdef MKDEBUG
+$(info Including $(ROOT_DIR)/Macros.mk)
+endif #MKDEBUG
 include $(ROOT_DIR)/Macros.mk
 
 # The pwncc.mk file will use config options to decide what to define
+ifdef MKDEBUG
+$(info Including $(PWNCC_DIR)/pwncc.mk)
+endif #MKDEBUG
 include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
@@ -155,6 +167,9 @@ ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
 $(call include_subdir,core)
 ifndef CONTAINER_BUILD
 # Responsible for building, tagging, and pushing the pwnmake builder images
+ifdef MKDEBUG
+$(info Including $(PWNMAKE_DIR)/pwnmake.mk)
+endif #MKDEBUG
 include $(PWNMAKE_DIR)/pwnmake.mk
 endif #CONTAINER_BUILD
 endif #C0deH4cker
