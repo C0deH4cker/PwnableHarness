@@ -274,25 +274,13 @@ main() {
 	
 	local HOST_WORKSPACE="$(realpath "$workspace")"
 	
-	# Handle --init (and --reinit should do this too)
-	if [ -n "$init" ] || [ -n "$reinit" ]; then
-		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image_prefix}latest" /PwnableHarness/VERSION)"
-		echo "$ph_version" > "$workspace/.pwnmake"
-		echo "Initialized $HOST_WORKSPACE/.pwnmake ($ph_version)"
-		
-		# Only --init should exit here, --reinit keeps going
-		if [ -n "$init" ]; then
-			exit 0
-		fi
-	fi
-	
 	# Is there a non-empty .pwnmake file that contains the version?
 	if [ -z "$reinit" ] && [ -z "$ph_version" ] && [ -s "$workspace/.pwnmake" ]; then
 		ph_version="$(cat "$workspace/.pwnmake")"
 	fi
 	
 	# Check that --pwnableharness-version is a supported version
-	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ]; then
+	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ] && [ "$ph_version" != "dev" ]; then
 		if vercmp "$ph_version" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
 			echo "PwnableHarness version $ph_version is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
 			exit 1
@@ -322,6 +310,18 @@ main() {
 		docker_image="${docker_image_prefix}${tag}@${digest}"
 	else
 		docker_image="${docker_image_prefix}${tag}"
+	fi
+	
+	# Handle --init (and --reinit should do this too)
+	if [ -n "$init" ] || [ -n "$reinit" ]; then
+		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image}" /PwnableHarness/VERSION)"
+		echo "$ph_version" > "$workspace/.pwnmake"
+		echo "Initialized $HOST_WORKSPACE/.pwnmake ($ph_version)"
+		
+		# Only --init should exit here, --reinit keeps going
+		if [ -n "$init" ]; then
+			exit 0
+		fi
 	fi
 	
 	# Handle --version
