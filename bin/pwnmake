@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Keep aligned with /VERSION
-version=${PWNMAKE_VERSION:-2.1}
+version=${PWNMAKE_VERSION:-2.2}
 
 # This is the lowest version of pwnmake image that is supported by this pwnmake script
 PWNABLEHARNESS_VERSION_MIN=2.1
