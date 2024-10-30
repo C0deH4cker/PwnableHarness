@@ -712,7 +712,7 @@ else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Archiving static library $$@"
-	$$(_v)$$($2_PWNCC)$$($2_AR) rcs $$@ $$^
+	$$(_v)$$($2_PWNCC)$$($2_AR) rcs $$@ $$($2_OBJS)
 
 else #dynamiclib & executable & staticlib
 
