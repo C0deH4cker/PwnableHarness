@@ -165,12 +165,12 @@ EOF
 
 # pwnmake [...]
 main() {
-	local digest= init= pull= reinit= shell= skip_update= tag= verbose= want_version= workspace=
-	local ph_version="${PWNMAKE_PWNABLEHARNESS_VERSION:-latest}"
+	local digest= init= ph_version= pull= reinit= shell= skip_update= tag= verbose= want_version= workspace=
 	local env_args=()
 	
-	test -n "${PWNMAKE_TAG:-}" && tag="$PWNMAKE_TAG"
 	test -n "${PWNMAKE_DIGEST:-}" && digest="$PWNMAKE_DIGEST"
+	test -n "${PWNMAKE_PWNABLEHARNESS_VERSION:-}" && ph_version="$PWNMAKE_PWNABLEHARNESS_VERSION"
+	test -n "${PWNMAKE_TAG:-}" && tag="$PWNMAKE_TAG"
 	
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
@@ -297,9 +297,9 @@ main() {
 	
 	# Build tag if neither a tag/digest were supplied
 	if [ -z "$tag" ] && [ -z "$digest" ]; then
-		tag="$ph_version"
-		if [ "$ph_version" != "latest" ] && [ "$ph_version" != "dev" ]; then
-			tag="v$ph_version"
+		tag="${ph_version:-latest}"
+		if [ "$tag" != "latest" ] && [ "$tag" != "dev" ]; then
+			tag="v$tag"
 		fi
 	fi
 	
@@ -328,7 +328,12 @@ main() {
 	if [ -n "$want_version" ]; then
 		echo "pwnmake script version $version"
 		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image}" /PwnableHarness/VERSION)"
-		echo "PwnableHarness version $ph_version"
+		echo -n "PwnableHarness version $ph_version"
+		if [ -s "$workspace/.pwnmake" ]; then
+			echo " (from $workspace/.pwnmake)"
+		else
+			echo ""
+		fi
 		exit 0
 	fi
 	
