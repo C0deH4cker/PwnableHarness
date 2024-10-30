@@ -635,7 +635,7 @@ endif #CONTAINER_BUILD
 endif #UNBUFFER_DIR
 
 # Compiler rule for stdio_unbuffer.o
-$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c | $$($2_PWNCC_DEPS)
+$$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
@@ -648,7 +648,7 @@ endif #MKTRACE
 
 # Ensure directories are created for all object files
 $2_OBJ_DIR_RULES := $$(addsuffix /.dir,$$(sort $$(patsubst %/,%,$$(dir $$($2_OBJS)))))
-$$($2_OBJS): $$($2_OBJ_DIR_RULES)
+$$($2_OBJS): | $$($2_OBJ_DIR_RULES)
 
 # Rebuild all build products when the Build.mk is modified
 $$($2_OBJS): $$($1+BUILD_MK) $$(ROOT_DIR)/Macros.mk
@@ -660,17 +660,17 @@ $$(info Adding compiler rules for $1+$2)
 endif #MKTRACE
 
 # Compiler rule for C sources
-$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c | $$($2_PWNCC_DEPS)
+$$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
-$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp | $$($2_PWNCC_DEPS)
+$$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CXXFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Assembler rule
-$$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S | $$($2_PWNCC_DEPS)
+$$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Assembling $$<"
 	$$(_v)$$($2_PWNCC)$$($2_AS) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_ASFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
@@ -696,21 +696,21 @@ endif #MKTRACE
 
 ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PWNCC_DEPS) | $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "$$($2_PWNCC_DESC)Linking executable $$@"
 	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PWNCC_DEPS) | $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "$$($2_PWNCC_DESC)Linking shared library $$@"
 	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
 # Archive rule to produce the final target (specialication for static libraries)
-$$($2_PRODUCT): $$($2_OBJS) $$($2_PRODUCT_DIR_RULE) | $$($2_PWNCC_DEPS)
+$$($2_PRODUCT): $$($2_OBJS) $$($2_PWNCC_DEPS) | $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "$$($2_PWNCC_DESC)Archiving static library $$@"
 	$$(_v)$$($2_PWNCC)$$($2_AR) rcs $$@ $$($2_OBJS)
 

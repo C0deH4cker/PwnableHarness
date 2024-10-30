@@ -49,7 +49,7 @@ $(call generate_dependency_list,pwncc-build,$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)
 $(patsubst %,pwncc-build[%],$(UBUNTU_VERSIONS)): pwncc-build[%]: $(BUILD)/.pwncc_build_marker-%
 
 define pwncc_build_template
-$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile | $$(ROOT_DIR)/VERSION
+$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile $$(ROOT_DIR)/VERSION
 	$$(_V)echo "Building pwncc image for ubuntu:$1"
 	$$(_v)$$(DOCKER) build \
 			-f $$< \
@@ -183,7 +183,7 @@ $4 := $$($1+BUILD)/.$$($1+PWNCC_TAG)
 ifndef PWNCC_TAG-$$($1+PWNCC_TAG)
 PWNCC_TAG-$$($1+PWNCC_TAG) := 1
 
-$$($4): $$($1+PREBUILD_SH) | $$(PWNCC_DIR)/pwncc.Dockerfile $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
+$$($4): $$($1+PREBUILD_SH) $$(PWNCC_DIR)/pwncc.Dockerfile $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
 	$$(_V)echo "Running $$< in pwncc container"
 	$$(_v)$$(DOCKER) build \
 			-f $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile \
