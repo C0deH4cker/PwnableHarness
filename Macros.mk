@@ -636,7 +636,7 @@ endif #UNBUFFER_DIR
 
 # Compiler rule for stdio_unbuffer.o
 $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c $$($2_PWNCC_DEPS)
-	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $1/$2"
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $$(patsubst ./%,%,$1/$2)"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif #NO_UNBUFFERED_STDIO
@@ -661,17 +661,17 @@ endif #MKTRACE
 
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c $$($2_PWNCC_DEPS)
-	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$< for $$(patsubst ./%,%,$1/$2)"
 	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp $$($2_PWNCC_DEPS)
-	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$<"
+	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$< for $$(patsubst ./%,%,$1/$2)"
 	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CXXFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Assembler rule
 $$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S $$($2_PWNCC_DEPS)
-	$$(_V)echo "$$($2_PWNCC_DESC)Assembling $$<"
+	$$(_V)echo "$$($2_PWNCC_DESC)Assembling $$< for $$(patsubst ./%,%,$1/$2)"
 	$$(_v)$$($2_PWNCC)$$($2_AS) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_ASFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 clean-one[$1]: clean-objs[$1+$2]
@@ -681,7 +681,7 @@ clean-objs[$1+$2]:
 	$$(_v)rm -rf $$($2_OBJS_DIR)
 
 ifdef MKTRACE
-$$(info Including dependency files for $1+$2)
+$$(info Including dependency files for $1/$2)
 endif #MKTRACE
 
 # Compilation dependency rules
@@ -691,7 +691,7 @@ $2_PRODUCT_DIR_RULE := $$(patsubst %/,%,$$(dir $$($2_PRODUCT)))/.dir
 
 
 ifdef MKTRACE
-$$(info Adding linker rules for $1+$2)
+$$(info Adding linker rules for $1/$2)
 endif #MKTRACE
 
 ifeq "$$($2_BINTYPE)" "executable"
@@ -725,7 +725,7 @@ endif #dynamiclib & executable & staticlib
 
 
 ifdef MKTRACE
-$$(info Done generating target rules for $1+$2)
+$$(info Done generating target rules for $1/$2)
 endif #MKTRACE
 
 endef #_generate_target
@@ -813,7 +813,7 @@ publish-one[$1]: $$($1+$2+DST)
 
 # Publishing rule
 $$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
-	$$(_V)echo "Publishing $1/$$*"
+	$$(_V)echo "Publishing $$(patsubst ./%,%,$1/$$*)"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
 endef
