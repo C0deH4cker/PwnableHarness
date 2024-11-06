@@ -476,7 +476,9 @@ ifeq "1" "$$(call is_var_false_or_undefined,$2_RELRO)"
 $2_EXTRA_LDFLAGS += -Wl,-z,norelro
 else ifeq "1" "$$(call is_var_true,$2_RELRO)"
 $2_EXTRA_LDFLAGS += -Wl,-z,relro,-z,now
-else ifeq "" "$$(filter $$($2_RELRO),partial default)"
+else ifeq "$$($2_RELRO)" "partial"
+# Nothing
+else ifeq "$$($2_RELRO)" "default"
 # Nothing
 else #RELRO
 $$(error Unknown value for RELRO in $1/$2: "$$($2_RELRO)". Possible values: 0 1 partial default)
