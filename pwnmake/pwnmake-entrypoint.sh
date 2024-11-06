@@ -55,9 +55,9 @@ if [ -n "${PWNMAKE_VERBOSE:-}" ]; then
 	set -x
 fi
 
-# Version 2.1 has breaking changes that require cooperation between the pwnmake
-# script and the pwnmake image.
-PWNMAKE_VERSION_MIN=2.1
+# Version 2.2 has important fixes, enough that we should force updating (as I
+# won't bother testing compatibility).
+PWNMAKE_VERSION_MIN=2.2
 if vercmp "$PWNMAKE_VERSION" -lt "$PWNMAKE_VERSION_MIN"; then
 	echo "Your pwnmake script is out of date!" >&2
 	echo "Installed version: $PWNMAKE_VERSION" >&2
