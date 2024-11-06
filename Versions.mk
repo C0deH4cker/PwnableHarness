@@ -5,8 +5,8 @@
 # *_RELEASED.
 
 # Update any time the PwnableHarness makefiles are changed
-PWNMAKE_VERSION  := v2.2
-PWNMAKE_RELEASED := v2.1
+PHMAKE_VERSION  := v2.2
+PHMAKE_RELEASED := v2.1
 
 # This only needs to update when there's a change that would affect the base
 # images. Changes that only affect PwnableHarness as a build system don't need
