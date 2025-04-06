@@ -167,7 +167,7 @@ ifdef $1+PREBUILD_SH
 # Create a hash from:
 #  - the project path
 #  - prebuild.sh file contents
-$1+PWNCC_MODIFIER := +$$(firstword $$(shell (echo '$1'; cat '$1/prebuild.sh') | shasum -a 256))
+$1+PWNCC_MODIFIER := -$$(firstword $$(shell (echo '$1'; cat '$1/prebuild.sh') | shasum -a 256))
 else #exists(DIR/prebuild.sh)
 $1+PWNCC_MODIFIER :=
 endif #exists(DIR/prebuild.sh)
@@ -183,13 +183,13 @@ $4 := $$($1+BUILD)/.$$($1+PWNCC_TAG)
 ifndef PWNCC_TAG-$$($1+PWNCC_TAG)
 PWNCC_TAG-$$($1+PWNCC_TAG) := 1
 
-$$($4): $$($1+PREBUILD_SH) $$(PWNCC_DIR)/pwncc.Dockerfile $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
+$$($4): $$($1+PREBUILD_SH) $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile
 	$$(_V)echo "Running $$< in pwncc container"
 	$$(_v)$$(DOCKER) build \
 			-f $$(PWNCC_DIR)/pwncc-prebuild.Dockerfile \
 			--build-arg BASE_TAG=$$($1+PWNCC_TAG_BASE) \
 			--build-arg DIR=$1 \
-			-t $$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
+			-t $$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) . \
 		&& mkdir -p $$(@D) && touch $$@
 
 endif #rule cache check

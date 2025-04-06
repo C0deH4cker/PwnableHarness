@@ -51,6 +51,7 @@ COPY \
 	Macros.mk \
 	Makefile \
 	pwncc/pwncc.mk \
+	pwncc/pwncc-prebuild.Dockerfile \
 	stdio_unbuffer.c \
 	UbuntuVersions.mk \
 	Versions.mk \
