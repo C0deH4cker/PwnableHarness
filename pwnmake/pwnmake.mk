@@ -19,6 +19,7 @@ else #PHMAKE_VERSION != PHMAKE_RELEASED
 # Files used when building the pwnmake container
 PWNMAKE_DEPS := \
 	.dockerignore \
+	$(BUILD)/GIT_HASH \
 	$(BUILD)/cached_ubuntu_versions.mk \
 	$(BUILD)/cached_glibc_versions.mk \
 	Macros.mk \
@@ -28,6 +29,21 @@ PWNMAKE_DEPS := \
 	Versions.mk \
 	$(wildcard $(PWNCC_DIR)/*) \
 	$(wildcard $(PWNMAKE_DIR)/*)
+
+GIT_HASH := $(shell git rev-parse HEAD)
+ifeq "$(wildcard $(BUILD)/GIT_HASH)" ""
+NEED_GIT_HASH := 1
+else #exists(.build/GIT_HASH)
+CACHED_GIT_HASH := $(file < $(BUILD)/GIT_HASH)
+ifneq "$(GIT_HASH)" "$(CACHED_GIT_HASH)"
+NEED_GIT_HASH := 1
+endif #GIT_HASH != CACHED_GIT_HASH
+endif #exists(.build/GIT_HASH)
+
+ifdef NEED_GIT_HASH
+$(info Updating cached git hash to $(GIT_HASH))
+$(file > $(BUILD)/GIT_HASH,$(GIT_HASH))
+endif #NEED_GIT_HASH
 
 $(call add_phony_target,pwnmake-build)
 pwnmake-build: $(BUILD)/.pwnmake_image_build_marker
