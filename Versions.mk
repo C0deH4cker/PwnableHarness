@@ -4,7 +4,8 @@
 # Only during active development of a new version should *_VERSION be ahead of
 # *_RELEASED.
 
-# Update any time the PwnableHarness makefiles are changed
+# Update any time the PwnableHarness makefiles (or anything else in the pwnmake
+# image) are changed.
 PHMAKE_VERSION  := v2.3
 PHMAKE_RELEASED := v2.2
 

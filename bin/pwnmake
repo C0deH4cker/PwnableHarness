@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# Keep aligned with /VERSION
+# Version of the pwnmake script itself, which can be different from the pwnmake image
 version=${PWNMAKE_VERSION:-2.3}
 
 # This is the lowest version of pwnmake image that is supported by this pwnmake script
@@ -136,15 +136,12 @@ Options:
   -C, --dir <path>   Path to the directory to use as a PwnableHarness workspace (default is to search
                      upwards looking for a directory containing a '.pwnmake' file, or '.').
   --env <NAME=VALUE> Set an environment variable within the pwnmake image for this command.
-  --pwnableharness-version <version>
-                     Select a specific PwnableHarness version for the pwnmake image base. For example,
-                     '--pwnableharness-version 2.1' will use '${docker_image_tag_prefix}-v2.1' as the
-                     pwnmake image base.
   --init             Creates a '.pwnmake' marker file in the workspace directory (default '.'), pinning
-                     the current "latest" version of pwnmake.
+                     the current "latest" version of the pwnmake image (or --tag).
   --tag <tag>        PwnableHarness pwnmake image tag to use (default 'latest'). The tag will be
                      prefixed with '${docker_image_tag_prefix}'. For example, '--tag v2.1' will use
                      '${docker_image_tag_prefix}v2.1' as the pwnmake image base.
+  --dev              Use the 'dev' tag of the pwnmake image.
   --digest <digest>  PwnableHarness pwnmake image digest to use. For example, '--digest sha256:abc...123'
                      will use '${docker_image_repo}@sha256:abc...123' as the pwnmake image base.
   --skip-update      Don't attempt to ensure the pwnmake image is up-to-date.
@@ -158,6 +155,7 @@ Options:
   --version          Display the version of the pwnmake script.
   --                 Stop parsing options and pass all further arguments to 'make'.
   targets...         Arguments to be passed to 'make'. These can be targets to build or options like '-j8'.
+
 Example: pwnmake -j4 docker-start publish VERBOSE=1
 EOF
 }
@@ -165,11 +163,11 @@ EOF
 
 # pwnmake [...]
 main() {
-	local digest= init= ph_version= pull= reinit= shell= skip_update= tag= verbose= want_version= workspace=
+	local digest= init= pull= reinit= shell= skip_update= tag= verbose= want_version= workspace=
 	local env_args=()
 	
 	test -n "${PWNMAKE_DIGEST:-}" && digest="$PWNMAKE_DIGEST"
-	test -n "${PWNMAKE_PWNABLEHARNESS_VERSION:-}" && ph_version="$PWNMAKE_PWNABLEHARNESS_VERSION"
+	test -n "${PWNMAKE_PWNABLEHARNESS_VERSION:-}" && tag="$PWNMAKE_PWNABLEHARNESS_VERSION"
 	test -n "${PWNMAKE_TAG:-}" && tag="$PWNMAKE_TAG"
 	
 	while [ "$#" -gt 0 ]; do
@@ -218,7 +216,7 @@ main() {
 			
 			--pwnableharness-version)
 				shift
-				ph_version="$1"
+				tag="$1"
 				shift
 				;;
 			
@@ -226,6 +224,11 @@ main() {
 				shift
 				tag="$1"
 				shift
+				;;
+			
+			--dev)
+				shift
+				tag="dev"
 				;;
 			
 			--digest)
@@ -275,20 +278,13 @@ main() {
 	local HOST_WORKSPACE="$(realpath "$workspace")"
 	
 	# Is there a non-empty .pwnmake file that contains the version?
-	if [ -z "$reinit" ] && [ -z "$ph_version" ] && [ -s "$workspace/.pwnmake" ]; then
-		ph_version="$(cat "$workspace/.pwnmake")"
-	fi
-	
-	# Check that --pwnableharness-version is a supported version
-	if [ -n "$ph_version" ] && [ "$ph_version" != "latest" ] && [ "$ph_version" != "dev" ]; then
-		if vercmp "$ph_version" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
-			echo "PwnableHarness version $ph_version is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
-			exit 1
-		fi
+	if [ -z "$reinit" ] && [ -z "$tag" ] && [ -s "$workspace/.pwnmake" ]; then
+		tag="$(cat "$workspace/.pwnmake")"
 	fi
 	
 	# Check that --tag references a supported tag
 	if [ -n "$tag" ] && [ "$tag" != "latest" ] && [ "$tag" != "dev" ]; then
+		tag="v${tag#v}"
 		if vercmp "${tag#v}" -lt "$PWNABLEHARNESS_VERSION_MIN"; then
 			echo "pwnmake image with tag $tag is unsupported; must be >=$PWNABLEHARNESS_VERSION_MIN" >&2
 			exit 1
@@ -297,10 +293,7 @@ main() {
 	
 	# Build tag if neither a tag/digest were supplied
 	if [ -z "$tag" ] && [ -z "$digest" ]; then
-		tag="${ph_version:-latest}"
-		if [ "$tag" != "latest" ] && [ "$tag" != "dev" ]; then
-			tag="v$tag"
-		fi
+		tag="latest"
 	fi
 	
 	local docker_image
@@ -450,6 +443,7 @@ main() {
 		# Run the builder initialization and prep scripts then save as a new image
 		if docker run \
 			--name "$pwnmake_container" \
+			--network=host \
 			--env DOCKER_VERSION="$DOCKER_VERSION" \
 			--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 			--env PWNMAKE_VERSION="$version" \
@@ -491,6 +485,7 @@ main() {
 	docker run \
 		--rm \
 		--init \
+		--network=host \
 		--env DOCKER_VERSION="$DOCKER_VERSION" \
 		--env HOST_WORKSPACE="$HOST_WORKSPACE" \
 		--env PWNMAKE_VERSION="$version" \
