@@ -512,8 +512,8 @@ $2_CANARY_FLAG :=
 else ifeq "$$($2_CANARY)" "none"
 $2_CANARY_FLAG := -fno-stack-protector
 endif #CANARY
-$2_CFLAGS += $$($2_CANARY_FLAG)
-$2_CXXFLAGS += $$($2_CANARY_FLAG)
+$2_EXTRA_CFLAGS += $$($2_CANARY_FLAG)
+$2_EXTRA_CXXFLAGS += $$($2_CANARY_FLAG)
 
 # NX (No Execute) aka DEP (Data Execution Prevention) aka W^X (Write XOR eXecute)
 ifeq "1" "$$(call is_var_false_or_undefined,$2_NX)"
