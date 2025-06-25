@@ -156,13 +156,22 @@ include $(PWNCC_DIR)/pwncc.mk
 
 # Directories to avoid recursing into
 RECURSION_BLACKLIST ?=
-RECURSION_BLACKLIST := %.build %$(BUILD) $(PUB_DIR) %workdir %.git %.cache %.docker $(RECURSION_BLACKLIST)
+RECURSION_BLACKLIST := \
+	%/.build \
+	%/$(BUILD) \
+	./$(PUB_DIR) \
+	%.disabled \
+	%/workdir \
+	%/.git \
+	%/.cache \
+	%/.docker \
+	$(RECURSION_BLACKLIST)
 
 ifndef CONTAINER_BUILD
-RECURSION_BLACKLIST += $(PWNCC_DIR) $(PWNMAKE_DIR) bin core
+RECURSION_BLACKLIST += ./$(PWNCC_DIR) ./$(PWNMAKE_DIR) ./bin ./core
 ifndef WITH_EXAMPLES
 # Only include examples when invoked like `make WITH_EXAMPLES=1`
-RECURSION_BLACKLIST += examples
+RECURSION_BLACKLIST += ./examples
 endif #WITH_EXAMPLES
 endif #CONTAINER_BUILD
 
