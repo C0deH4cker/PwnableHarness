@@ -1005,6 +1005,7 @@ $$(warning $$($1+BUILD_MK) defines no targets.)
 endif
 $1+TARGETS :=
 endif
+$1+NUM_TARGETS := $$(words $$($1+TARGETS))
 
 # Path where the build target binary will be written
 $1+PRODUCT := $$(PRODUCT)
@@ -1013,7 +1014,9 @@ $1+PRODUCT := $$(PRODUCT)
 $1+PRODUCTS := $$(PRODUCTS)
 ifndef $1+PRODUCTS
 ifdef $1+PRODUCT
-ifneq "$$(words $$($1+TARGETS))" "1"
+ifeq "$$($1+NUM_TARGETS)" "0"
+else ifeq "$$($1+NUM_TARGETS)" "1"
+else
 $$(error $$($1+BUILD_MK) defined multiple targets but also the PRODUCT variable)
 endif #len(TARGETS) != 1
 $1+PRODUCTS := $$($1+PRODUCT)
