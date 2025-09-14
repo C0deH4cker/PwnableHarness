@@ -60,9 +60,7 @@ endif #!exists(ROOT_DIR/cached_glibc_versions.mk)
 # Creates bidirectional mappings between glibc and Ubuntu OS versions
 #####
 define _ubuntu_glibc
-ifndef UBUNTU_TO_GLIBC[$1]
-$$(info Undefined: UBUNTU_TO_GLIBC[$1])
-endif
+ifdef UBUNTU_TO_GLIBC[$1]
 
 GLIBC_TO_UBUNTU[$$(UBUNTU_TO_GLIBC[$1])] := $1
 GLIBC_VERSIONS += $$(UBUNTU_TO_GLIBC[$1])
@@ -70,6 +68,8 @@ GLIBC_VERSIONS += $$(UBUNTU_TO_GLIBC[$1])
 ifdef UBUNTU_VERSION_TO_ALIAS[$1]
 UBUNTU_TO_GLIBC[$$(UBUNTU_VERSION_TO_ALIAS[$1])] := $$(UBUNTU_TO_GLIBC[$1])
 endif
+
+endif #UBUNTU_TO_GLIBC[version]
 endef
 ubuntu_glibc = $(eval $(call _ubuntu_glibc,$1))
 #####
