@@ -678,7 +678,7 @@ $$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S $$($2_PWNCC_DEP
 
 clean-one[$1]: clean-objs[$1+$2]
 
-$$(call add_phony_target,clean-objs[$1+$2])
+.PHONY: clean-objs[$1+$2]
 clean-objs[$1+$2]:
 	$$(_v)rm -rf $$($2_OBJS_DIR)
 
