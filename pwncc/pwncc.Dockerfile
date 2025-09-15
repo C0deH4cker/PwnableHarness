@@ -13,7 +13,12 @@ ARG TARGETARCH
 ENV DEBIAN_FRONTEND=noninteractive
 RUN echo "Updating repos..."; \
 if ! apt-get update >/dev/null 2>&1; then \
-	sed -i -re 's/([a-z]{2}\.)?archive.ubuntu.com|security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list; \
+	if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+		apt_list_file=/etc/apt/sources.list.d/ubuntu.sources; \
+	else \
+		apt_list_file=/etc/apt/sources.list; \
+	fi; \
+	sed -i -re 's/([a-z]{2}\.)?archive.ubuntu.com|security.ubuntu.com/old-releases.ubuntu.com/g' "$apt_list_file"; \
 	apt-get update >/dev/null; \
 fi \
 	&& apt-get install -y \

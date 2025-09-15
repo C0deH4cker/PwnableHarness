@@ -48,11 +48,18 @@ $(call generate_dependency_list,pwncc-build,$(UBUNTU_VERSIONS) $(UBUNTU_ALIASES)
 # Targets like pwncc-build[<ubuntu-version>] go through the rule below for .pwncc_build_marker-%
 $(patsubst %,pwncc-build[%],$(UBUNTU_VERSIONS)): pwncc-build[%]: $(BUILD)/.pwncc_build_marker-%
 
+ifdef DOCKER_NO_CACHE
+DOCKER_CACHE_ARG := --no-cache
+else
+DOCKER_CACHE_ARG :=
+endif
+
 define pwncc_build_template
-$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile $$(ROOT_DIR)/VERSION
+$$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile
 	$$(_V)echo "Building pwncc image for ubuntu:$1"
 	$$(_v)$$(DOCKER) build \
 			-f $$< \
+			$$(DOCKER_CACHE_ARG) \
 			--build-arg BASE_IMAGE=ubuntu:$1 \
 			--build-arg CONFIG_IGNORE_32BIT=$$(CONFIG_IGNORE_32BIT) \
 			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNCC_VERSION) . \
