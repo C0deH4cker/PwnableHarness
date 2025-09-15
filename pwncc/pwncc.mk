@@ -213,7 +213,7 @@ $1+PWNCC_ARGS := \
 endif
 
 # Return pwncc command prefix
-$3 := $$(DOCKER) run --rm -it \
+$3 := $$(DOCKER) run --rm \
 	$$($1+PWNCC_ARGS) \
 	$$(PWNABLEHARNESS_REPO):$$($1+PWNCC_TAG) \
 	$$(SPACE)

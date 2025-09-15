@@ -599,6 +599,12 @@ endif #DEBUG
 # Add project directory to include path
 $2_EXTRA_CPPFLAGS += -I$1
 
+# Colorize error messages
+$2_EXTRA_CFLAGS += -fdiagnostics-color=always
+$2_EXTRA_CXXFLAGS += -fdiagnostics-color=always
+$2_EXTRA_ASFLAGS += -fdiagnostics-color=always
+$2_EXTRA_LDFLAGS += -fdiagnostics-color=always
+
 # Combine user-provided flags with PwnableHarness-generated flags
 $2_ALL_CPPFLAGS := $$(if $$($2_NO_EXTRA_CPPFLAGS),,$$($2_EXTRA_CPPFLAGS) )$$($2_CPPFLAGS)
 $2_ALL_ASFLAGS  := $$(if $$($2_NO_EXTRA_ASFLAGS),,$$($2_EXTRA_ASFLAGS) )$$($2_ASFLAGS)

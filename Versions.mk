@@ -6,7 +6,7 @@
 
 # Update any time the PwnableHarness makefiles (or anything else in the pwnmake
 # image) are changed.
-PHMAKE_VERSION  := v2.3
+PHMAKE_VERSION  := v2.3.1
 PHMAKE_RELEASED := v2.3
 
 # This only needs to update when there's a change that would affect the base
