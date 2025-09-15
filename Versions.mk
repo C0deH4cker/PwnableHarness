@@ -18,4 +18,4 @@ BASE_RELEASED := v2.1
 # This updates slower than PWNABLEHARNESS_VERSION. It's expected that a given
 # pwncc version can be used by potentially many versions of PwnableHarness.
 PWNCC_VERSION  := v2.2
-PWNCC_RELEASED := v2.1
+PWNCC_RELEASED := v2.2
