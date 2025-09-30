@@ -824,6 +824,11 @@ $$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
 	$$(_V)echo "Publishing $$(patsubst ./%,%,$1/$$*)"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
 
+publish-one[$1]: $1/publish
+$1/publish: $$(PUB_DIR)/.dir
+	$$(_V)test -e $$@ || echo "Creating symlink $$@ -> $$($1+ALL_THE_WAY_UP)/$$($1+$2+PUB)"
+	$$(_v)ln -s -f $$($1+ALL_THE_WAY_UP)/$$($1+$2+PUB) $$@
+
 endef
 add_publish_rule = $(eval $(call _add_publish_rule,$1,$2,$3))
 #####
@@ -894,6 +899,8 @@ TARGETS :=
 PRODUCT :=
 PRODUCTS :=
 CLEAN :=
+BUILD_SYMLINK := $$(BUILD)
+BUILD_SYMLINK_TARGET :=
 
 # Optional list of files to publish
 PUBLISH :=
@@ -1042,6 +1049,16 @@ $1+PUBLISH_BUILD_FILES := $$(addprefix $$($1+BUILD)/,$$($1+PUBLISH_BUILD))
 $1+PUBLISH_ALL_FILES := $$(sort $$($1+PUBLISH_PROJ_FILES) $$($1+PUBLISH_BUILD_FILES) $$(PUBLISH_TOP))
 $1+CLEAN := $$(CLEAN)
 
+# Projects get a .build symlink
+ifneq "$$($1+ALL_THE_WAY_UP)" "."
+$1+BUILD_SYMLINK := $$(BUILD_SYMLINK)
+ifdef BUILD_SYMLINK_TARGET
+$1+BUILD_SYMLINK_TARGET := $$(BUILD_SYMLINK_TARGET)
+else #!BUILD_SYMLINK_TARGET
+$1+BUILD_SYMLINK_TARGET := $$($1+ALL_THE_WAY_UP)/$$($1+BUILD)
+endif #BUILD_SYMLINK_TARGET
+endif #ALL_THE_WAY_UP != .
+
 # Deployment
 $1+DEPLOY_COMMAND := $$(DEPLOY_COMMAND)
 $1+DEPLOY_DEPS := $$(DEPLOY_DEPS)
@@ -1149,6 +1166,16 @@ $$(foreach target,$$($1+TARGETS),$$(call generate_target,$1,$$(target)))
 
 # Build rules
 build-one[$1]: $$($1+PRODUCTS)
+
+# Automatically create a symlink in each project directory to its build directory
+ifdef $1+BUILD_SYMLINK
+
+build-one[$1]: $1/$$($1+BUILD_SYMLINK)
+$1/$$($1+BUILD_SYMLINK): $$($1+BUILD)/.dir
+	$$(_V)test -e $$@ || echo "Creating symlink $$@ -> $$($1+BUILD_SYMLINK_TARGET)"
+	$$(_v)ln -s -f $$($1+BUILD_SYMLINK_TARGET) $$@
+
+endif #DIR+BUILD_SYMLINK
 
 # Publish rules
 ifdef $1+PUBLISH_ALL_FILES
@@ -1559,6 +1586,10 @@ else #exists($1)
 # Add the ".." link if not in the workspace root
 ifneq "$1" "."
 $1/.. := $$(patsubst %/,%,$$(dir $1))
+$1+ALL_THE_WAY_UP := ../$$($$($1/..)+ALL_THE_WAY_UP)
+$1+ALL_THE_WAY_UP := $$(patsubst %/.,%,$$($1+ALL_THE_WAY_UP))
+else #workspace root
+$1+ALL_THE_WAY_UP := .
 endif #not workspace root
 
 # Include this directory's Build.mk file if it exists
@@ -1604,6 +1635,7 @@ $$(foreach sd,$$($1+SUBDIRS),$$(call recurse_subdir,$$(sd)))
 ifneq "$$(wildcard $1/After.mk)" ""
 
 DIR := $1
+BUILD_DIR := $$($1+BUILD)
 
 ifdef MKDEBUG
 $$(info Including $1/After.mk)

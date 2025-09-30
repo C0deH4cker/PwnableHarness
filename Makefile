@@ -178,7 +178,8 @@ endif #CONTAINER_BUILD
 # Users of PwnableHarness aren't expected to build the core project and image
 # themselves, but rather pull the pre-built images from Docker Hub.
 ifdef CONFIG_I_AM_C0DEH4CKER_HEAR_ME_ROAR
-$(call include_subdir,core)
+.+ALL_THE_WAY_UP := .
+$(call recurse_subdir,core)
 ifndef CONTAINER_BUILD
 # Responsible for building, tagging, and pushing the pwnmake builder images
 ifdef MKDEBUG
