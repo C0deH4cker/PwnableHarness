@@ -10,7 +10,8 @@
 
 __attribute__((constructor))
 static void pwnable_unbuffer_init(void) {
-	/* Make sure these standard output streams are not buffered */
+	/* Make sure these standard I/O streams are not buffered */
+	setvbuf(stdin, NULL, _IONBF, 0);
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 }
