@@ -3,11 +3,11 @@
 ###################################
 
 # Ignore build directories
-.build/
+.build
 .phbuild/
 
 # Publish directory
-/publish/
+publish
 
 # Disabled projects
 *.disabled
@@ -64,5 +64,6 @@ Thumbs.db
 # VSCode settings
 .vscode/
 
-# PyTest cache directory
+# Python cache directories
 .pytest_cache/
+__pycache__/
