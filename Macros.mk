@@ -817,20 +817,14 @@ ifdef MKDEBUG
 $$(info add_publish_rule($1,$2,$3))
 endif #MKDEBUG
 
-$1+$2+PUB := $$(PUB_DIR)/$$(patsubst /%,%,$1)
-$1+$2+DST := $$(addprefix $$($1+$2+PUB)/,$$(notdir $3))
+$1+$2+DST := $$(addprefix $$($1+PUB)/,$$(notdir $3))
 
 publish-one[$1]: $$($1+$2+DST)
 
 # Publishing rule
-$$($1+$2+DST): $$($1+$2+PUB)/%: $2/%
+$$($1+$2+DST): $$($1+PUB)/%: $2/%
 	$$(_V)echo "Publishing $$(patsubst ./%,%,$1/$$*)"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
-
-publish-one[$1]: $1/publish
-$1/publish: $$(PUB_DIR)/.dir
-	$$(_V)test -e $$@ || echo "Creating symlink $$@ -> $$($1+ALL_THE_WAY_UP)/$$($1+$2+PUB)"
-	$$(_v)ln -s -f $$($1+ALL_THE_WAY_UP)/$$($1+$2+PUB) $$@
 
 endef
 add_publish_rule = $(eval $(call _add_publish_rule,$1,$2,$3))
@@ -1175,8 +1169,8 @@ ifdef $1+BUILD_SYMLINK
 
 build-one[$1]: $1/$$($1+BUILD_SYMLINK)
 $1/$$($1+BUILD_SYMLINK): $$($1+BUILD)/.dir
-	$$(_V)test -e $$@ || echo "Creating symlink $$@ -> $$($1+BUILD_SYMLINK_TARGET)"
-	$$(_v)ln -s -f $$($1+BUILD_SYMLINK_TARGET) $$@
+	$$(_V)test -e "$$@" || echo "Creating symlink $$@ -> $$($1+BUILD_SYMLINK_TARGET)"
+	$$(_v)ln --symbolic --force --no-target-directory "$$($1+BUILD_SYMLINK_TARGET)" "$$@"
 
 endif #DIR+BUILD_SYMLINK
 
@@ -1185,7 +1179,13 @@ ifdef $1+PUBLISH_ALL_FILES
 
 # Generate all the real publish rules based on the source directory
 $1+PUBLISH_DIRS := $$(sort $$(patsubst %/,%,$$(dir $$($1+PUBLISH_ALL_FILES))))
+$1+PUB := $$(PUB_DIR)/$$(patsubst /%,%,$1)
 $$(foreach d,$$($1+PUBLISH_DIRS),$$(call add_publish_rule,$1,$$d,$$(filter $$d/%,$$($1+PUBLISH_ALL_FILES))))
+
+publish-one[$1]: $1/publish
+$1/publish: $$(PUB_DIR)/.dir
+	$$(_V)test -e "$$@" || echo "Creating symlink $$@ -> $$($1+ALL_THE_WAY_UP)/$$($1+PUB)"
+	$$(_v)ln --symbolic --force --no-target-directory "$$($1+ALL_THE_WAY_UP)/$$($1+PUB)" "$$@"
 
 endif #$1+PUBLISH_ALL_FILES
 
