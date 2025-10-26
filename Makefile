@@ -201,7 +201,7 @@ version:
 	@echo '$(patsubst v%,%,$(PHMAKE_VERSION))'
 
 # Used for debugging this Makefile
-# `make PWNABLEHARNESS_VERSION?` will print the version of PwnableHarness being used
+# `make PHMAKE_VERSION?` will print the version of PwnableHarness being used
 %?:
 	$(info $* := $(value $*))
 	@true
