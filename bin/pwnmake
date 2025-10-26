@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Version of the pwnmake script itself, which can be different from the pwnmake image
-version=${PWNMAKE_VERSION:-2.3}
+version=2.3.2
 
 # This is the lowest version of pwnmake image that is supported by this pwnmake script
 PWNABLEHARNESS_VERSION_MIN=2.1
@@ -278,7 +278,7 @@ main() {
 	local HOST_WORKSPACE="$(realpath "$workspace")"
 	
 	# Is there a non-empty .pwnmake file that contains the version?
-	if [ -z "$reinit" ] && [ -z "$tag" ] && [ -s "$workspace/.pwnmake" ]; then
+	if [ -z "$tag" ] && [ -s "$workspace/.pwnmake" ]; then
 		tag="$(cat "$workspace/.pwnmake")"
 	fi
 	
@@ -305,14 +305,14 @@ main() {
 		docker_image="${docker_image_prefix}${tag}"
 	fi
 	
-	# Handle --init (and --reinit should do this too)
-	if [ -n "$init" ] || [ -n "$reinit" ]; then
+	# Handle --init
+	if [ -n "$init" ]; then
 		ph_version="$(docker run --rm --entrypoint=/bin/cat "${docker_image}" /PwnableHarness/VERSION)"
 		echo "$ph_version" > "$workspace/.pwnmake"
 		echo "Initialized $HOST_WORKSPACE/.pwnmake ($ph_version)"
 		
-		# Only --init should exit here, --reinit keeps going
-		if [ -n "$init" ]; then
+		# Exit unless --reinit is also passed
+		if [ -z "$reinit" ]; then
 			exit 0
 		fi
 	fi
