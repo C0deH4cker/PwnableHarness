@@ -4,7 +4,7 @@
 
 # Ignore build directories
 .build
-.phbuild/
+.phbuild
 
 # Publish directory
 publish
