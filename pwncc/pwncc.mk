@@ -29,7 +29,6 @@ pwncc-push:
 else #PWNCC_VERSION != PWNCC_RELEASED
 
 CONFIG_USE_PWNCC := 1
-CONFIG_IGNORE_32BIT ?=
 
 #
 # Building
@@ -61,7 +60,6 @@ $$(BUILD)/.pwncc_build_marker-$1: $$(PWNCC_DIR)/pwncc.Dockerfile
 			-f $$< \
 			$$(DOCKER_CACHE_ARG) \
 			--build-arg BASE_IMAGE=ubuntu:$1 \
-			--build-arg CONFIG_IGNORE_32BIT=$$(CONFIG_IGNORE_32BIT) \
 			-t $$(PWNABLEHARNESS_REPO):pwncc-$1-$$(PWNCC_VERSION) . \
 		&& mkdir -p $$(@D) && touch $$@
 
