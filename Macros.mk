@@ -1553,7 +1553,7 @@ $$(PUB_DIR)/$1/$$($1+PUBLISH_LD): docker-build-one[$1]
 	$$(_v)mkdir -p $$(@D) && $$(DOCKER) run $$($1+DOCKER_PLATFORM) --rm --entrypoint /bin/cat $$($1+DOCKER_TAG_ARG) $$($1+LDSO_PATH) > $$@
 
 else #DOCKER_IMAGE
-# If the challenge doesn't run in Docker, copy the system's libc
+# If the challenge doesn't run in Docker, copy the system's ld.so
 $$(PUB_DIR)/$1/$$($1+PUBLISH_LD): $$($1+LDSO_PATH)
 	$$(_V)echo "Publishing $1/$$($1+PUBLISH_LD) from $$<"
 	$$(_v)mkdir -p $$(@D) && cat $$< > $$@
