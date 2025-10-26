@@ -600,10 +600,13 @@ endif #DEBUG
 $2_EXTRA_CPPFLAGS += -I$1
 
 # Colorize error messages
+# The only supported Ubuntu version using an older version of GCC w/o support for this flag is 14.04
+ifneq "$$($2_UBUNTU_VERSION_NUMBER)" "14.04"
 $2_EXTRA_CFLAGS += -fdiagnostics-color=always
 $2_EXTRA_CXXFLAGS += -fdiagnostics-color=always
 $2_EXTRA_ASFLAGS += -fdiagnostics-color=always
 $2_EXTRA_LDFLAGS += -fdiagnostics-color=always
+endif #Ubuntu > 14.04
 
 # Combine user-provided flags with PwnableHarness-generated flags
 $2_ALL_CPPFLAGS := $$(if $$($2_NO_EXTRA_CPPFLAGS),,$$($2_EXTRA_CPPFLAGS) )$$($2_CPPFLAGS)
