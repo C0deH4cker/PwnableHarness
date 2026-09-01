@@ -100,6 +100,14 @@ ifndef DEFAULT_DEBUG
 DEFAULT_DEBUG := 0
 endif
 
+ifndef DEFAULT_ARCH
+DEFAULT_ARCH :=
+endif
+
+ifndef DEFAULT_CHALLENGE_TYPE
+DEFAULT_CHALLENGE_TYPE := userland
+endif
+
 ifndef DEFAULT_UBUNTU_VERSION
 DEFAULT_UBUNTU_VERSION := 24.04
 endif
@@ -128,6 +136,36 @@ endif
 ifndef DEFAULT_DOCKER_PASSWORD
 DEFAULT_DOCKER_PASSWORD :=
 endif
+
+
+# Architecture maps -- translate ARCH to platform, toolchain prefix, and library paths
+ARCH_TO_PLATFORM[x86_64]  := linux/amd64
+ARCH_TO_PLATFORM[i386]    := linux/amd64
+ARCH_TO_PLATFORM[aarch64] := linux/arm64
+ARCH_TO_PLATFORM[mipsel]  := linux/mips64le
+ARCH_TO_PLATFORM[riscv64] := linux/riscv64
+
+ARCH_TO_CROSS[x86_64]  :=
+ARCH_TO_CROSS[i386]    :=
+ARCH_TO_CROSS[aarch64] := aarch64-linux-gnu-
+ARCH_TO_CROSS[mipsel]  := mipsel-linux-gnu-
+ARCH_TO_CROSS[riscv64] := riscv64-linux-gnu-
+
+ARCH_TO_LIBC[x86_64]  := /lib/x86_64-linux-gnu/libc.so.6
+ARCH_TO_LIBC[i386]    := /lib/i386-linux-gnu/libc.so.6
+ARCH_TO_LIBC[aarch64] := /lib/aarch64-linux-gnu/libc.so.6
+ARCH_TO_LIBC[mipsel]  := /lib/mipsel-linux-gnu/libc.so.6
+ARCH_TO_LIBC[riscv64] := /lib/riscv64-linux-gnu/libc.so.6
+
+ARCH_TO_LDSO[x86_64]  := /lib64/ld-linux-x86-64.so.2
+ARCH_TO_LDSO[i386]    := /lib/ld-linux.so.2
+ARCH_TO_LDSO[aarch64] := /lib/ld-linux-aarch64.so.1
+ARCH_TO_LDSO[mipsel]  := /lib/ld.so.1
+ARCH_TO_LDSO[riscv64] := /lib/ld-linux-riscv64-lp64d.so.1
+
+# x86 uses -m32/-m64; other arches use the cross-compiler directly
+ARCH_USES_MBITS[x86_64] := 1
+ARCH_USES_MBITS[i386]   := 1
 
 
 # Any of these values indicate that a variable is "true"
@@ -192,6 +230,13 @@ $$(error $1/$2: Requesting 32-bit binaries, but CONFIG_IGNORE_32BIT is set!)
 endif #CONFIG_IGNORE_32BIT
 endif #BITS==32
 endif #THIS_IS_THE_CORE_PROJECT
+
+# -m$BITS is x86-only; other architectures use the cross-compiler directly
+ifdef ARCH_USES_MBITS[$$($1+ARCH)]
+$2_MARCH_FLAG := -m$$($2_BITS)
+else
+$2_MARCH_FLAG :=
+endif
 
 ifeq "$$(origin $2_NO_EXTRA_FLAGS)" "undefined"
 $2_NO_EXTRA_FLAGS := $$($1+NO_EXTRA_FLAGS)
@@ -645,7 +690,7 @@ endif #UNBUFFER_DIR
 # Compiler rule for stdio_unbuffer.o
 $$($1+BUILD)/$2_objs/stdio_unbuffer.o: $$(UNBUFFER_DIR)/stdio_unbuffer.c $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$(<F) for $$(patsubst ./%,%,$1/$2)"
-	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CC) $$($2_MARCH_FLAG) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 endif #NO_UNBUFFERED_STDIO
 endif #BINTYPE == executable
@@ -670,17 +715,17 @@ endif #MKTRACE
 # Compiler rule for C sources
 $$(filter %.c.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.c.o: $1/%.c $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$< for $$(patsubst ./%,%,$1/$2)"
-	$$(_v)$$($2_PWNCC)$$($2_CC) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CC) $$($2_MARCH_FLAG) $$($2_ALL_CPPFLAGS) $$($2_ALL_CFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Compiler rule for C++ sources
 $$(filter %.cpp.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.cpp.o: $1/%.cpp $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Compiling $$< for $$(patsubst ./%,%,$1/$2)"
-	$$(_v)$$($2_PWNCC)$$($2_CXX) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_CXXFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_CXX) $$($2_MARCH_FLAG) $$($2_ALL_CPPFLAGS) $$($2_ALL_CXXFLAGS) $$($2_ALL_OFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 # Assembler rule
 $$(filter %.S.o,$$($2_OBJS)): $$($1+BUILD)/$2_objs/%.S.o: $1/%.S $$($2_PWNCC_DEPS)
 	$$(_V)echo "$$($2_PWNCC_DESC)Assembling $$< for $$(patsubst ./%,%,$1/$2)"
-	$$(_v)$$($2_PWNCC)$$($2_AS) -m$$($2_BITS) $$($2_ALL_CPPFLAGS) $$($2_ALL_ASFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
+	$$(_v)$$($2_PWNCC)$$($2_AS) $$($2_MARCH_FLAG) $$($2_ALL_CPPFLAGS) $$($2_ALL_ASFLAGS) -MD -MP -MF $$(@:.o=.d) -c -o $$@ $$<
 
 clean-one[$1]: clean-objs[$1+$2]
 
@@ -706,14 +751,14 @@ ifeq "$$($2_BINTYPE)" "executable"
 # Linker rule to produce the final target (specialization for executables)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PWNCC_DEPS) | $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "$$($2_PWNCC_DESC)Linking executable $$@"
-	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
+	$$(_v)$$($2_PWNCC)$$($2_LD) $$($2_MARCH_FLAG) $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "dynamiclib"
 # Linker rule to produce the final target (specialization for shared libraries)
 $$($2_PRODUCT): $$($2_OBJS) $$($2_ALLLIBS) $$($2_PWNCC_DEPS) | $$($2_PRODUCT_DIR_RULE)
 	$$(_V)echo "$$($2_PWNCC_DESC)Linking shared library $$@"
-	$$(_v)$$($2_PWNCC)$$($2_LD) -m$$($2_BITS) -shared $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
+	$$(_v)$$($2_PWNCC)$$($2_LD) $$($2_MARCH_FLAG) -shared $$($2_ALL_OFLAGS) $$($2_ALL_LDFLAGS) \
 		-o $$@ $$($2_OBJS) $$($2_LDLIBS)
 
 else ifeq "$$($2_BINTYPE)" "staticlib"
@@ -741,6 +786,147 @@ generate_target = $(eval $(call _generate_target,$1,$2))
 #####
 
 
+#####
+# generate_kernel_target($1: project directory)
+#
+# Generate build rules for a kernel pwn challenge:
+# 1. Compile the kernel module (.ko) via kbuild
+# 2. Compile the runner binary (static, for use inside the VM)
+# 3. Assemble an initramfs (busybox + module + runner + init script)
+#
+# Prerequisites: the challenge directory must contain a Kbuild file
+# (e.g. "obj-m += garbage.o") and the author must supply the kernel
+# image (KERNEL_IMAGE variable or a bzImage in the challenge dir).
+# A prebuild.sh that installs linux-headers-$KERNEL_VERSION and
+# busybox-static is required when building inside a pwncc container.
+#####
+define _generate_kernel_target
+
+ifdef MKTRACE
+$$(info Generating kernel target rules for $1)
+endif
+
+# Validate required variables
+ifndef $1+KERNEL_MODULE
+$$(error $$($1+BUILD_MK) has CHALLENGE_TYPE=kernel but no KERNEL_MODULE defined)
+endif
+ifndef $1+KERNEL_VERSION
+$$(error $$($1+BUILD_MK) has CHALLENGE_TYPE=kernel but no KERNEL_VERSION defined)
+endif
+
+# Resolve numeric Ubuntu version (may be set as an alias like "noble")
+ifdef UBUNTU_ALIAS_TO_VERSION[$$($1+UBUNTU_VERSION)]
+$1+UBUNTU_VERSION_NUMBER := $$(UBUNTU_ALIAS_TO_VERSION[$$($1+UBUNTU_VERSION)])
+else
+$1+UBUNTU_VERSION_NUMBER := $$($1+UBUNTU_VERSION)
+endif
+
+# Product paths
+$1+MODULE_PRODUCT := $$($1+BUILD)/$$($1+KERNEL_MODULE).ko
+$1+INITRAMFS := $$($1+BUILD)/initramfs.cpio.gz
+$1+PRODUCTS := $$($1+INITRAMFS)
+
+ifdef $1+KERNEL_RUNNER_SRCS
+$1+RUNNER_PRODUCT := $$($1+BUILD)/runner
+endif
+
+# Resolve kernel headers directory
+$1+KDIR := /lib/modules/$$($1+KERNEL_VERSION)/build
+
+# Resolve challenge name for the init banner
+ifndef $1+DOCKER_CHALLENGE_NAME
+$1+DOCKER_CHALLENGE_NAME := $$($1+KERNEL_MODULE)
+endif
+
+# Busybox path (host or pwncc container)
+$1+BUSYBOX := $$(or $$(BUSYBOX),$$(shell which busybox 2>/dev/null),/usr/bin/busybox)
+
+# Set up pwncc for kernel builds (must be at eval-time, not inside a recipe)
+ifdef CONFIG_USE_PWNCC
+$$(call pwncc_prepare,$1,$$($1+UBUNTU_VERSION_NUMBER),$1+KBUILD_PWNCC,$1+KBUILD_PWNCC_DEPS)
+endif
+
+
+## Build rules
+
+# Build the kernel module via kbuild if headers are available,
+# otherwise use a pre-built .ko from the challenge directory.
+$$($1+MODULE_PRODUCT): $$(wildcard $1/*.c $1/*.h $1/Kbuild) $$($1+BUILD)/.dir
+	$$(_V)echo "Building kernel module $$($1+KERNEL_MODULE).ko"
+	$$(_v)if [ -d "$$($1+KDIR)" ]; then \
+		$$(MAKE) -C $$($1+KDIR) M=$$(abspath $1) modules \
+		&& cp $1/$$($1+KERNEL_MODULE).ko $$@; \
+	elif [ -f "$1/$$($1+KERNEL_MODULE).ko" ]; then \
+		echo "  (using pre-built $1/$$($1+KERNEL_MODULE).ko)"; \
+		cp $1/$$($1+KERNEL_MODULE).ko $$@; \
+	else \
+		echo "ERROR: no kernel headers at $$($1+KDIR) and no pre-built .ko in $1/" >&2; \
+		exit 1; \
+	fi
+
+# Build the runner binary (statically linked for use inside the VM).
+# Falls back to a pre-built runner in the challenge directory.
+ifdef $1+KERNEL_RUNNER_SRCS
+$$($1+RUNNER_PRODUCT): $$(addprefix $1/,$$($1+KERNEL_RUNNER_SRCS)) $$($1+BUILD)/.dir
+	$$(_V)echo "Building runner for $$($1+DOCKER_CHALLENGE_NAME)"
+	$$(_v)if command -v $$($1+CC) >/dev/null 2>&1; then \
+		$$($1+CC) -O2 -static $$(addprefix $1/,$$($1+KERNEL_RUNNER_SRCS)) -o $$@; \
+	elif [ -f "$1/runner" ]; then \
+		echo "  (using pre-built $1/runner)"; \
+		cp $1/runner $$@; \
+	else \
+		echo "ERROR: no gcc and no pre-built runner in $1/" >&2; \
+		exit 1; \
+	fi
+endif #KERNEL_RUNNER_SRCS
+
+# Assemble the initramfs
+$$($1+INITRAMFS): $$($1+MODULE_PRODUCT) $$(if $$($1+KERNEL_RUNNER_SRCS),$$($1+RUNNER_PRODUCT)) $$($1+BUILD)/.dir
+	$$(_V)echo "Assembling initramfs for $$($1+DOCKER_CHALLENGE_NAME)"
+	$$(_v)rm -rf $$($1+BUILD)/initramfs \
+		&& mkdir -p $$($1+BUILD)/initramfs/bin \
+		&& cp $$($1+BUSYBOX) $$($1+BUILD)/initramfs/bin/busybox \
+		&& cp $$($1+MODULE_PRODUCT) $$($1+BUILD)/initramfs/module.ko \
+		$$(foreach m,$$($1+KERNEL_EXTRA_MODULES),&& cp $1/$$(m).ko $$($1+BUILD)/initramfs/$$(m).ko) \
+		$$(if $$($1+RUNNER_PRODUCT),&& cp $$($1+RUNNER_PRODUCT) $$($1+BUILD)/initramfs/runner) \
+		&& echo 'fakeflag{try_on_the_real_server}' > $$($1+BUILD)/initramfs/flag \
+		&& if [ -n "$$($1+KERNEL_INIT_SCRIPT)" ]; then \
+			cp $$($1+KERNEL_INIT_SCRIPT) $$($1+BUILD)/initramfs/init; \
+		else \
+			printf '%s\n' \
+				'#!/bin/busybox sh' \
+				'/bin/busybox --install -s /bin' \
+				'mkdir -p /proc /sys /dev' \
+				'mount -t proc proc /proc; mount -t sysfs sysfs /sys; mount -t devtmpfs devtmpfs /dev' \
+				$$(foreach m,$$($1+KERNEL_EXTRA_MODULES),'insmod /$$(m).ko') \
+				'insmod /module.ko' \
+				'chmod $$($1+KERNEL_DEVICE_PERMS) $$($1+KERNEL_DEVICE)' \
+				'chmod 400 /flag; chown 0:0 /flag' \
+				'echo "[ $$($1+DOCKER_CHALLENGE_NAME) :: dropping to uid 1000 ]"' \
+				$$(if $$($1+RUNNER_PRODUCT),'/runner /bin/sh < /dev/console > /dev/console 2>&1','/bin/sh < /dev/console > /dev/console 2>&1') \
+				'poweroff -f' \
+				> $$($1+BUILD)/initramfs/init; \
+		fi \
+		&& chmod +x $$($1+BUILD)/initramfs/init \
+		&& (cd $$($1+BUILD)/initramfs && find . | ./bin/busybox cpio -o -H newc 2>/dev/null | gzip > $$(abspath $$@))
+
+# Build rule for the kernel base Docker image (built on demand)
+$$($1+BUILD)/.docker_kernel_base_marker: $$(ROOT_DIR)/core/kernel.Dockerfile $$(ROOT_DIR)/core/serve-kernel.sh
+	$$(_V)echo "Building kernel base image for ubuntu:$$($1+UBUNTU_VERSION_NUMBER)"
+	$$(_v)$$(DOCKER) build \
+		-f $$(ROOT_DIR)/core/kernel.Dockerfile \
+		--build-arg BASE_TAG=$$($1+UBUNTU_VERSION_NUMBER) \
+		--build-arg DIR=core \
+		-t $$(PWNABLEHARNESS_REPO):kernel-$$($1+UBUNTU_VERSION)-$$(BASE_VERSION) \
+		$$(ROOT_DIR) \
+		&& mkdir -p $$(@D) && touch $$@
+
+# The kernel base image is a dependency for the challenge docker-build
+$1+DOCKER_BUILD_DEPS += $$($1+BUILD)/.docker_kernel_base_marker
+
+endef #_generate_kernel_target
+generate_kernel_target = $(eval $(call _generate_kernel_target,$1))
+#####
 
 
 #####
@@ -975,6 +1161,26 @@ ASLR := $$(DEFAULT_ASLR)
 STRIP := $$(DEFAULT_STRIP)
 DEBUG := $$(DEFAULT_DEBUG)
 
+# Architecture and challenge type
+ARCH := $$(DEFAULT_ARCH)
+CHALLENGE_TYPE := $$(DEFAULT_CHALLENGE_TYPE)
+
+# Kernel challenge variables (only used when CHALLENGE_TYPE := kernel)
+BUSYBOX :=
+KERNEL_MODULE :=
+KERNEL_VERSION :=
+KERNEL_IMAGE :=
+KERNEL_ARCH := x86_64
+KERNEL_CMDLINE := console=ttyS0 quiet panic=-1
+KERNEL_CPU := qemu64
+KERNEL_SMP := 1
+KERNEL_MEM := 512M
+KERNEL_RUNNER_SRCS :=
+KERNEL_DEVICE :=
+KERNEL_DEVICE_PERMS := 666
+KERNEL_EXTRA_MODULES :=
+KERNEL_INIT_SCRIPT :=
+
 # Set DIR+BUILD to the build directory for this project folder
 ifeq "$1" "."
 # For container builds, this is the workspace directory
@@ -1128,8 +1334,17 @@ $1+UBUNTU_VERSION := $$(DEFAULT_UBUNTU_VERSION)
 
 endif #UBUNTU_VERSION
 
+# Capture challenge type before the conditional that depends on it
+$1+CHALLENGE_TYPE := $$(CHALLENGE_TYPE)
+
 # Fully qualified base image to use for the challenge image
+ifeq "$$($1+CHALLENGE_TYPE)" "kernel"
+$1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):kernel-$$($1+UBUNTU_VERSION)-$$(BASE_VERSION)
+$1+DOCKER_IMAGE_CUSTOM := 1
+$1+DOCKER_RUN_ARGS += --tmpfs /tmp:exec
+else
 $1+DOCKER_FULL_BASE := $$(PWNABLEHARNESS_REPO):base-$$($1+UBUNTU_VERSION)-$$(BASE_VERSION)
+endif
 
 # Directory specific hardening flags
 $1+RELRO := $$(RELRO)
@@ -1140,9 +1355,55 @@ $1+ASLR := $$(ASLR)
 $1+STRIP := $$(STRIP)
 $1+DEBUG := $$(DEBUG)
 
+# Resolve effective architecture: explicit ARCH wins, else derive from BITS
+$1+ARCH := $$(ARCH)
+ifeq "$$($1+ARCH)" ""
+ifeq "$$($1+BITS)" "32"
+$1+ARCH := i386
+else
+$1+ARCH := x86_64
+endif
+endif
+
+# Apply cross-compiler prefix for non-native architectures
+$1+CROSS_PREFIX := $$(ARCH_TO_CROSS[$$($1+ARCH)])
+ifneq "$$($1+CROSS_PREFIX)" ""
+ifeq "$$($1+CC)" "$$(DEFAULT_CC)"
+$1+CC := $$($1+CROSS_PREFIX)$$(DEFAULT_CC)
+endif
+ifeq "$$($1+CXX)" "$$(DEFAULT_CXX)"
+$1+CXX := $$($1+CROSS_PREFIX)$$(DEFAULT_CXX)
+endif
+ifeq "$$($1+AS)" "$$(DEFAULT_AS)"
+$1+AS := $$($1+CROSS_PREFIX)$$(DEFAULT_AS)
+endif
+ifeq "$$($1+AR)" "$$(DEFAULT_AR)"
+$1+AR := $$($1+CROSS_PREFIX)$$(DEFAULT_AR)
+endif
+endif #CROSS_PREFIX
+
+# Kernel challenge variables
+$1+KERNEL_MODULE := $$(KERNEL_MODULE)
+$1+KERNEL_VERSION := $$(KERNEL_VERSION)
+$1+KERNEL_IMAGE := $$(or $$(KERNEL_IMAGE),$$(wildcard $1/bzImage))
+$1+KERNEL_ARCH := $$(KERNEL_ARCH)
+$1+KERNEL_CMDLINE := $$(KERNEL_CMDLINE)
+$1+KERNEL_CPU := $$(KERNEL_CPU)
+$1+KERNEL_SMP := $$(KERNEL_SMP)
+$1+KERNEL_MEM := $$(KERNEL_MEM)
+$1+KERNEL_RUNNER_SRCS := $$(KERNEL_RUNNER_SRCS)
+$1+KERNEL_DEVICE := $$(or $$(KERNEL_DEVICE),/dev/$$(KERNEL_MODULE))
+$1+KERNEL_DEVICE_PERMS := $$(KERNEL_DEVICE_PERMS)
+$1+KERNEL_EXTRA_MODULES := $$(KERNEL_EXTRA_MODULES)
+$1+KERNEL_INIT_SCRIPT := $$(or $$(KERNEL_INIT_SCRIPT),$$(wildcard $1/init))
+
 # Produce target specific variables and build rules
 # $$(foreach target,$$($1+TARGETS),$$(info $$(call _generate_target,$1,$$(target))))
+ifeq "$$($1+CHALLENGE_TYPE)" "kernel"
+$$(call generate_kernel_target,$1)
+else
 $$(foreach target,$$($1+TARGETS),$$(call generate_target,$1,$$(target)))
+endif
 
 
 ## Directory specific build rules
@@ -1381,11 +1642,27 @@ $1+DOCKER_RUN_ARGS += -v $$($1+WORKDIR_VOLUME):/ctf:ro
 $1+DOCKER_START_DEPS += $$($1+BUILD)/.docker_workdir_volume_marker
 endif
 
-# Assume that DOCKER_BUILD_ARGS is already formatted as a list of "--build-arg name=value"
-$1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
+# Set Docker platform from the project's target architecture
+$1+DOCKER_PLATFORM := --platform=$$(ARCH_TO_PLATFORM[$$($1+ARCH)])
 
-# Only support amd64 images (for now)
-$1+DOCKER_PLATFORM := --platform=linux/amd64
+# For kernel challenges, add QEMU/kernel-specific build args
+ifeq "$$($1+CHALLENGE_TYPE)" "kernel"
+$1+DOCKER_BUILD_ARGS += \
+	--build-arg "KERNEL_IMAGE_PATH=$$($1+KERNEL_IMAGE)" \
+	--build-arg "INITRAMFS_PATH=$$($1+BUILD)/initramfs.cpio.gz" \
+	--build-arg "PORT=$$(firstword $$($1+DOCKER_PORTS))" \
+	--build-arg "TIMELIMIT=$$($1+DOCKER_TIMELIMIT)" \
+	--build-arg "QEMU_ARCH=$$($1+KERNEL_ARCH)" \
+	--build-arg "QEMU_CPU=$$($1+KERNEL_CPU)" \
+	--build-arg "QEMU_MEM=$$($1+KERNEL_MEM)" \
+	--build-arg "QEMU_SMP=$$($1+KERNEL_SMP)" \
+	--build-arg "KERNEL_CMDLINE=$$($1+KERNEL_CMDLINE)"
+$1+DOCKER_BUILD_DEPS += $$($1+KERNEL_IMAGE) $$($1+BUILD)/initramfs.cpio.gz
+$1+DOCKER_RUNNABLE := true
+endif
+
+# Snapshot all build args as flags (must come after all additions above)
+$1+DOCKER_BUILD_FLAGS := $$($1+DOCKER_BUILD_ARGS)
 
 
 ## Docker build rules
@@ -1472,14 +1749,9 @@ endif #DOCKER_RUNNABLE
 endif #DOCKER_IMAGE
 
 
-# Decide whether to grab the 32-bit or 64-bit libc
-ifeq "$$($1+BITS)" "32"
-$1+LIBC_PATH := /lib/i386-linux-gnu/libc.so.6
-$1+LDSO_PATH := /lib/ld-linux.so.2
-else
-$1+LIBC_PATH := /lib/x86_64-linux-gnu/libc.so.6
-$1+LDSO_PATH := /lib64/ld-linux-x86-64.so.2
-endif
+# Resolve libc and ld.so paths from the target architecture
+$1+LIBC_PATH := $$(ARCH_TO_LIBC[$$($1+ARCH)])
+$1+LDSO_PATH := $$(ARCH_TO_LDSO[$$($1+ARCH)])
 
 # Publish libc for the challenge
 ifdef $1+PUBLISH_LIBC
