@@ -11,8 +11,8 @@ docker_image_repo=c0deh4cker/pwnableharness
 docker_image_tag_prefix=pwnmake-
 docker_image_prefix=$docker_image_repo:$docker_image_tag_prefix
 
-# There's no arm64 version available, so only try pulling the amd64 version
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
+# Let the build system set the platform per-project based on ARCH
+# export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
 
 # https://stackoverflow.com/a/4025065
